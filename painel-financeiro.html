@@ -567,7 +567,7 @@
     <div class="card">
       <h2>Extrato de contas</h2>
       <div class="cap">Igual à planilha que você exporta — com o saldo acumulado linha a linha.</div>
-      <div class="filtros" style="margin-bottom:12px"><input id="fcBusca" placeholder="🔎 Buscar por cliente, descrição..." oninput="renderFluxo()"><select id="fcCat" onchange="renderFluxo()"></select><select id="fcTipo" onchange="renderFluxo()"><option value="">Entradas e saídas</option><option value="receita">Só entradas</option><option value="despesa">Só saídas</option></select><select id="fcBanco" onchange="renderFluxo()"><option value="">Todos os bancos</option></select><input type="date" id="fcDe" title="De" onchange="renderFluxo()"><input type="date" id="fcAte" title="Até" onchange="renderFluxo()"><button class="btn sec peq" onclick="limparFiltrosExtrato()" title="Limpar filtros">✕ Limpar</button></div>
+      <div class="filtros" style="margin-bottom:12px"><input id="fcBusca" placeholder="🔎 Buscar por cliente, descrição..." oninput="renderFluxo()"><button class="btn sec peq" id="btnFiltrarExt" onclick="abrirFiltroExtrato()">🔍 Filtrar</button><button class="btn sec peq" onclick="limparFiltrosExtrato()" title="Limpar filtros">✕ Limpar</button></div>
       <div style="overflow-x:auto"><table><thead><tr><th>Data</th><th>Descrição</th><th>Categoria</th><th>Banco</th><th style="text-align:right">Entrada</th><th style="text-align:right">Saída</th><th style="text-align:right">Saldo</th></tr></thead><tbody id="tbodyFcExtrato"></tbody></table></div>
       <div id="fcVazio" class="vazio" style="display:none">Sem lançamentos realizados no período.</div>
       <div style="margin-top:12px"><button class="btn sec peq" onclick="exportarExtratoCSV()">⬇ Exportar CSV</button></div>
@@ -1880,35 +1880,73 @@ function renderFluxoCaixa(){
   document.getElementById('fcEnt').textContent=moeda(entradas);document.getElementById('fcSai').textContent=moeda(saidas);
   document.getElementById('fcIni').textContent=moeda(saldoIni);document.getElementById('fcFim').textContent=moeda(saldoFim);
   renderConferenciaSaldo('fluxoConferencia');
-  const lista=real.slice().sort((a,b)=>(a.data||'').localeCompare(b.data||''));
-  const fb=((document.getElementById('fcBusca')||{}).value||'').toLowerCase();const fcat=(document.getElementById('fcCat')||{}).value||'';const ftp=(document.getElementById('fcTipo')||{}).value||'';
-  const fbco=(document.getElementById('fcBanco')||{}).value||'';const fde=(document.getElementById('fcDe')||{}).value||'';const fate=(document.getElementById('fcAte')||{}).value||'';
-  const _cs=document.getElementById('fcCat');if(_cs){const av=_cs.value;const cs=[...new Set(lista.map(l=>l.categoria).filter(Boolean))].sort();_cs.innerHTML='<option value="">Todas categorias</option>'+cs.map(c=>`<option value="${c}">${c}</option>`).join('');if(av)_cs.value=av;}
-  const _bs=document.getElementById('fcBanco');if(_bs){const av=_bs.value;const bs=bancosVisiveis().map(b=>b.nome);_bs.innerHTML='<option value="">Todos os bancos</option>'+bs.map(b=>`<option value="${b}">${b}</option>`).join('');if(av)_bs.value=av;}
-  // extrato do banco escolhido (ou de todos) — saldo inicial acompanha a escolha
+  const fe=window._filtroExt=window._filtroExt||{};
+  const fb=((document.getElementById('fcBusca')||{}).value||'').toLowerCase();
+  const fcat=fe.categoria||'',ftp=fe.tipo||'',fst=fe.status||'',fbco=fe.banco||'',fde=fe.dataIni||'',fate=fe.dataFim||'';
+  const fvmin=(fe.valorMin!==''&&fe.valorMin!=null&&!isNaN(+fe.valorMin))?+fe.valorMin:null;
+  const fvmax=(fe.valorMax!==''&&fe.valorMax!=null&&!isNaN(+fe.valorMax))?+fe.valorMax:null;
+  const fac=!!fe.aClassificar,fsc=!!fe.semCliente;
+  const ehPrev=fst==='previsto';
+  const baseAll=ehPrev?dados().lancamentos.filter(l=>visivel(l)&&l.status==='previsto'&&!l.baixado):real;
+  const lista=baseAll.slice().sort((a,b)=>(a.data||'').localeCompare(b.data||''));
   const listaExt=lista.filter(l=>!fbco||(l.banco||'')===fbco);
   let extIni=saldoIni;
-  if(fbco){const _b=bancosVisiveis().find(x=>x.nome===fbco);const _ini=_b?(+_b.saldoInicial||0):0;
+  if(fbco&&!ehPrev){const _b=bancosVisiveis().find(x=>x.nome===fbco);const _ini=_b?(+_b.saldoInicial||0):0;
     const _pri=ym?dados().lancamentos.filter(l=>l.status!=='previsto'&&noUnidade(l)&&(l.banco||'')===fbco&&l.data&&l.data.slice(0,7)<ym).reduce((s,l)=>s+(l.tipo==='receita'?+l.valor:-+l.valor),0):0;
     extIni=_ini+_pri;}
-  // o que for anterior ao "De" entra no saldo inicial, não some
-  let abertura=extIni;
-  listaExt.forEach(l=>{if(fde&&(l.data||'')<fde){abertura+=(l.tipo==='receita'?(+l.valor||0):0)-(l.tipo==='despesa'?(+l.valor||0):0);}});
+  let abertura=ehPrev?saldoFim:extIni;
+  if(!ehPrev){listaExt.forEach(l=>{if(fde&&(l.data||'')<fde){abertura+=(l.tipo==='receita'?(+l.valor||0):0)-(l.tipo==='despesa'?(+l.valor||0):0);}});}
   let acc=abertura;const linhas=[];
   listaExt.forEach(l=>{
     if(fde&&(l.data||'')<fde)return;
     if(fate&&(l.data||'')>fate)return;
     const ent=l.tipo==='receita'?(+l.valor||0):0,sai=l.tipo==='despesa'?(+l.valor||0):0;acc+=ent-sai;
-    const pass=(!fb||(((l.descricao||'')+' '+(l.cliente||'')+' '+(l.categoria||'')).toLowerCase().indexOf(fb)>=0))&&(!fcat||l.categoria===fcat)&&(!ftp||l.tipo===ftp);if(!pass)return;
+    const _val=+l.valor||0;
+    const pass=(!fb||(((l.descricao||'')+' '+(l.cliente||'')+' '+(l.categoria||'')).toLowerCase().indexOf(fb)>=0))&&(!fcat||l.categoria===fcat)&&(!ftp||l.tipo===ftp)&&(fvmin==null||_val>=fvmin)&&(fvmax==null||_val<=fvmax)&&(!fac||ehAClassificar(l))&&(!fsc||!((l.cliente||'').trim()));if(!pass)return;
     linhas.push({id:l.id,data:l.data,desc:l.descricao||'-',cat:l.categoria||'-',banco:l.banco||'-',ent:ent,sai:sai,saldo:acc});});
   window._extratoCSV={abertura:abertura,linhas:linhas,banco:fbco||'Todos os bancos'};
   document.getElementById('fcVazio').style.display=linhas.length?'none':'block';
-  let html=`<tr style="background:var(--vinho-fog)"><td colspan=6><b>Saldo inicial</b>${fbco?` <span class=mini>· ${fbco}</span>`:''}${fde?` <span class=mini>· em ${new Date(fde+'T00:00:00').toLocaleDateString('pt-BR')}</span>`:''}</td><td style="text-align:right;font-weight:700">${moeda(abertura)}</td></tr>`;
+  const _abLbl=ehPrev?'Saldo atual (base da projeção)':'Saldo inicial';
+  let html=`<tr style="background:var(--vinho-fog)"><td colspan=6><b>${_abLbl}</b>${fbco?` <span class=mini>· ${esc(fbco)}</span>`:''}${(!ehPrev&&fde)?` <span class=mini>· em ${new Date(fde+'T00:00:00').toLocaleDateString('pt-BR')}</span>`:''}</td><td style="text-align:right;font-weight:700">${moeda(abertura)}</td></tr>`;
   linhas.forEach(r=>{const _dc=r.desc.length>38?r.desc.slice(0,38)+'…':r.desc;
     html+=`<tr style="cursor:pointer" onclick="editarLanc('${r.id}')" title="Clique para ver, editar ou excluir"><td>${r.data?new Date(r.data+'T00:00:00').toLocaleDateString('pt-BR'):'-'}</td><td>${_dc}</td><td class=mini>${r.cat}</td><td class=mini>${esc(r.banco)}</td><td style="text-align:right;color:var(--verde)">${r.ent?moeda(r.ent):'-'}</td><td style="text-align:right;color:var(--rubro)">${r.sai?moeda(r.sai):'-'}</td><td style="text-align:right;font-weight:700;color:${r.saldo>=0?'var(--vinho)':'var(--rubro)'}">${moeda(r.saldo)}</td></tr>`;});
   document.getElementById('tbodyFcExtrato').innerHTML=html;
+  if(typeof atualizaBadgeFiltroExtrato==='function')atualizaBadgeFiltroExtrato();
 }
-function limparFiltrosExtrato(){['fcBusca','fcCat','fcTipo','fcBanco','fcDe','fcAte'].forEach(id=>{const e=document.getElementById(id);if(e)e.value='';});renderFluxo();}
+function limparFiltrosExtrato(){window._filtroExt={};var b=document.getElementById('fcBusca');if(b)b.value='';renderFluxo();atualizaBadgeFiltroExtrato();}
+function contaFiltrosExt(){var f=window._filtroExt||{};var n=0;['tipo','status','categoria','banco','dataIni','dataFim'].forEach(function(k){if(f[k])n++;});if(f.valorMin!==''&&f.valorMin!=null)n++;if(f.valorMax!==''&&f.valorMax!=null)n++;if(f.aClassificar)n++;if(f.semCliente)n++;var bu=document.getElementById('fcBusca');if(bu&&bu.value)n++;return n;}
+function atualizaBadgeFiltroExtrato(){var b=document.getElementById('btnFiltrarExt');if(!b)return;var n=contaFiltrosExt();b.innerHTML=n?('🔍 Filtrar ('+n+')'):'🔍 Filtrar';}
+function aplicarAtalhoFiltroExtrato(kind){var f=window._filtroExt=window._filtroExt||{};if(kind==='aclassificar')f.aClassificar=!f.aClassificar;else if(kind==='semcliente')f.semCliente=!f.semCliente;else if(kind==='entradas')f.tipo=(f.tipo==='receita')?'':'receita';else if(kind==='saidas')f.tipo=(f.tipo==='despesa')?'':'despesa';renderFluxo();abrirFiltroExtrato();}
+function abrirFiltroExtrato(){var f=window._filtroExt=window._filtroExt||{};
+  var cats=(dados().categorias||[]).slice().sort(function(a,b){return (a.nome||'').localeCompare(b.nome||'');});
+  var catOpts='<option value="">Todas categorias</option>'+cats.map(function(c){return '<option value="'+esc(c.nome)+'"'+(f.categoria===c.nome?' selected':'')+'>'+esc(c.nome)+'</option>';}).join('');
+  var bancos=(dados().bancos||[]).filter(function(b){return b.ativo!==false;});
+  var bancoOpts='<option value="">Todos os bancos</option>'+bancos.map(function(b){return '<option value="'+esc(b.nome)+'"'+(f.banco===b.nome?' selected':'')+'>'+esc(b.nome)+'</option>';}).join('');
+  document.getElementById('modalConteudo').innerHTML='<h3>Filtrar extrato</h3>'
+   +'<div style="margin-bottom:18px"><label style="display:block;margin-bottom:8px">Atalhos rápidos</label><div style="display:flex;gap:8px;flex-wrap:wrap">'
+   +'<button type="button" class="ex-chip '+(f.aClassificar?'':'off')+'" onclick="aplicarAtalhoFiltroExtrato(\'aclassificar\')"><span>🔶</span>A classificar</button>'
+   +'<button type="button" class="ex-chip '+(f.semCliente?'':'off')+'" onclick="aplicarAtalhoFiltroExtrato(\'semcliente\')">Sem cliente</button>'
+   +'<button type="button" class="ex-chip '+(f.tipo==='receita'?'':'off')+'" onclick="aplicarAtalhoFiltroExtrato(\'entradas\')">Só entradas</button>'
+   +'<button type="button" class="ex-chip '+(f.tipo==='despesa'?'':'off')+'" onclick="aplicarAtalhoFiltroExtrato(\'saidas\')">Só saídas</button>'
+   +'</div></div><div class="form-grid">'
+   +'<div style="grid-column:span 3"><label>Tipo</label><select id="feTipo"><option value="">Todos os tipos</option><option value="receita"'+(f.tipo==='receita'?' selected':'')+'>Receita</option><option value="despesa"'+(f.tipo==='despesa'?' selected':'')+'>Despesa</option></select></div>'
+   +'<div style="grid-column:span 3"><label>Situação</label><select id="feStatus"><option value="">Todas situações</option><option value="realizado"'+(f.status==='realizado'?' selected':'')+'>Realizado</option><option value="previsto"'+(f.status==='previsto'?' selected':'')+'>Previsto</option></select></div>'
+   +'<div style="grid-column:span 3"><label>Categoria</label><select id="feCategoria">'+catOpts+'</select></div>'
+   +'<div style="grid-column:span 3"><label>Banco / Conta</label><select id="feBanco">'+bancoOpts+'</select></div>'
+   +'<div style="grid-column:span 3"><label>Valor de (R$)</label><input type="number" step="0.01" id="feValorMin" placeholder="0,00" value="'+((f.valorMin!=null&&f.valorMin!=='')?f.valorMin:'')+'"></div>'
+   +'<div style="grid-column:span 3"><label>Valor até (R$)</label><input type="number" step="0.01" id="feValorMax" placeholder="0,00" value="'+((f.valorMax!=null&&f.valorMax!=='')?f.valorMax:'')+'"></div>'
+   +'<div style="grid-column:span 3"><label>Período — início</label><input type="date" id="feDataIni" value="'+(f.dataIni||'')+'"></div>'
+   +'<div style="grid-column:span 3"><label>Período — fim</label><input type="date" id="feDataFim" value="'+(f.dataFim||'')+'"></div>'
+   +'</div><div style="font-size:11px;color:#999;margin:6px 2px 0">O extrato mostra realizados com saldo acumulado. Escolha Situação = Previsto para ver as contas em aberto com saldo projetado.</div>'
+   +'<div class="modal-acoes"><button class="btn danger" style="margin-right:auto" onclick="limparFiltrosExtrato();fecharModal()">✕ Limpar filtros</button><button class="btn sec" onclick="fecharModal()">Fechar</button><button class="btn" onclick="buscarFiltroExtrato()">Buscar</button></div>';
+  document.getElementById('modalBg').classList.add('show');}
+function buscarFiltroExtrato(){var f=window._filtroExt=window._filtroExt||{};
+  f.tipo=document.getElementById('feTipo').value;f.status=document.getElementById('feStatus').value;
+  f.categoria=document.getElementById('feCategoria').value;f.banco=document.getElementById('feBanco').value;
+  var vMin=document.getElementById('feValorMin').value;f.valorMin=vMin!==''?parseFloat(vMin):'';
+  var vMax=document.getElementById('feValorMax').value;f.valorMax=vMax!==''?parseFloat(vMax):'';
+  f.dataIni=document.getElementById('feDataIni').value;f.dataFim=document.getElementById('feDataFim').value;
+  fecharModal();renderFluxo();atualizaBadgeFiltroExtrato();}
 function exportarExtratoCSV(){
   const d=window._extratoCSV;
   if(!d||!d.linhas.length){alert('Não há lançamentos no extrato para exportar. Ajuste os filtros.');return;}
