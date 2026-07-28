@@ -564,6 +564,22 @@
     <div class="sub-pg">Saldo por conta, conferência de fechamento e o extrato completo — use o filtro de período no topo.</div>
     <div id="fluxoSaldoBanco"></div>
     <div id="fluxoConferencia"></div>
+    <div class="card" id="pendConcilCard">
+      <h2>Pendências de conciliação</h2>
+      <div class="cap">O que ainda não bateu entre o sistema e o banco. De um lado, o que está a receber e ainda não caiu ou não casou; do outro, o que caiu no banco e ainda não foi identificado.</div>
+      <div class="pend-grid" style="display:grid;grid-template-columns:1fr 1fr;gap:18px">
+        <div>
+          <h3 style="font-size:14px;color:var(--vinho);margin:4px 0 8px">A receber não conciliado <span id="pendRecTot" class="mini" style="color:var(--ouro)"></span></h3>
+          <div style="overflow-x:auto"><table><thead><tr><th>Data</th><th>Cliente</th><th>Forma</th><th style="text-align:right">Valor</th></tr></thead><tbody id="tbodyPendReceber"></tbody></table></div>
+          <div id="pendRecVazio" class="vazio" style="display:none">Nada a receber em aberto.</div>
+        </div>
+        <div>
+          <h3 style="font-size:14px;color:var(--vinho);margin:4px 0 8px">Extrato a classificar <span id="pendExtTot" class="mini" style="color:var(--ouro)"></span></h3>
+          <div style="overflow-x:auto"><table><thead><tr><th>Data</th><th>Descrição</th><th>Banco</th><th style="text-align:right">Valor</th></tr></thead><tbody id="tbodyPendExtrato"></tbody></table></div>
+          <div id="pendExtVazio" class="vazio" style="display:none">Nada a classificar no extrato.</div>
+        </div>
+      </div>
+    </div>
     <div class="card">
       <h2>Extrato de contas</h2>
       <div class="cap">Igual à planilha que você exporta — com o saldo acumulado linha a linha.</div>
@@ -2137,8 +2153,23 @@ function renderDemonstrativo(){
 }
 function exportarDemonstrativo(){if(!_demoAOA.length)renderDemonstrativo();if(!_demoAOA.length){alert('Sem dados para exportar.');return;}try{const corpo=_demoAOA.map(row=>row.map(c=>(typeof c==='string'&&/^-?\d+\.\d+$/.test(c))?parseFloat(c):c));const ncol=(corpo[0]||[]).length;const aoa=_relCabAOA('Demonstrativo de Fluxo de Caixa').concat(corpo);const ws=XLSX.utils.aoa_to_sheet(aoa);_relCols(ws,ncol,38);_relFmtNum(ws);const wb=XLSX.utils.book_new();XLSX.utils.book_append_sheet(wb,ws,'Demonstrativo');XLSX.writeFile(wb,_relArqNome('Demonstrativo de Fluxo de Caixa'));}catch(e){alert('Nao consegui exportar: '+e.message);}}
 function imprimirDemonstrativo(){const box=document.getElementById('demoBox');if(!box||!box.innerHTML){renderDemonstrativo();}const emp=((dados().cliente&&dados().cliente.razaoSocial)||perfil().nome||'');const per=(typeof labelFiltro==='function')?labelFiltro('per','Todos os períodos'):'';const w=window.open('','_blank');if(!w){alert('Permita pop-ups para imprimir.');return;}w.document.write('<html><head><meta charset=UTF-8><title>Demonstrativo de fluxo de caixa</title><style>@page{size:landscape;margin:12mm}:root{--vinho:#143b4d;--vinho2:#1c4d61;--vinho3:#2e86a8;--vinho-fog:#eef4f5;--ouro:#c1922f;--ouro2:#d9ab44;--ouro-claro:#f3e7cc;--suave:#8f8073;--borda:#e2ddd0;--verde:#2e7d46;--rubro:#a83535;--creme2:#eae3d5;--branco:#fff;}*{-webkit-print-color-adjust:exact;print-color-adjust:exact}body{font-family:-apple-system,BlinkMacSystemFont,\'Segoe UI\',Arial,sans-serif;color:#2b1a20;padding:0}.cab{border-bottom:2px solid #c1922f;padding-bottom:10px;margin-bottom:14px}.cab h1{font-family:Georgia,serif;color:#143b4d;font-size:20px;margin:0}.cab .s{font-size:12px;color:#888;margin-top:3px}table{border-collapse:collapse;width:100%;font-size:10.5px}td,th{padding:4px 8px}.rod{margin-top:20px;text-align:center;color:#aaa;font-size:10px;border-top:1px solid #eee;padding-top:8px}</style></head><body><div class=cab><h1>Demonstrativo de Fluxo de Caixa</h1><div class=s>'+emp+(per?' · '+per:'')+' · '+({realizado:'Realizado',previsto:'Previsto',ambos:'Realizado + Previsto'}[window._demoStatus||'realizado'])+' · gerado em '+new Date().toLocaleString('pt-BR')+'</div></div>'+document.getElementById('demoBox').innerHTML+'<div class=rod>INTEIRA Tech · Painel Financeiro</div></body></html>');w.document.close();w.focus();setTimeout(()=>w.print(),350);}
+function renderPendenciasConcil(){
+  if(!document.getElementById('tbodyPendReceber'))return;
+  var L=dados().lancamentos||[];
+  var rec=L.filter(function(l){return l.status==='previsto'&&!l.baixado&&l.tipo==='receita'&&noUnidade(l)&&noBanco(l)&&noPeriodo(l);}).sort(function(a,b){return (a.data||'').localeCompare(b.data||'');});
+  var tRec=rec.reduce(function(s,l){return s+(+l.valor||0);},0);
+  document.getElementById('tbodyPendReceber').innerHTML=rec.map(function(l){return '<tr onclick="editarLanc(\''+l.id+'\')" style="cursor:pointer" title="Ver / editar"><td>'+(l.data?new Date(l.data+'T00:00:00').toLocaleDateString('pt-BR'):'-')+'</td><td class=mini>'+esc((l.cliente||l.descricao||'-').slice(0,26))+'</td><td class=mini>'+esc(l.formaPagto||'-')+'</td><td style="text-align:right;font-weight:700;color:var(--rubro)">'+moeda(+l.valor||0)+'</td></tr>';}).join('');
+  document.getElementById('pendRecTot').textContent=rec.length?('· '+rec.length+' · '+moeda(tRec)):'';
+  document.getElementById('pendRecVazio').style.display=rec.length?'none':'block';
+  var ext=L.filter(function(l){return l.status!=='previsto'&&l.tipo==='receita'&&visivel(l)&&ehAClassificar(l);}).sort(function(a,b){return (a.data||'').localeCompare(b.data||'');});
+  var tExt=ext.reduce(function(s,l){return s+(+l.valor||0);},0);
+  document.getElementById('tbodyPendExtrato').innerHTML=ext.map(function(l){return '<tr onclick="editarLanc(\''+l.id+'\')" style="cursor:pointer" title="Ver / editar"><td>'+(l.data?new Date(l.data+'T00:00:00').toLocaleDateString('pt-BR'):'-')+'</td><td class=mini>'+esc((l.descricao||'-').slice(0,38))+'</td><td class=mini>'+esc(l.banco||'-')+'</td><td style="text-align:right;font-weight:700">'+moeda(+l.valor||0)+'</td></tr>';}).join('');
+  document.getElementById('pendExtTot').textContent=ext.length?('· '+ext.length+' · '+moeda(tExt)):'';
+  document.getElementById('pendExtVazio').style.display=ext.length?'none':'block';
+}
 function renderFluxo(){
   renderFluxoCaixa();
+  renderPendenciasConcil();
   const mostrarPrev=document.getElementById('incluirPrev').checked;
   const base=dados().lancamentos.filter(l=>visivel(l)&&l.data);
   const R={},P={};
