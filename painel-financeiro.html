@@ -1882,7 +1882,7 @@ function renderFluxoCaixa(){
   renderConferenciaSaldo('fluxoConferencia');
   const fe=window._filtroExt=window._filtroExt||{};
   const fb=((document.getElementById('fcBusca')||{}).value||'').toLowerCase();
-  const fcat=fe.categoria||'',ftp=fe.tipo||'',fst=fe.status||'',fbco=fe.banco||'',fde=fe.dataIni||'',fate=fe.dataFim||'';
+  const fcat=fe.categoria||'',ftp=fe.tipo||'',fst=fe.status||'',fbco=fe.banco||'',fde=fe.dataIni||'',fate=fe.dataFim||'',fforma=fe.forma||'';
   const fvmin=(fe.valorMin!==''&&fe.valorMin!=null&&!isNaN(+fe.valorMin))?+fe.valorMin:null;
   const fvmax=(fe.valorMax!==''&&fe.valorMax!=null&&!isNaN(+fe.valorMax))?+fe.valorMax:null;
   const fac=!!fe.aClassificar,fsc=!!fe.semCliente;
@@ -1902,7 +1902,7 @@ function renderFluxoCaixa(){
     if(fate&&(l.data||'')>fate)return;
     const ent=l.tipo==='receita'?(+l.valor||0):0,sai=l.tipo==='despesa'?(+l.valor||0):0;acc+=ent-sai;
     const _val=+l.valor||0;
-    const pass=(!fb||(((l.descricao||'')+' '+(l.cliente||'')+' '+(l.categoria||'')).toLowerCase().indexOf(fb)>=0))&&(!fcat||l.categoria===fcat)&&(!ftp||l.tipo===ftp)&&(fvmin==null||_val>=fvmin)&&(fvmax==null||_val<=fvmax)&&(!fac||ehAClassificar(l))&&(!fsc||!((l.cliente||'').trim()));if(!pass)return;
+    const pass=(!fb||(((l.descricao||'')+' '+(l.cliente||'')+' '+(l.categoria||'')).toLowerCase().indexOf(fb)>=0))&&(!fcat||l.categoria===fcat)&&(!ftp||l.tipo===ftp)&&(fvmin==null||_val>=fvmin)&&(fvmax==null||_val<=fvmax)&&(!fac||ehAClassificar(l))&&(!fsc||!((l.cliente||'').trim()))&&(!fforma||(l.formaPagto||'')===fforma);if(!pass)return;
     linhas.push({id:l.id,data:l.data,desc:l.descricao||'-',cat:l.categoria||'-',banco:l.banco||'-',ent:ent,sai:sai,saldo:acc});});
   window._extratoCSV={abertura:abertura,linhas:linhas,banco:fbco||'Todos os bancos'};
   document.getElementById('fcVazio').style.display=linhas.length?'none':'block';
@@ -1914,7 +1914,7 @@ function renderFluxoCaixa(){
   if(typeof atualizaBadgeFiltroExtrato==='function')atualizaBadgeFiltroExtrato();
 }
 function limparFiltrosExtrato(){window._filtroExt={};var b=document.getElementById('fcBusca');if(b)b.value='';renderFluxo();atualizaBadgeFiltroExtrato();}
-function contaFiltrosExt(){var f=window._filtroExt||{};var n=0;['tipo','status','categoria','banco','dataIni','dataFim'].forEach(function(k){if(f[k])n++;});if(f.valorMin!==''&&f.valorMin!=null)n++;if(f.valorMax!==''&&f.valorMax!=null)n++;if(f.aClassificar)n++;if(f.semCliente)n++;var bu=document.getElementById('fcBusca');if(bu&&bu.value)n++;return n;}
+function contaFiltrosExt(){var f=window._filtroExt||{};var n=0;['tipo','status','categoria','banco','forma','dataIni','dataFim'].forEach(function(k){if(f[k])n++;});if(f.valorMin!==''&&f.valorMin!=null)n++;if(f.valorMax!==''&&f.valorMax!=null)n++;if(f.aClassificar)n++;if(f.semCliente)n++;var bu=document.getElementById('fcBusca');if(bu&&bu.value)n++;return n;}
 function atualizaBadgeFiltroExtrato(){var b=document.getElementById('btnFiltrarExt');if(!b)return;var n=contaFiltrosExt();b.innerHTML=n?('🔍 Filtrar ('+n+')'):'🔍 Filtrar';}
 function aplicarAtalhoFiltroExtrato(kind){var f=window._filtroExt=window._filtroExt||{};if(kind==='aclassificar')f.aClassificar=!f.aClassificar;else if(kind==='semcliente')f.semCliente=!f.semCliente;else if(kind==='entradas')f.tipo=(f.tipo==='receita')?'':'receita';else if(kind==='saidas')f.tipo=(f.tipo==='despesa')?'':'despesa';renderFluxo();abrirFiltroExtrato();}
 function abrirFiltroExtrato(){var f=window._filtroExt=window._filtroExt||{};
@@ -1933,6 +1933,7 @@ function abrirFiltroExtrato(){var f=window._filtroExt=window._filtroExt||{};
    +'<div style="grid-column:span 3"><label>Situação</label><select id="feStatus"><option value="">Todas situações</option><option value="realizado"'+(f.status==='realizado'?' selected':'')+'>Realizado</option><option value="previsto"'+(f.status==='previsto'?' selected':'')+'>Previsto</option></select></div>'
    +'<div style="grid-column:span 3"><label>Categoria</label><select id="feCategoria">'+catOpts+'</select></div>'
    +'<div style="grid-column:span 3"><label>Banco / Conta</label><select id="feBanco">'+bancoOpts+'</select></div>'
+   +'<div style="grid-column:span 3"><label>Forma</label><select id="feForma">'+_formaOpts(f.forma)+'</select></div>'
    +'<div style="grid-column:span 3"><label>Valor de (R$)</label><input type="number" step="0.01" id="feValorMin" placeholder="0,00" value="'+((f.valorMin!=null&&f.valorMin!=='')?f.valorMin:'')+'"></div>'
    +'<div style="grid-column:span 3"><label>Valor até (R$)</label><input type="number" step="0.01" id="feValorMax" placeholder="0,00" value="'+((f.valorMax!=null&&f.valorMax!=='')?f.valorMax:'')+'"></div>'
    +'<div style="grid-column:span 3"><label>Período — início</label><input type="date" id="feDataIni" value="'+(f.dataIni||'')+'"></div>'
@@ -1942,7 +1943,7 @@ function abrirFiltroExtrato(){var f=window._filtroExt=window._filtroExt||{};
   document.getElementById('modalBg').classList.add('show');}
 function buscarFiltroExtrato(){var f=window._filtroExt=window._filtroExt||{};
   f.tipo=document.getElementById('feTipo').value;f.status=document.getElementById('feStatus').value;
-  f.categoria=document.getElementById('feCategoria').value;f.banco=document.getElementById('feBanco').value;
+  f.categoria=document.getElementById('feCategoria').value;f.banco=document.getElementById('feBanco').value;var _ffe=document.getElementById('feForma');f.forma=_ffe?_ffe.value:'';
   var vMin=document.getElementById('feValorMin').value;f.valorMin=vMin!==''?parseFloat(vMin):'';
   var vMax=document.getElementById('feValorMax').value;f.valorMax=vMax!==''?parseFloat(vMax):'';
   f.dataIni=document.getElementById('feDataIni').value;f.dataFim=document.getElementById('feDataFim').value;
@@ -2269,6 +2270,8 @@ function mapeiaTipoEstorno(sel){
   if(sel==='estorno_despesa')return{tipo:'receita',estorno:true};
   return{tipo:sel,estorno:false};
 }
+function _formasUsadas(){try{return [...new Set((dados().lancamentos||[]).map(function(l){return (l.formaPagto||'').trim();}).filter(Boolean))].sort(function(a,b){return a.localeCompare(b,'pt-BR');});}catch(e){return [];}}
+function _formaOpts(sel){return '<option value="">Todas as formas</option>'+_formasUsadas().map(function(x){return '<option value="'+esc(x)+'"'+(sel===x?' selected':'')+'>'+esc(x)+'</option>';}).join('');}
 function passaFiltroLanc(l){
   const f=window._filtroLanc||{};
   if(f.tipo&&l.tipo!==f.tipo)return false;
@@ -2281,9 +2284,10 @@ function passaFiltroLanc(l){
   if(f.dataFim&&(!l.data||l.data>f.dataFim))return false;
   if(f.aClassificar&&!ehAClassificar(l))return false;
   if(f.semCliente&&(l.cliente||'').trim())return false;
+  if(f.forma&&(l.formaPagto||'')!==f.forma)return false;
   return true;
 }
-function contaFiltrosAtivos(){const f=window._filtroLanc||{};let n=0;['tipo','status','categoria','banco','dataIni','dataFim'].forEach(k=>{if(f[k])n++;});if(f.valorMin!=null&&f.valorMin!=='')n++;if(f.valorMax!=null&&f.valorMax!=='')n++;if(f.aClassificar)n++;if(f.semCliente)n++;return n;}
+function contaFiltrosAtivos(){const f=window._filtroLanc||{};let n=0;['tipo','status','categoria','banco','forma','dataIni','dataFim'].forEach(k=>{if(f[k])n++;});if(f.valorMin!=null&&f.valorMin!=='')n++;if(f.valorMax!=null&&f.valorMax!=='')n++;if(f.aClassificar)n++;if(f.semCliente)n++;return n;}
 function atualizaBadgeFiltroLanc(){const b=document.getElementById('btnFiltrarLanc');if(!b)return;const n=contaFiltrosAtivos();b.innerHTML=n?`🔍 Filtrar (${n})`:'🔍 Filtrar';}
 function abrirFiltroLanc(){
   window._filtroLanc=window._filtroLanc||{};
@@ -2307,6 +2311,7 @@ function abrirFiltroLanc(){
       <div style="grid-column:span 3"><label>Situação</label><select id="flStatus"><option value="">Todas situações</option><option value="realizado" ${f.status==='realizado'?'selected':''}>Realizado</option><option value="previsto" ${f.status==='previsto'?'selected':''}>Previsto</option></select></div>
       <div style="grid-column:span 3"><label>Categoria</label><select id="flCategoria">${catOpts}</select></div>
       <div style="grid-column:span 3"><label>Banco / Conta</label><select id="flBanco">${bancoOpts}</select></div>
+      <div style="grid-column:span 3"><label>Forma</label><select id="flForma">${_formaOpts(f.forma)}</select></div>
       <div style="grid-column:span 3"><label>Valor de (R$)</label><input type="number" step="0.01" id="flValorMin" placeholder="0,00" value="${(f.valorMin!=null&&f.valorMin!=='')?f.valorMin:''}"></div>
       <div style="grid-column:span 3"><label>Valor até (R$)</label><input type="number" step="0.01" id="flValorMax" placeholder="0,00" value="${(f.valorMax!=null&&f.valorMax!=='')?f.valorMax:''}"></div>
       <div style="grid-column:span 3"><label>Período — início</label><input type="date" id="flDataIni" value="${f.dataIni||''}"></div>
@@ -2330,6 +2335,7 @@ function buscarFiltroLanc(){
   f.status=document.getElementById('flStatus').value;
   f.categoria=document.getElementById('flCategoria').value;
   f.banco=document.getElementById('flBanco').value;
+  const _ff=document.getElementById('flForma');f.forma=_ff?_ff.value:'';
   const vMin=document.getElementById('flValorMin').value;f.valorMin=vMin!==''?parseFloat(vMin):'';
   const vMax=document.getElementById('flValorMax').value;f.valorMax=vMax!==''?parseFloat(vMax):'';
   f.dataIni=document.getElementById('flDataIni').value;
