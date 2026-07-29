@@ -567,6 +567,7 @@
     <div class="card" id="pendConcilCard">
       <h2>Pendências de conciliação</h2>
       <div class="cap">O que ainda não bateu entre o sistema e o banco. De um lado, o que está a receber e ainda não caiu ou não casou; do outro, o que caiu no banco e ainda não foi identificado.</div>
+      <div style="display:flex;gap:10px;align-items:center;margin:10px 0;flex-wrap:wrap"><label style="font-size:13px;color:var(--tinta);font-weight:600">Mês:</label><select id="pendMes" onchange="renderPendenciasConcil()" style="padding:7px 11px;border:1px solid #e2ddd0;border-radius:9px;font-family:inherit"></select><span class="mini">Concilie um mês de cada vez. No recebimento sem vínculo, clique em 🔗 para amarrar a um título.</span></div>
       <div class="pend-grid" style="display:grid;grid-template-columns:1fr 1fr;gap:18px">
         <div>
           <h3 style="font-size:14px;color:var(--vinho);margin:4px 0 8px">Atendimento sem vínculo <span id="pendRecTot" class="mini" style="color:var(--ouro)"></span></h3>
@@ -2158,14 +2159,25 @@ function imprimirDemonstrativo(){const box=document.getElementById('demoBox');if
 function renderPendenciasConcil(){
   if(!document.getElementById('tbodyPendReceber'))return;
   var L=dados().lancamentos||[];
-  var rec=L.filter(function(l){return l.status==='previsto'&&!l.baixado&&l.tipo==='receita'&&noUnidade(l)&&noBanco(l)&&noPeriodo(l);}).sort(function(a,b){return (a.data||'').localeCompare(b.data||'');});
+  // seletor de mês (meses dos recebimentos no extrato) — filtra os dois lados
+  var sel=document.getElementById('pendMes');
+  var meses=Array.from(new Set(L.filter(function(l){return l.status!=='previsto'&&l.tipo==='receita'&&l.data;}).map(function(l){return l.data.slice(0,7);}))).sort().reverse();
+  if(sel){
+    var atual=(window._pendMes!==undefined)?window._pendMes:(meses[0]||'');
+    if(atual&&!meses.includes(atual))atual=meses[0]||'';
+    sel.innerHTML='<option value="">Todos os meses</option>'+meses.map(function(m){var d=new Date(m+'-01T00:00:00');var nome=d.toLocaleDateString('pt-BR',{month:'long',year:'numeric'});return '<option value="'+m+'" '+(m===atual?'selected':'')+'>'+nome.charAt(0).toUpperCase()+nome.slice(1)+'</option>';}).join('');
+    sel.value=atual;window._pendMes=atual;
+  }
+  var mes=window._pendMes||'';
+  function noMes(l){return !mes||((l.data||'').slice(0,7)===mes);}
+  var rec=L.filter(function(l){return l.status==='previsto'&&!l.baixado&&l.tipo==='receita'&&noUnidade(l)&&noBanco(l)&&noMes(l);}).sort(function(a,b){return (a.data||'').localeCompare(b.data||'');});
   var tRec=rec.reduce(function(s,l){return s+(+l.valor||0);},0);
   document.getElementById('tbodyPendReceber').innerHTML=rec.map(function(l){return '<tr onclick="editarLanc(\''+l.id+'\')" style="cursor:pointer" title="Ver / editar"><td>'+(l.data?new Date(l.data+'T00:00:00').toLocaleDateString('pt-BR'):'-')+'</td><td class=mini>'+esc((l.cliente||l.descricao||'-').slice(0,26))+'</td><td class=mini>'+esc(l.formaPagto||'-')+'</td><td style="text-align:right;font-weight:700;color:var(--rubro)">'+moeda(+l.valor||0)+'</td></tr>';}).join('');
   document.getElementById('pendRecTot').textContent=rec.length?('· '+rec.length+' · '+moeda(tRec)):'';
   document.getElementById('pendRecVazio').style.display=rec.length?'none':'block';
-  var ext=L.filter(function(l){return l.status!=='previsto'&&l.tipo==='receita'&&visivel(l)&&!l.baixaDe&&!/transfer|aplica|resgate|devolu/i.test((l.categoria||'')+' '+(l.descricao||''));}).sort(function(a,b){return (a.data||'').localeCompare(b.data||'');});
+  var ext=L.filter(function(l){return l.status!=='previsto'&&l.tipo==='receita'&&visivel(l)&&!l.baixaDe&&!/transfer|aplica|resgate|devolu/i.test((l.categoria||'')+' '+(l.descricao||''))&&noMes(l);}).sort(function(a,b){return (a.data||'').localeCompare(b.data||'');});
   var tExt=ext.reduce(function(s,l){return s+(+l.valor||0);},0);
-  document.getElementById('tbodyPendExtrato').innerHTML=ext.map(function(l){return '<tr onclick="editarLanc(\''+l.id+'\')" style="cursor:pointer" title="Ver / editar"><td>'+(l.data?new Date(l.data+'T00:00:00').toLocaleDateString('pt-BR'):'-')+'</td><td class=mini>'+esc((l.descricao||'-').slice(0,38))+'</td><td class=mini>'+esc(l.banco||'-')+'</td><td style="text-align:right;font-weight:700">'+moeda(+l.valor||0)+'</td></tr>';}).join('');
+  document.getElementById('tbodyPendExtrato').innerHTML=ext.map(function(l){return '<tr><td>'+(l.data?new Date(l.data+'T00:00:00').toLocaleDateString('pt-BR'):'-')+'</td><td class=mini>'+esc((l.descricao||'-').slice(0,34))+'</td><td class=mini>'+esc(l.banco||'-')+'</td><td style="text-align:right;font-weight:700;white-space:nowrap"><button class="btn-ico" onclick="abrirAmarrar(\''+l.id+'\')" title="Amarrar a um título">🔗</button> '+moeda(+l.valor||0)+'</td></tr>';}).join('');
   document.getElementById('pendExtTot').textContent=ext.length?('· '+ext.length+' · '+moeda(tExt)):'';
   document.getElementById('pendExtVazio').style.display=ext.length?'none':'block';
 }
@@ -2782,25 +2794,27 @@ function importarRecebimentos(ev){const f=ev.target.files[0];if(!f)return;const 
     if(previsto)nPrev++;else nReal++;});
   saveApp();const nb=autoConciliar();render();document.getElementById('arqReceb').value='';
   alert('Recebimentos importados!\nDinheiro (realizado): '+nReal+'\nA receber (cartão/boleto/convênio/outros): '+nPrev+'\nPIX e cartão ignorados (vêm pelo extrato/Zoop): '+nPix+'\nA classificar (serviço não reconhecido): '+nClass+(nb?'\nBaixados automaticamente: '+nb:''));};r.readAsArrayBuffer(f);}
+function _sigLanc(l){return [l.data||'',l.tipo||'',(+l.valor||0).toFixed(2),(l.banco||'').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,'').trim(),(l.descricao||'').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,'').replace(/[^a-z0-9 ]/g,' ').replace(/\s+/g,' ').trim().slice(0,50)].join('|');}
 function importarExtrato(ev){const f=ev.target.files[0];if(!f)return;const banco=((document.getElementById('impBanco')||{}).value||'').trim();if(!banco){alert('Escolha primeiro o banco/conta no seletor acima.');ev.target.value='';return;}const num=s=>parseFloat(String(s||'').replace(/[^0-9.\-]/g,''))||0;const r=new FileReader();r.onload=e=>{const raw=decodeArq(e.target.result);let regs=[];
   if(/<STMTTRN>/i.test(raw)){const trns=raw.match(/<STMTTRN>[\s\S]*?<\/STMTTRN>/gi)||[];trns.forEach(t=>{const g=tag=>{const m=t.match(new RegExp('<'+tag+'>([^<\\r\\n]*)'));return m?m[1].trim():'';};const dt=g('DTPOSTED').slice(0,8);const data=dt.length===8?dt.slice(0,4)+'-'+dt.slice(4,6)+'-'+dt.slice(6,8):'';const v=num(g('TRNAMT'));const desc=corrigeMoji((g('MEMO')||g('NAME')||'').split(' - ').slice(0,2).join(' — '));regs.push({data,v,desc});});}
   else{const o=lerCSVsimples(raw);const H=o.header,rows=o.rows;const ix=n=>H.findIndex(h=>h.indexOf(n)>=0);const iData=ix('data'),iVal=ix('valor'),iTrans=ix('transa'),iIdent=ix('identifica'),iDesc=ix('descri');
     rows.forEach(row=>{const data=parseData(row[iData]);if(!data)return;const v=num(row[iVal]);let desc='';if(iTrans>=0||iIdent>=0)desc=[iTrans>=0?row[iTrans]:'',iIdent>=0?row[iIdent]:''].filter(Boolean).join(' — ');else if(iDesc>=0)desc=row[iDesc]||'';regs.push({data,v,desc:corrigeMoji(desc)});});}
-  let nR=0,nD=0;regs.forEach(x=>{if(!x.data||!x.v)return;const tipo=x.v<0?'despesa':'receita';const l={id:id(),data:x.data,descricao:x.desc||'-',servico:'',cliente:'',banco,categoria:'',tipo,valor:Math.abs(x.v),status:'realizado',unidade:'',formaPagto:(/pix/i.test(x.desc||'')?'PIX':''),usuario:usuariaAtivaNome()};l.categoria=regraMatch(l)||'A classificar';dados().lancamentos.push(l);if(tipo==='receita')nR++;else nD++;});
+  let nR=0,nD=0,nDup=0;const _existe=new Set((dados().lancamentos||[]).map(_sigLanc));regs.forEach(x=>{if(!x.data||!x.v)return;const tipo=x.v<0?'despesa':'receita';const l={id:id(),data:x.data,descricao:x.desc||'-',servico:'',cliente:'',banco,categoria:'',tipo,valor:Math.abs(x.v),status:'realizado',unidade:'',formaPagto:(/pix/i.test(x.desc||'')?'PIX':''),usuario:usuariaAtivaNome()};l.categoria=regraMatch(l)||'A classificar';const sg=_sigLanc(l);if(_existe.has(sg)){nDup++;return;}_existe.add(sg);dados().lancamentos.push(l);if(tipo==='receita')nR++;else nD++;});
   saveApp();const nb=autoConciliar();autoBaixaCorrespondentes();saveApp();render();ev.target.value='';
-  alert('Extrato importado em '+banco+'!\nEntradas: '+nR+'\nSaídas: '+nD+(nb?'\nContas a receber baixadas e amarradas: '+nb:''));};r.readAsArrayBuffer(f);}
+  alert('Extrato importado em '+banco+'!\nEntradas: '+nR+'\nSaídas: '+nD+(nDup?'\nJá existentes (ignorados p/ não duplicar): '+nDup:'')+(nb?'\nContas a receber baixadas e amarradas: '+nb:''));};r.readAsArrayBuffer(f);}
 function importarLancamentos(ev){const f=ev.target.files[0];if(!f)return;const r=new FileReader();r.onload=e=>{const o=lerCSVsimples(decodeArq(e.target.result));const H=o.header,rows=o.rows;const ix=n=>H.findIndex(h=>h.indexOf(n)>=0);
   const iData=ix('data'),iDesc=(ix('descri')>=0?ix('descri'):ix('hist')),iCat=ix('categ'),iEnt=(ix('entrada')>=0?ix('entrada'):ix('crédito')>=0?ix('crédito'):ix('credito')),iSai=(ix('saída')>=0?ix('saída'):ix('saida')>=0?ix('saida'):ix('débito')>=0?ix('débito'):ix('debito')),iBanco=ix('banco'),iVal=ix('valor');
   if(iData<0){alert('A planilha precisa ter a coluna Data. Confira o cabeçalho.');return;}
-  let nR=0,nD=0;
+  let nR=0,nD=0,nDup=0;const _existe=new Set((dados().lancamentos||[]).map(_sigLanc));
   rows.forEach(row=>{const data=parseData(row[iData]);if(!data)return;let tipo,valor;
     if(iEnt>=0||iSai>=0){const ent=iEnt>=0?parseValor(row[iEnt]):0;const sai=iSai>=0?parseValor(row[iSai]):0;if(ent>0){tipo='receita';valor=ent;}else if(sai>0){tipo='despesa';valor=sai;}else return;}
     else{const v=iVal>=0?parseValor(row[iVal]):0;if(!v)return;tipo=v<0?'despesa':'receita';valor=Math.abs(v);}
     const desc=corrigeMoji(iDesc>=0?(row[iDesc]||''):'');const cat=corrigeMoji(iCat>=0?(row[iCat]||''):'')||'A classificar';const banco=corrigeMoji(iBanco>=0?(row[iBanco]||''):'');
-    dados().lancamentos.push({id:id(),data,descricao:desc,servico:desc,cliente:'',banco,categoria:cat,tipo,valor,status:'realizado',unidade:'',usuario:usuariaAtivaNome()});
+    const l={id:id(),data,descricao:desc,servico:desc,cliente:'',banco,categoria:cat,tipo,valor,status:'realizado',unidade:'',usuario:usuariaAtivaNome()};
+    const sg=_sigLanc(l);if(_existe.has(sg)){nDup++;return;}_existe.add(sg);dados().lancamentos.push(l);
     if(tipo==='receita')nR++;else nD++;});
   saveApp();const _nb=autoConciliar()+autoBaixaCorrespondentes();saveApp();render();document.getElementById('arqLanc').value='';
-  alert('Planilha importada!\nEntradas: '+nR+'\nSaídas: '+nD+(_nb?'\nConciliados automaticamente: '+_nb:''));};r.readAsArrayBuffer(f);}
+  alert('Planilha importada!\nEntradas: '+nR+'\nSaídas: '+nD+(nDup?'\nJá existentes (ignorados p/ não duplicar): '+nDup:'')+(_nb?'\nConciliados automaticamente: '+_nb:''));};r.readAsArrayBuffer(f);}
 function importarZoop(ev){const f=ev.target.files[0];if(!f)return;const r=new FileReader();r.onload=e=>{const o=lerCSVsimples(decodeArq(e.target.result));const H=o.header,rows=o.rows;const ix=n=>H.findIndex(h=>h.includes(n));
   const iData=(ix('data pgto')>=0?ix('data pgto'):ix('data')),iNome=ix('nome'),iBruto=(ix('valor total')>=0?ix('valor total'):ix('total')),iLiq=(ix('receber')>=0?ix('receber'):ix('liquido')),iParc=ix('parcela');
   if(iData<0||iLiq<0){alert('CSV do Zoop precisa ter Data Pgto e Valor a Receber. Exporte o controle de links em CSV.');return;}
