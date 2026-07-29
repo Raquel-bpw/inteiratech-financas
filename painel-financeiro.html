@@ -605,6 +605,8 @@
           <div><label>Banco / Conta</label><select id="concBanco" onchange="renderConciliacao()"></select></div>
           <div class="ex-mes"><button onclick="mudarConcMes(1)" title="Mês anterior">‹</button><select id="concMes" onchange="renderConciliacao()"></select><button onclick="mudarConcMes(-1)" title="Próximo mês">›</button></div>
           <label style="text-transform:none;font-weight:500;display:flex;gap:8px;align-items:center;font-size:13px;color:var(--tinta)"><input type="checkbox" id="concPrev" onchange="renderConciliacao()" style="width:auto"> Incluir previstos (projeção)</label>
+          <button class="btn ouro" onclick="conciliarAutomatico()" style="margin-top:4px">⚡ Conciliar automático</button>
+          <div class="mini" style="margin-top:4px">Amarra títulos ao extrato por valor exato + nome + até 2 dias úteis. O resto você amarra na mão.</div>
           <div class="ex-resumo" id="concResumo"></div>
         </div>
         <div class="extrato-main">
@@ -2392,7 +2394,6 @@ function renderTabela(){
     const _ent=l.tipo==='receita', _v=moeda(l.valor);
     return `<tr><td>${dataFmt}</td><td class="mini">${esc(l.cliente||'-')}</td><td><span style="display:inline-flex;align-items:center;gap:7px"><span style="width:9px;height:9px;border-radius:50%;background:${CORES_GRUPO[grupoDaCategoria(l.categoria)]}"></span>${esc(l.categoria||'-')}</span></td><td>${esc(l.servico||l.descricao||'-')}${ehEstorno(l)?' <span class="pill warn">↩️ Estorno</span>':''}${l.tagConcil?' <span class="pill warn">🏷️ '+esc(l.tagConcil)+'</span>':''}${l.conciliado?' <span class="pill" style="background:var(--verde);color:#fff">🔗 Conciliado</span>':''}</td><td class="mini">${ehAClassificar(l)?'<span class="pill warn">🔶 A classificar</span>':(l.status==='previsto'?'⏳ Previsto':'✓ Realizado')}</td><td class="mini">${esc(l.banco||'-')}</td><td style="text-align:right;font-weight:700;color:var(--verde);font-variant-numeric:tabular-nums">${_ent?_v:''}</td><td style="text-align:right;font-weight:700;color:var(--rubro);font-variant-numeric:tabular-nums">${_ent?'':_v}</td><td style="text-align:right;white-space:nowrap"><button class="btn-ico" onclick="toggleConciliado('${l.id}')" title="${l.conciliado?'Conciliado — clique para desfazer':'Marcar como conciliado (responsabilidade sua)'}" style="${l.conciliado?'filter:none':'opacity:.55'}">${l.conciliado?'🔗':'⛓️'}</button><button class="btn-ico" onclick="copiarLanc('${l.id}')" title="Copiar para editar">📋</button><button class="btn-ico" onclick="editarLanc('${l.id}')" title="Editar">✏️</button>${!ehEstorno(l)?`<button class="btn-ico" onclick="estornarLanc('${l.id}')" title="Estornar (gerar lançamento inverso)">↩️</button>`:''}<button class="btn-ico" onclick="excluirLanc('${l.id}')" title="Excluir">🗑️</button></td></tr>`;}).join('');
 }
-function toggleConciliado(lid){const l=dados().lancamentos.find(x=>x.id===lid);if(!l)return;l.conciliado=!l.conciliado;if(l.conciliado){l.conciliadoEm=new Date().toISOString().slice(0,10);l.conciliadoPor=(typeof usuariaAtivaNome==='function'?usuariaAtivaNome():'');}else{delete l.conciliadoEm;delete l.conciliadoPor;}saveApp();renderTabela();}
 function ehAClassificar(l){return (l.categoria||'')==='A classificar'||!l.categoria;}
 function renderResumoClassificar(){const box=document.getElementById('resumoClassificar');if(!box)return;const arr=dados().lancamentos.filter(l=>visivel(l)&&ehAClassificar(l));if(!arr.length){box.innerHTML='';return;}const rec=arr.filter(l=>l.tipo==='receita').reduce((s,l)=>s+(+l.valor||0),0);const desp=arr.filter(l=>l.tipo==='despesa').reduce((s,l)=>s+(+l.valor||0),0);box.innerHTML=`<div class="card" style="border-left:4px solid var(--ouro)"><div style="display:flex;align-items:center;justify-content:space-between;gap:14px;flex-wrap:wrap"><div><h2 style="margin:0">🔶 A classificar</h2><div class="cap"><b>${arr.length}</b> lançamento(s) importado(s) sem categoria — entradas ${moeda(rec)} · saídas ${moeda(desp)}. Trate para fechar a diferença de saldo.</div></div><button class="btn ouro" onclick="verAClassificar()">Ver a classificar</button></div></div>`;}
 function verAClassificar(){abrirAba('lancamentos');setTimeout(()=>{window._filtroLanc=window._filtroLanc||{};window._filtroLanc.aClassificar=true;renderTabela();atualizaBadgeFiltroLanc();const c=document.querySelector('#pg-lancamentos');if(c)c.scrollIntoView({behavior:'smooth'});},60);}
@@ -3245,14 +3246,58 @@ function renderConciliacao(){
   let acc=incPrev?saldoAntP:saldoAntR;
   let html=`<tr style="background:var(--creme2)"><td></td><td colspan=2><b>Saldo anterior</b></td><td></td><td style="text-align:right;font-weight:700">${moeda(acc)}</td></tr>`;
   lista.forEach(l=>{const v=l.tipo==='receita'?+l.valor:-+l.valor;acc+=v;const st=statusExtrato(l);if(!filtro[st])return;const info=EX_ST[st];const realiz=l.status!=='previsto';
-    html+=`<tr><td><span class="st-dot dot-${st}" title="${info.t}${realiz?' — clique para conciliar':''}" ${realiz?`onclick="toggleConciliado('${l.id}')"`:''}></span></td><td>${new Date(l.data+'T00:00:00').toLocaleDateString('pt-BR')}</td><td>${esc(l.descricao||l.categoria||'-')}<br><span class=mini>${esc(l.categoria||'')}</span></td><td style="text-align:right;font-weight:600;color:${v>=0?'var(--verde)':'var(--rubro)'}">${moeda(v)}</td><td style="text-align:right;font-weight:700;color:${acc>=0?'var(--vinho)':'var(--rubro)'}">${moeda(acc)}</td></tr>`;});
+    const _amar=realiz?(l.baixaDe?`<br><span class="mini" style="color:var(--verde)">🔗 amarrado</span> <button class="btn-ico" onclick="desamarrar('${l.id}')" title="Desamarrar (título volta a aberto)">✂️</button>`:`<br><button class="btn peq ouro" onclick="abrirAmarrar('${l.id}')" style="margin-top:3px">🔗 Amarrar título</button>`):'';
+    html+=`<tr><td><span class="st-dot dot-${st}" title="${info.t}${realiz?' — clique para conciliar':''}" ${realiz?`onclick="toggleConciliado('${l.id}')"`:''}></span></td><td>${new Date(l.data+'T00:00:00').toLocaleDateString('pt-BR')}</td><td>${esc(l.descricao||l.categoria||'-')}<br><span class=mini>${esc(l.categoria||'')}</span>${_amar}</td><td style="text-align:right;font-weight:600;color:${v>=0?'var(--verde)':'var(--rubro)'}">${moeda(v)}</td><td style="text-align:right;font-weight:700;color:${acc>=0?'var(--vinho)':'var(--rubro)'}">${moeda(acc)}</td></tr>`;});
   tb.innerHTML=html||'<tr><td colspan=5 class=mini style="text-align:center;padding:18px">Sem lançamentos neste filtro.</td></tr>';
 }
 const EX_ST={pendente:{c:'#c0392b',t:'Pendente'},agendado:{c:'#d4a017',t:'Agendado'},confirmado:{c:'#16447a',t:'Confirmado'},conciliado:{c:'#1c4d61',t:'Conciliado'}};
 function statusExtrato(l){if(l.status==='previsto'){const hoje=new Date().toISOString().slice(0,10);return l.data<hoje?'pendente':'agendado';}return l.conciliado?'conciliado':'confirmado';}
 function renderExFiltros(){const box=document.getElementById('exFiltros');if(!box)return;window._exFiltro=window._exFiltro||{pendente:true,agendado:true,confirmado:true,conciliado:true};box.innerHTML=['pendente','agendado','confirmado','conciliado'].map(k=>`<span class="ex-chip ${window._exFiltro[k]?'on':'off'}" onclick="toggleExFiltro('${k}')"><i style="background:${EX_ST[k].c}"></i>${EX_ST[k].t}s</span>`).join('');}
 function toggleExFiltro(k){window._exFiltro=window._exFiltro||{pendente:true,agendado:true,confirmado:true,conciliado:true};window._exFiltro[k]=!window._exFiltro[k];renderConciliacao();}
-function toggleConciliado(lid){const l=dados().lancamentos.find(x=>x.id===lid);if(!l||l.status==='previsto')return;l.conciliado=!l.conciliado;saveApp();renderConciliacao();}
+function toggleConciliado(lid){const l=dados().lancamentos.find(x=>x.id===lid);if(!l)return;l.conciliado=!l.conciliado;if(l.conciliado){l.conciliadoEm=new Date().toISOString().slice(0,10);l.conciliadoPor=(typeof usuariaAtivaNome==='function'?usuariaAtivaNome():'');}else{delete l.conciliadoEm;delete l.conciliadoPor;}saveApp();render();}
+// ---- Motor de conciliação: valor EXATO + nome (semelhança máx) + data (janela dias úteis) ----
+function _diasUteisEntre(d1,d2){var a=new Date(d1+'T00:00:00'),b=new Date(d2+'T00:00:00');if(a>b){var t=a;a=b;b=t;}var n=0;var cur=new Date(a);while(cur<b){cur.setDate(cur.getDate()+1);var dow=cur.getDay();if(dow!==0&&dow!==6)n++;}return n;}
+function _simDescricao(p,l){var norm=function(s){return (s||'').normalize('NFD').replace(/[̀-ͯ]/g,'').toUpperCase().replace(/[^A-Z0-9 ]/g,' ').replace(/\s+/g,' ').trim();};var tp=norm((p.cliente||'')+' '+(p.descricao||'')).split(' ').filter(function(w){return w.length>=3;});if(!tp.length)return 0;var alvo=norm((l.cliente||'')+' '+(l.descricao||''));var hits=0;tp.forEach(function(t){if(alvo.indexOf(t)>=0)hits++;});return hits/tp.length;}
+function conciliarAutomatico(){
+  var bid=document.getElementById('concBanco').value;var banco=(dados().bancos||[]).find(function(b){return b.id===bid;});if(!banco){alert('Selecione um banco.');return;}
+  var mes=document.getElementById('concMes').value;var bn=banco.nome.toLowerCase().trim();
+  var L=dados().lancamentos||[];
+  var movs=L.filter(function(l){return (l.banco||'').toLowerCase().trim()===bn&&l.status!=='previsto'&&l.data&&(l.data.slice(0,7)===mes)&&!l.baixaDe;});
+  var titulos=L.filter(function(l){return l.status==='previsto'&&!l.baixado;});
+  var usados=new Set();var n=0;
+  movs.forEach(function(m){
+    var cands=titulos.filter(function(p){return !usados.has(p.id)&&p.tipo===m.tipo&&Math.abs((+p.valor)-(+m.valor))<0.005&&_diasUteisEntre(p.venc||p.data,m.data)<=2&&_simDescricao(p,m)>=0.5;});
+    if(!cands.length)return;
+    cands.sort(function(a,b){return _simDescricao(b,m)-_simDescricao(a,m);});
+    var p=cands[0];p.baixado=true;p.baixaData=m.data;p.baixaRef=m.id;p.baixaAuto='auto';p.tagConcil='';m.baixaDe=p.id;m.conciliado=true;usados.add(p.id);n++;
+  });
+  saveApp();render();alert('Conciliação automática: '+n+' título(s) amarrado(s) ao extrato de '+banco.nome+' em '+mes+'.\n\nValor exato + nome + até 2 dias úteis. O que não amarrou fica para conciliar na mão.');
+}
+function abrirAmarrar(movId){
+  var m=dados().lancamentos.find(function(x){return x.id===movId;});if(!m)return;
+  var L=dados().lancamentos||[];
+  var abertos=L.filter(function(p){return p.status==='previsto'&&!p.baixado&&p.tipo===m.tipo;});
+  abertos.forEach(function(p){p.__sim=_simDescricao(p,m);p.__mesmoVal=Math.abs((+p.valor)-(+m.valor))<0.005;});
+  abertos.sort(function(a,b){if(a.__mesmoVal!==b.__mesmoVal)return a.__mesmoVal?-1:1;return (b.__sim)-(a.__sim);});
+  var opts=abertos.slice(0,60).map(function(p){var d=p.venc||p.data||'';return '<option value="'+p.id+'">'+(p.__mesmoVal?'✓ ':'')+esc(p.cliente||p.descricao||'-')+' · '+moeda(p.valor)+' · vence '+(d?new Date(d+'T00:00:00').toLocaleDateString('pt-BR'):'-')+'</option>';}).join('');
+  document.getElementById('modalConteudo').innerHTML='<h3>Amarrar ao extrato</h3><div style="background:#FAF7F0;border:1px solid #EDE6D8;border-radius:11px;padding:12px 14px;margin-bottom:12px;font-size:13px"><div style="display:flex;justify-content:space-between;gap:12px"><span style="color:#8f8073">Movimento</span><b>'+esc(m.descricao||m.categoria||'-')+'</b></div><div style="display:flex;justify-content:space-between;gap:12px"><span style="color:#8f8073">Data / Valor</span><b>'+(m.data?new Date(m.data+'T00:00:00').toLocaleDateString('pt-BR'):'-')+' · '+moeda(m.valor)+'</b></div></div><label>Título a receber/pagar (✓ = mesmo valor)</label><select id="amTit" style="width:100%;padding:10px;border:1px solid #e2ddd0;border-radius:10px;margin:6px 0 4px;font-family:inherit">'+(opts||'<option value="">— nenhum título em aberto —</option>')+'</select><div class="mini" style="margin:6px 0">A baixa segue o extrato: a data da baixa será a do movimento ('+(m.data?new Date(m.data+'T00:00:00').toLocaleDateString('pt-BR'):'-')+').</div><div class="modal-acoes"><button class="btn sec" onclick="fecharModal()">Cancelar</button><button class="btn" onclick="confirmarAmarrar(\''+movId+'\')">Amarrar</button></div>';
+  document.getElementById('modalBg').classList.add('show');
+}
+function confirmarAmarrar(movId){
+  var m=dados().lancamentos.find(function(x){return x.id===movId;});if(!m)return;
+  var tid=(document.getElementById('amTit')||{}).value;if(!tid){alert('Escolha um título.');return;}
+  var p=dados().lancamentos.find(function(x){return x.id===tid;});if(!p)return;
+  p.baixado=true;p.baixaData=m.data;p.baixaRef=m.id;p.baixaAuto='manual';p.tagConcil='';m.baixaDe=p.id;m.conciliado=true;
+  saveApp();fecharModal();render();
+}
+function desamarrar(movId){
+  var m=dados().lancamentos.find(function(x){return x.id===movId;});if(!m||!m.baixaDe)return;
+  if(!confirm('Desamarrar este movimento? O título volta para em aberto.'))return;
+  var p=dados().lancamentos.find(function(x){return x.id===m.baixaDe;});
+  if(p){p.baixado=false;delete p.baixaData;delete p.baixaRef;delete p.baixaAuto;}
+  delete m.baixaDe;m.conciliado=false;
+  saveApp();render();
+}
 function mudarConcMes(d){const sel=document.getElementById('concMes');if(!sel||!sel.options.length)return;let i=sel.selectedIndex+d;if(i<0)i=0;if(i>sel.options.length-1)i=sel.options.length-1;sel.selectedIndex=i;renderConciliacao();}
 
 // ===================== CONTAS A PAGAR / RECEBER =====================
