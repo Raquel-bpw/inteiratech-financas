@@ -2347,9 +2347,15 @@ function passaFiltroLanc(l){
   if(f.aClassificar&&!ehAClassificar(l))return false;
   if(f.semCliente&&(l.cliente||'').trim())return false;
   if(f.forma&&(l.formaPagto||'')!==f.forma)return false;
+  if(f.origem){
+    const o=origemLanc(l);
+    if(f.origem==='__manuais'){ if(!['Manual','Transferência','Estorno'].includes(o))return false; }
+    else if(f.origem==='__importados'){ if(!['Planilha de link','Relatório do sistema','Extrato bancário','Baixa manual'].includes(o))return false; }
+    else if(o!==f.origem)return false;
+  }
   return true;
 }
-function contaFiltrosAtivos(){const f=window._filtroLanc||{};let n=0;['tipo','status','categoria','banco','forma','dataIni','dataFim'].forEach(k=>{if(f[k])n++;});if(f.valorMin!=null&&f.valorMin!=='')n++;if(f.valorMax!=null&&f.valorMax!=='')n++;if(f.aClassificar)n++;if(f.semCliente)n++;return n;}
+function contaFiltrosAtivos(){const f=window._filtroLanc||{};let n=0;['tipo','status','categoria','banco','forma','origem','dataIni','dataFim'].forEach(k=>{if(f[k])n++;});if(f.valorMin!=null&&f.valorMin!=='')n++;if(f.valorMax!=null&&f.valorMax!=='')n++;if(f.aClassificar)n++;if(f.semCliente)n++;return n;}
 function atualizaBadgeFiltroLanc(){const b=document.getElementById('btnFiltrarLanc');if(!b)return;const n=contaFiltrosAtivos();b.innerHTML=n?`🔍 Filtrar (${n})`:'🔍 Filtrar';}
 function abrirFiltroLanc(){
   window._filtroLanc=window._filtroLanc||{};
@@ -2374,6 +2380,7 @@ function abrirFiltroLanc(){
       <div style="grid-column:span 3"><label>Categoria</label><select id="flCategoria">${catOpts}</select></div>
       <div style="grid-column:span 3"><label>Banco / Conta</label><select id="flBanco">${bancoOpts}</select></div>
       <div style="grid-column:span 3"><label>Forma</label><select id="flForma">${_formaOpts(f.forma)}</select></div>
+      <div style="grid-column:span 3"><label>Origem do título</label><select id="flOrigem"><option value="">Todas as origens</option><option value="__manuais" ${f.origem==='__manuais'?'selected':''}>▸ Todos os manuais</option><option value="__importados" ${f.origem==='__importados'?'selected':''}>▸ Todos os importados</option><option value="Manual" ${f.origem==='Manual'?'selected':''}>Manual</option><option value="Transferência" ${f.origem==='Transferência'?'selected':''}>Transferência</option><option value="Estorno" ${f.origem==='Estorno'?'selected':''}>Estorno</option><option value="Planilha de link" ${f.origem==='Planilha de link'?'selected':''}>Planilha de link</option><option value="Relatório do sistema" ${f.origem==='Relatório do sistema'?'selected':''}>Relatório do sistema</option><option value="Extrato bancário" ${f.origem==='Extrato bancário'?'selected':''}>Extrato bancário</option><option value="Baixa manual" ${f.origem==='Baixa manual'?'selected':''}>Baixa manual</option></select></div>
       <div style="grid-column:span 3"><label>Valor de (R$)</label><input type="number" step="0.01" id="flValorMin" placeholder="0,00" value="${(f.valorMin!=null&&f.valorMin!=='')?f.valorMin:''}"></div>
       <div style="grid-column:span 3"><label>Valor até (R$)</label><input type="number" step="0.01" id="flValorMax" placeholder="0,00" value="${(f.valorMax!=null&&f.valorMax!=='')?f.valorMax:''}"></div>
       <div style="grid-column:span 3"><label>Período — início</label><input type="date" id="flDataIni" value="${f.dataIni||''}"></div>
@@ -2398,6 +2405,7 @@ function buscarFiltroLanc(){
   f.categoria=document.getElementById('flCategoria').value;
   f.banco=document.getElementById('flBanco').value;
   const _ff=document.getElementById('flForma');f.forma=_ff?_ff.value:'';
+  const _fo=document.getElementById('flOrigem');f.origem=_fo?_fo.value:'';
   const vMin=document.getElementById('flValorMin').value;f.valorMin=vMin!==''?parseFloat(vMin):'';
   const vMax=document.getElementById('flValorMax').value;f.valorMax=vMax!==''?parseFloat(vMax):'';
   f.dataIni=document.getElementById('flDataIni').value;
@@ -2414,14 +2422,14 @@ function renderTabela(){
   const _rb=document.getElementById('lancResumo');
   if(_rb)_rb.innerHTML=`<span><b>${arr.length}</b> lançamento(s)</span><span>Entradas <b style="color:var(--verde)">${moeda(_tE)}</b></span><span>Saídas <b style="color:var(--rubro)">${moeda(_tS)}</b></span><span>Saldo <b style="color:${(_tE-_tS)>=0?'var(--verde)':'var(--rubro)'}">${moeda(_tE-_tS)}</b></span>`;
   const f=window._filtroLanc||{};
-  const filtroAtivo=!!(txt||f.tipo||f.status||f.categoria||f.banco||(f.valorMin!=null&&f.valorMin!=='')||(f.valorMax!=null&&f.valorMax!=='')||f.dataIni||f.dataFim||f.aClassificar||f.semCliente);
+  const filtroAtivo=!!(txt||f.tipo||f.status||f.categoria||f.banco||f.forma||f.origem||(f.valorMin!=null&&f.valorMin!=='')||(f.valorMax!=null&&f.valorMax!=='')||f.dataIni||f.dataFim||f.aClassificar||f.semCliente);
   let capado=false;
   if(!filtroAtivo&&arr.length>200){arr=arr.slice(0,200);capado=true;}
   document.getElementById('tabelaVazia').style.display=arr.length?'none':'block';
   const notaCap=document.getElementById('tabelaCapNota');if(notaCap)notaCap.style.display=capado?'block':'none';
   document.getElementById('tbody').innerHTML=arr.map(l=>{const dataFmt=l.data?new Date(l.data+'T00:00:00').toLocaleDateString('pt-BR'):'-';
     const _ent=l.tipo==='receita', _v=moeda(l.valor);
-    return `<tr><td>${dataFmt}</td><td class="mini">${esc(l.cliente||'-')}</td><td><span style="display:inline-flex;align-items:center;gap:7px"><span style="width:9px;height:9px;border-radius:50%;background:${CORES_GRUPO[grupoDaCategoria(l.categoria)]}"></span>${esc(l.categoria||'-')}</span></td><td>${esc(l.servico||l.descricao||'-')}${ehEstorno(l)?' <span class="pill warn">↩️ Estorno</span>':''}${l.tagConcil?' <span class="pill warn">🏷️ '+esc(l.tagConcil)+'</span>':''}${l.conciliado?' <span class="pill" style="background:var(--verde);color:#fff">🔗 Conciliado</span>':''}</td><td class="mini">${ehAClassificar(l)?'<span class="pill warn">🔶 A classificar</span>':(l.status==='previsto'?'⏳ Previsto':'✓ Realizado')}</td><td class="mini">${esc(l.banco||'-')}</td><td style="text-align:right;font-weight:700;color:var(--verde);font-variant-numeric:tabular-nums">${_ent?_v:''}</td><td style="text-align:right;font-weight:700;color:var(--rubro);font-variant-numeric:tabular-nums">${_ent?'':_v}</td><td style="text-align:right;white-space:nowrap"><button class="btn-ico" onclick="toggleConciliado('${l.id}')" title="${l.conciliado?'Conciliado — clique para desfazer':'Marcar como conciliado (responsabilidade sua)'}" style="${l.conciliado?'filter:none':'opacity:.55'}">${l.conciliado?'🔗':'⛓️'}</button><button class="btn-ico" onclick="copiarLanc('${l.id}')" title="Copiar para editar">📋</button><button class="btn-ico" onclick="editarLanc('${l.id}')" title="Editar">✏️</button>${!ehEstorno(l)?`<button class="btn-ico" onclick="estornarLanc('${l.id}')" title="Estornar (gerar lançamento inverso)">↩️</button>`:''}<button class="btn-ico" onclick="excluirLanc('${l.id}')" title="Excluir">🗑️</button></td></tr>`;}).join('');
+    return `<tr><td>${dataFmt}</td><td class="mini">${esc(l.cliente||'-')}</td><td><span style="display:inline-flex;align-items:center;gap:7px"><span style="width:9px;height:9px;border-radius:50%;background:${CORES_GRUPO[grupoDaCategoria(l.categoria)]}"></span>${esc(l.categoria||'-')}</span></td><td>${esc(l.servico||l.descricao||'-')}${ehEstorno(l)?' <span class="pill warn">↩️ Estorno</span>':''}${l.tagConcil?' <span class="pill warn">🏷️ '+esc(l.tagConcil)+'</span>':''}${l.conciliado?' <span class="pill" style="background:var(--verde);color:#fff">🔗 Conciliado</span>':''}</td><td class="mini">${ehAClassificar(l)?'<span class="pill warn">🔶 A classificar</span>':(l.status==='previsto'?'⏳ Previsto':'✓ Realizado')}</td><td class="mini">${esc(l.banco||'-')}</td><td style="text-align:right;font-weight:700;color:var(--verde);font-variant-numeric:tabular-nums">${_ent?_v:''}</td><td style="text-align:right;font-weight:700;color:var(--rubro);font-variant-numeric:tabular-nums">${_ent?'':_v}</td><td style="text-align:right;white-space:nowrap"><button class="btn-ico" onclick="toggleConciliado('${l.id}')" title="${l.conciliado?'Conciliado — clique para desfazer':'Marcar como conciliado (responsabilidade sua)'}" style="${l.conciliado?'background:#2E7D57;color:#fff;border-radius:7px;font-weight:800':'color:#b8ad9c'}">✓✓</button><button class="btn-ico" onclick="copiarLanc('${l.id}')" title="Copiar para editar">📋</button><button class="btn-ico" onclick="editarLanc('${l.id}')" title="Editar">✏️</button>${!ehEstorno(l)?`<button class="btn-ico" onclick="estornarLanc('${l.id}')" title="Estornar (gerar lançamento inverso)">↩️</button>`:''}<button class="btn-ico" onclick="excluirLanc('${l.id}')" title="Excluir">🗑️</button></td></tr>`;}).join('');
 }
 function origemLanc(l){if(!l)return '';if(l.origemLink)return 'Planilha de link';if(l.origemSistema)return 'Relatório do sistema';if(l.transfRef)return 'Transferência';if(l.estorno)return 'Estorno';if(l.status!=='previsto')return (l.baixadoManual?'Baixa manual':'Extrato bancário');return 'Manual';}
 function ehAClassificar(l){return (l.categoria||'')==='A classificar'||!l.categoria;}
@@ -2561,16 +2569,23 @@ function editarTransferencia(ref,lid){
   const desc=((ref0.servico||ref0.descricao)||'').replace(/"/g,'&quot;');
   const obs=(ref0.obs||'').replace(/"/g,'&quot;');
   const uni=ref0.unidade||'';
-  document.getElementById('modalConteudo').innerHTML=`<h3>Editar transferência entre contas</h3><div class="form-grid">
+  document.getElementById('modalConteudo').innerHTML=`<h3>Editar transferência entre contas</h3>
+    <div class="fg-sec">Datas e situação</div><div class="form-grid">
     <div style="grid-column:span 3"><label>Data</label><input type="date" id="etData" value="${dt}"></div>
-    <div style="grid-column:span 3"><label>Valor (R$)</label><input type="text" inputmode="decimal" id="etValor" value="${val}" onblur="this.value=fmtMoedaInput(this.value)"></div>
-    <div style="grid-column:span 3"><label>De (conta de origem)</label><select id="etDe">${opt(de)}</select></div>
-    <div style="grid-column:span 3"><label>Para (conta de destino)</label><select id="etPara">${opt(para)}</select></div>
     <div style="grid-column:span 3"><label>Situação</label><select id="etStatus"><option value="realizado" ${st!=='previsto'?'selected':''}>Realizado</option><option value="previsto" ${st==='previsto'?'selected':''}>Previsto (a realizar)</option></select></div>
-    ${(dados().unidades||[]).length?`<div style="grid-column:span 3"><label>Unidade</label><select id="etUnidade"><option value="">— sem unidade —</option>${dados().unidades.map(u=>`<option ${uni===u?'selected':''}>${u}</option>`).join('')}</select></div>`:''}
+    </div>
+    <div class="fg-sec">Identificação</div><div class="form-grid">
+    <div style="grid-column:span 3"><label>Valor (R$)</label><input type="text" inputmode="decimal" id="etValor" value="${val}" onblur="this.value=fmtMoedaInput(this.value)"></div>
     <div style="grid-column:span 6"><label>Descrição</label><input id="etDesc" value="${desc}"></div>
     <div style="grid-column:span 6"><label>Observação</label><input id="etObs" value="${obs}"></div>
-    <div style="grid-column:span 6"><label style="display:flex;align-items:center;gap:9px;cursor:pointer;text-transform:none;font-weight:600;color:var(--tinta)"><input type="checkbox" id="etConc" ${ref0.conciliado?'checked':''} style="width:auto"> ✅ Conciliado — bate com o extrato e entra no saldo</label></div>
+    </div>
+    <div class="fg-sec">Contas</div><div class="form-grid">
+    <div style="grid-column:span 3"><label>De (conta de origem)</label><select id="etDe">${opt(de)}</select></div>
+    <div style="grid-column:span 3"><label>Para (conta de destino)</label><select id="etPara">${opt(para)}</select></div>
+    ${(dados().unidades||[]).length?`<div style="grid-column:span 3"><label>Unidade</label><select id="etUnidade"><option value="">— sem unidade —</option>${dados().unidades.map(u=>`<option ${uni===u?'selected':''}>${u}</option>`).join('')}</select></div>`:''}
+    </div>
+    <div class="fg-sec">Conciliação</div><div class="form-grid">
+    <div style="grid-column:span 6"><label>Conciliação com o extrato</label><br><button type="button" id="etConcBtn" data-on="${ref0.conciliado?'1':'0'}" class="btn-conc${ref0.conciliado?' on':''}" onclick="var o=this.dataset.on==='1';this.dataset.on=o?'0':'1';this.classList.toggle('on',!o);this.querySelector('.txt').textContent=o?'Marcar como conciliado':'Conciliado'"><span class="tk">✓✓</span> <span class="txt">${ref0.conciliado?'Conciliado':'Marcar como conciliado'}</span></button></div>
   </div>
   <div class="modal-acoes"><button class="btn sec" onclick="excluirTransferencia('${ref}')" style="margin-right:auto">🗑️ Excluir transferência</button><button class="btn sec" onclick="fecharModal()">Cancelar</button><button class="btn" onclick="confirmarEdicaoTransf('${ref}')">Salvar</button></div>`;
   document.getElementById('modalBg').classList.add('show');
@@ -2587,7 +2602,7 @@ function confirmarEdicaoTransf(ref){
   const desc=document.getElementById('etDesc').value.trim()||('Transferência: '+de+' → '+para);
   const obs=(document.getElementById('etObs')||{}).value.trim();
   const st=document.getElementById('etStatus').value;
-  const _etc=(document.getElementById('etConc')||{}).checked||false;
+  const _etc=!!(document.getElementById('etConcBtn')&&document.getElementById('etConcBtn').dataset.on==='1');
   const legs=dados().lancamentos.filter(x=>x.transfRef===ref);
   let saida=legs.find(x=>x.transfLado==='saida')||legs.find(x=>x.tipo==='despesa');
   let entrada=legs.find(x=>x.transfLado==='entrada')||legs.find(x=>x.tipo==='receita');
