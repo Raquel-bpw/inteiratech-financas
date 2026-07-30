@@ -423,7 +423,7 @@
           <button class="menu-item" data-pages="cliente" onclick="irPara('cliente',this)">Empresa</button>
           <button class="menu-item" data-pages="bancos" onclick="irPara('bancos',this)">Bancos</button>
           <button class="menu-item" data-pages="categorias" onclick="irPara('categorias',this)">Categorias</button>
-          <button class="menu-item" data-pages="orcamento" onclick="irPara('orcamento',this)">Orçamento e metas</button>
+          <button class="menu-item" data-pages="orcamento" onclick="irPara('orcamento',this)">Metas</button>
           <button class="menu-item" data-pages="servicos" onclick="irPara('servicos',this)">Serviços</button>
           <button class="menu-item" data-pages="regras" onclick="irPara('regras',this)">Regras</button>
           <button class="menu-item" data-pages="usuarias" onclick="irPara('usuarias',this)">Perfis</button>
@@ -796,22 +796,8 @@
   <!-- ORCAMENTO -->
   <section class="pagina" id="pg-orcamento">
     <div class="eyebrow">Configuração</div>
-    <div class="titulo-pg">Orçamento e <em>metas</em></div>
-    <div class="sub-pg">Defina quanto pretende gastar em cada categoria por mês e acompanhe o previsto contra o realizado.</div>
-    <div class="card">
-      <h2>Definir orçamento mensal</h2><div class="cap">Valor planejado de gasto por mês para cada categoria de despesa.</div>
-      <div class="form-grid">
-        <div style="grid-column:span 2"><label>Categoria</label><select id="oCat"></select></div>
-        <div><label>Orçamento mensal (R$)</label><input type="number" id="oValor" step="0.01" placeholder="0,00"></div>
-        <div><button class="btn" style="width:100%" onclick="salvarOrcamento()">Definir</button></div>
-      </div>
-    </div>
-    <div class="card">
-      <h2>Previsto x Realizado</h2>
-      <div class="toggle-linha"><label style="margin:0;flex:0 0 auto">Mês de referência:</label><select id="orcMes" onchange="renderOrcamento()" style="max-width:220px"></select></div>
-      <div id="orcLista"></div>
-      <div id="orcVazio" class="vazio" style="display:none">Defina o orçamento de pelo menos uma categoria acima.</div>
-    </div>
+    <div class="titulo-pg"><em>Metas</em></div>
+    <div class="sub-pg">Defina as metas do seu fluxo de caixa por mês — em % da receita ou em R$ — e acompanhe o realizado (conciliado).</div>
     <div class="card">
       <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px">
         <h2 style="margin:0">Metas do ano</h2>
@@ -1429,7 +1415,7 @@ function irPara(pages,btn){
   if(arr.includes('fluxo'))renderFluxo();
   if(arr.includes('conferencia'))renderFluxo();
   if(arr.includes('validacao'))renderValidacoes();
-  if(arr.includes('orcamento')){renderOrcamento();renderMetasAno();}
+  if(arr.includes('orcamento')){renderMetasAno();}
   if(arr.includes('perfis'))renderPerfis();
   if(arr.includes('usuarias'))renderUsuarias();
   if(arr.includes('regras'))renderRegras();
@@ -1908,31 +1894,32 @@ function bancosParaFluxo(){const reg=bancosVisiveis();const regNomes=reg.map(b=>
   const lista=reg.slice();
   nomesLanc.forEach(n=>{if(!regNomes.includes(n.toLowerCase()))lista.push({nome:n,saldoInicial:0,naoCadastrado:true});});
   return lista;}
-function renderFluxoSaldoBanco(boxId){var box=document.getElementById(boxId||'fluxoSaldoBanco');if(!box)return;var bancos=bancosParaFluxo().slice().sort(function(a,b){return (a.nome||'').localeCompare(b.nome||'');});if(!bancos.length){box.innerHTML='<div class="card"><h2>Saldo por banco</h2><div class="cap">Saldo inicial + entradas − saídas de cada conta.</div><div class="vazio">Cadastre um banco na aba <b>Bancos</b> e registre lançamentos para ver os saldos por conta aqui.</div></div>';return;}
+function renderFluxoSaldoBanco(boxId){var box=document.getElementById(boxId||'fluxoSaldoBanco');if(!box)return;var bancos=bancosParaFluxo().slice().sort(function(a,b){return (a.nome||'').localeCompare(b.nome||'');});if(!bancos.length){box.innerHTML='<div class="card"><h2>Saldo por banco</h2><div class="cap">Informe o saldo do extrato de cada conta e o sistema confere se fecha.</div><div class="vazio">Cadastre um banco na aba <b>Bancos</b> e registre lançamentos.</div></div>';return;}
   var ym=periodoYM();var somaV=function(arr){return arr.reduce(function(s,l){return s+(l.tipo==='receita'?+l.valor:-+l.valor);},0);};
   var SE=dados().saldoExtrato=dados().saldoExtrato||{};
-  var okTudo=true,temAlgum=false;
+  var nInform=0,nDif=0;
   var rows=bancos.map(function(b){var bn=b.nome.toLowerCase().trim();var movs=dados().lancamentos.filter(function(l){return (l.banco||'').toLowerCase().trim()===bn&&noUnidade(l)&&l.status!=='previsto'&&l.data;});
     var movsC=movs.filter(function(l){return l.conciliado;});
     var priorC=ym?somaV(movsC.filter(function(l){return l.data.slice(0,7)<ym;})):0;
     var saldoC=(b.saldoInicial||0)+priorC+somaV(movsC.filter(function(l){return noPeriodo(l);}));
-    var priorE=ym?somaV(movs.filter(function(l){return l.data.slice(0,7)<ym;})):0;
-    var saldoE=(b.saldoInicial||0)+priorE+somaV(movs.filter(function(l){return noPeriodo(l);}));
-    var aConc=Math.round((saldoE-saldoC)*100)/100;
-    var inf=SE[b.nome];var temInf=(inf!==undefined&&inf!==null&&inf!=='');
-    var difExt=temInf?Math.round(((+inf)-saldoE)*100)/100:null;
-    if(temInf){temAlgum=true;if(Math.abs(difExt)>=0.01)okTudo=false;}
-    var confCell=difExt==null?'<span class="mini" style="color:var(--suave)">informe o extrato</span>':(Math.abs(difExt)<0.01?'<span style="color:var(--verde);font-weight:700">✓ bate</span>':'<span style="color:var(--rubro);font-weight:700">'+moeda(difExt)+'</span>');
+    var inf=SE[b.nome];var tem=(inf!==undefined&&inf!==null&&inf!=='');
     var nesc=b.nome.replace(/'/g,"\\'");
-    return '<tr><td><b>'+esc(b.nome)+'</b>'+(b.naoCadastrado?' <span class="mini" style="color:var(--ouro)">• não cadastrado</span>':'')+'</td>'+
-      '<td style="text-align:right"><input type="number" step="0.01" value="'+(temInf?inf:'')+'" placeholder="—" onchange="setSaldoExtratoBanco(\''+nesc+'\',this.value)" style="width:120px;text-align:right;padding:4px 6px;border:1px solid #e2ddd0;border-radius:7px"></td>'+
-      '<td style="text-align:right">'+moeda(saldoE)+'</td>'+
-      '<td style="text-align:center">'+confCell+'</td>'+
-      '<td style="text-align:right;font-weight:700;color:'+(saldoC>=0?'var(--vinho)':'var(--rubro)')+'">'+moeda(saldoC)+(Math.abs(aConc)>=0.01?'<br><span class="mini" style="color:var(--ouro)">a conciliar '+moeda(aConc)+'</span>':'')+'</td></tr>';}).join('');
-  var faixa=temAlgum?('<div class="conf '+(okTudo?'ok':'bad')+'" style="margin:10px 0"><div class="conf-ico">'+(okTudo?'✓':'!')+'</div><div><b>'+(okTudo?'Extratos batem certo!':'Há banco com saldo do extrato diferente do sistema')+'</b><br><span class="mini">'+(okTudo?'O saldo final de cada extrato informado confere com os lançamentos do sistema.':'Confira a coluna "Confere?" — pode faltar importar ou conciliar algum lançamento.')+'</span></div></div>'):'';
-  box.innerHTML='<div class="card"><h2>Saldo por banco</h2><div class="cap">Saldo composto <b>só pelo que está conciliado</b>. Informe o <b>saldo final do extrato</b> de cada conta para conferir se o sistema está fechando com o banco.</div>'+faixa+'<div style="overflow-x:auto"><table><thead><tr><th>Conta</th><th style="text-align:right">Saldo do extrato (informado)</th><th style="text-align:right">Realizado no sistema</th><th style="text-align:center">Confere?</th><th style="text-align:right">Conciliado (compõe saldo)</th></tr></thead><tbody>'+rows+'</tbody></table></div></div>';}
+    var status;
+    if(!tem){status='<span class="mini" style="color:var(--suave)">— informe o saldo do extrato ao lado</span>';}
+    else{nInform++;var dif=Math.round(((+inf)-saldoC)*100)/100;
+      if(Math.abs(dif)<0.01){status='<span style="display:inline-flex;align-items:center;gap:7px;color:#2f7d5b;font-weight:700"><span style="width:22px;height:22px;border-radius:50%;background:#2f7d5b;color:#fff;display:inline-flex;align-items:center;justify-content:center;font-size:13px">✓</span> Fechado — sem diferença</span>';}
+      else if(dif>0){status='<span style="display:inline-flex;align-items:center;gap:7px;color:#a06a1a;font-weight:700"><span style="width:22px;height:22px;border-radius:50%;background:#e0a53a;color:#fff;display:inline-flex;align-items:center;justify-content:center;font-size:13px">!</span> Faltam '+moeda(dif)+' para conciliar</span>';nDif++;}
+      else{status='<span style="display:inline-flex;align-items:center;gap:7px;color:var(--rubro);font-weight:700"><span style="width:22px;height:22px;border-radius:50%;background:#b04a3a;color:#fff;display:inline-flex;align-items:center;justify-content:center;font-size:13px">!</span> '+moeda(Math.abs(dif))+' a mais no sistema — confira</span>';nDif++;}
+    }
+    return '<tr><td style="padding:13px 8px"><b>'+esc(b.nome)+'</b></td>'+
+      '<td style="text-align:right;padding:13px 8px"><input type="number" step="0.01" value="'+(tem?inf:'')+'" placeholder="informar" onchange="setSaldoExtratoBanco(\''+nesc+'\',this.value)" style="width:130px;text-align:right;padding:7px 9px;border:1px solid #e2ddd0;border-radius:8px;font-size:14px"></td>'+
+      '<td style="text-align:right;padding:13px 8px;font-weight:700;font-size:15px;color:'+(saldoC>=0?'var(--vinho)':'var(--rubro)')+'">'+moeda(saldoC)+'</td>'+
+      '<td style="padding:13px 8px">'+status+'</td></tr>';}).join('');
+  var faixa='';
+  if(nInform>0){var ok=(nDif===0);faixa='<div class="conf '+(ok?'ok':'bad')+'" style="margin:12px 0"><div class="conf-ico">'+(ok?'✓':'!')+'</div><div><b>'+(ok?'Todos os bancos informados estão fechados!':nDif+' banco(s) com diferença para fechar')+'</b><br><span class="mini">'+(ok?'O saldo conciliado bate com o saldo do extrato.':'Trabalhe a conciliação desses bancos até a diferença zerar.')+'</span></div></div>';}
+  box.innerHTML='<div class="card"><h2>Saldo por banco</h2><div class="cap">Digite o <b>saldo final do extrato</b> de cada conta. O sistema compara com o que já está <b>conciliado</b> e diz se fecha ou quanto falta.</div>'+faixa+'<div style="overflow-x:auto"><table><thead><tr><th>Conta</th><th style="text-align:right">Saldo do extrato</th><th style="text-align:right">Conciliado até agora</th><th>Situação</th></tr></thead><tbody>'+rows+'</tbody></table></div></div>';}
 function setSaldoExtratoBanco(nome,val){var d=dados();d.saldoExtrato=d.saldoExtrato||{};if(val===''||val===null||val===undefined){delete d.saldoExtrato[nome];}else{var v=parseFloat(String(val).replace(',','.'));if(isNaN(v))delete d.saldoExtrato[nome];else d.saldoExtrato[nome]=v;}saveApp();renderFluxoSaldoBanco();}
-function montarMetaRapida(){var sel=document.getElementById('mrLinha');if(!sel)return;var opts='';var GF=(typeof GRUPOS_FATURAMENTO!=='undefined')?GRUPOS_FATURAMENTO:[];var GD=(typeof GRUPOS_DESPESA!=='undefined')?GRUPOS_DESPESA.filter(function(g){return CLASSIFICADOS.indexOf(g)>=0;}):[];GF.concat(GD).forEach(function(g){opts+='<option value="'+g.replace(/"/g,'')+'">'+((typeof LABEL_GRUPO!=='undefined'&&LABEL_GRUPO[g])||g)+'</option>';});(dados().categorias||[]).forEach(function(c){opts+='<option value="cat:'+c.nome.replace(/"/g,'')+'">— '+esc(c.nome)+'</option>';});sel.innerHTML=opts;var am=document.getElementById('mrAte');if(am&&!am.options.length){var meses=['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'];am.innerHTML=meses.map(function(m,i){return '<option value="'+i+'"'+(i===11?' selected':'')+'>'+m+'</option>';}).join('');}}
+function montarMetaRapida(){var sel=document.getElementById('mrLinha');if(!sel)return;var opts='';var GF=(typeof GRUPOS_FATURAMENTO!=='undefined')?GRUPOS_FATURAMENTO:[];var GD=(typeof GRUPOS_DESPESA!=='undefined')?GRUPOS_DESPESA.filter(function(g){return g===g.toUpperCase();}):[];GF.concat(GD).forEach(function(g){opts+='<option value="'+g.replace(/"/g,'')+'">'+((typeof LABEL_GRUPO!=='undefined'&&LABEL_GRUPO[g])||g)+'</option>';});(dados().categorias||[]).forEach(function(c){opts+='<option value="cat:'+c.nome.replace(/"/g,'')+'">— '+esc(c.nome)+'</option>';});sel.innerHTML=opts;var am=document.getElementById('mrAte');if(am&&!am.options.length){var meses=['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'];am.innerHTML=meses.map(function(m,i){return '<option value="'+i+'"'+(i===11?' selected':'')+'>'+m+'</option>';}).join('');}}
 function aplicarMetaRapida(){var key=document.getElementById('mrLinha').value;var modo=document.getElementById('mrModo').value;var v=parseFloat(String(document.getElementById('mrValor').value).replace(',','.'));var ate=parseInt(document.getElementById('mrAte').value,10);if(!key){alert('Escolha a linha.');return;}if(isNaN(v)){alert('Informe o valor da meta.');return;}var ano=document.getElementById('metaAno').value;var M=_metasObj(ano);M[key]=M[key]||{modo:modo,m:{}};M[key].modo=modo;for(var i=0;i<=ate;i++)M[key].m[i]=v;saveApp();renderMetasAno();}
 function limparMetaLinha(key){if(!confirm('Limpar as metas desta linha no ano selecionado?'))return;var ano=document.getElementById('metaAno').value;var M=_metasObj(ano);if(M[key])M[key].m={};saveApp();renderMetasAno();}
 function gerarResumoSemana(){var L=dados().lancamentos||[];var hojeS=new Date().toISOString().slice(0,10);var fimD=new Date(new Date().getTime()+7*86400000);var fim=fimD.getFullYear()+'-'+String(fimD.getMonth()+1).padStart(2,'0')+'-'+String(fimD.getDate()).padStart(2,'0');
@@ -2853,7 +2840,7 @@ var head='<thead><tr><th style="text-align:left;min-width:180px">Grupo do fluxo<
 function catsDoGrupo(g){return (dados().categorias||[]).filter(function(c){return grupoDaCategoria(c.nome)===g;});}
 function modoSel(key,modo){var k=key.replace(/'/g,"\\'");return '<select onchange="setMetaModo(\''+k+'\',this.value)" style="font-size:11px;padding:3px 4px;border:1px solid #e2ddd0;border-radius:6px"><option value="pct"'+(modo==='pct'?' selected':'')+'>% receita</option><option value="rs"'+(modo==='rs'?' selected':'')+'>R$</option></select>';}
 function inputCell(key,mi,modo){var rec=M[key]||{m:{}};var v=(rec.m&&rec.m[mi]!=null)?rec.m[mi]:'';var k=key.replace(/'/g,"\\'");return '<td style="text-align:center;padding:2px"><input value="'+v+'" onchange="setMetaVal(\''+k+'\','+mi+',this.value)" style="width:62px;text-align:right;padding:3px;border:1px solid #e2ddd0;border-radius:6px;font-size:11px" placeholder="'+(modo==='pct'?'%':'R$')+'"></td>';}
-var SECOES=[{t:'RECEITA / FATURAMENTO',gs:GRUPOS_FATURAMENTO},{t:'CUSTOS E DESPESAS',gs:GRUPOS_DESPESA.filter(function(g){return CLASSIFICADOS.indexOf(g)>=0;})}];
+var SECOES=[{t:'RECEITA / FATURAMENTO',gs:GRUPOS_FATURAMENTO},{t:'CUSTOS E DESPESAS',gs:GRUPOS_DESPESA.filter(function(g){return g===g.toUpperCase();})}];
 var body='';
 SECOES.forEach(function(sec){
  body+='<tr><td colspan="14" style="background:#F1ECE0;font-weight:800;color:#7a2e3a;padding:6px 8px;font-size:12px;letter-spacing:.04em">'+sec.t+'</td></tr>';
@@ -3614,7 +3601,7 @@ function baixarTodos(tipo){const abertos=dados().lancamentos.filter(l=>l.status=
 function init(){loadApp();initApos();}
 function initApos(){
   const _fd0=document.getElementById('fData');if(_fd0)_fd0.value=new Date().toISOString().slice(0,10);
-  const _emp=((dados().cliente&&dados().cliente.razaoSocial)||perfil().nome||'sua empresa');document.getElementById('saudacao').innerHTML=`Bem-vinda à gestão da <b>${_emp}</b>.`;
+  const _emp=((dados().cliente&&dados().cliente.razaoSocial)||perfil().nome||'sua empresa');document.getElementById('saudacao').innerHTML=`Bem-vinda à gestão da <b>${_emp}</b>. <span style="font-size:12px;color:var(--suave);font-weight:500">· Os números do painel são compostos só pelo que está conciliado.</span>`;
   atualizaGrupoSelect();render();
   if(autoBackupDevido()){if(typeof _bkDirHandle!=='undefined'&&_bkDirHandle)setTimeout(mostrarBotaoBackupPasta,1200);else setTimeout(exportarBackup,1800);}
 }
