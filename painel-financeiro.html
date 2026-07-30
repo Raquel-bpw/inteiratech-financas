@@ -415,7 +415,6 @@
         <button class="sb-grupo" onclick="toggleGrupo(this)">Relatórios<span class="sb-seta">⌄</span></button>
         <div class="sb-itens">
           <button class="menu-item" data-pages="relatorios" onclick="irPara('relatorios',this)">Relatórios</button>
-          <button class="menu-item" data-pages="orcamento" onclick="irPara('orcamento',this)">Orçamento e metas</button>
         </div>
       </div>
       <div class="sb-bloco">
@@ -424,6 +423,7 @@
           <button class="menu-item" data-pages="cliente" onclick="irPara('cliente',this)">Empresa</button>
           <button class="menu-item" data-pages="bancos" onclick="irPara('bancos',this)">Bancos</button>
           <button class="menu-item" data-pages="categorias" onclick="irPara('categorias',this)">Categorias</button>
+          <button class="menu-item" data-pages="orcamento" onclick="irPara('orcamento',this)">Orçamento e metas</button>
           <button class="menu-item" data-pages="servicos" onclick="irPara('servicos',this)">Serviços</button>
           <button class="menu-item" data-pages="regras" onclick="irPara('regras',this)">Regras</button>
           <button class="menu-item" data-pages="usuarias" onclick="irPara('usuarias',this)">Perfis</button>
@@ -645,6 +645,14 @@
       <div class="kpi d"><div class="rotulo">A pagar (em aberto)</div><div class="valor" id="ctPag">R$ 0,00</div><div class="nota" id="ctPagN">0 conta(s)</div></div>
       <div class="kpi l"><div class="rotulo">Saldo previsto</div><div class="valor" id="ctSaldo">R$ 0,00</div><div class="nota">a receber menos a pagar</div></div>
     </div>
+    <div class="card" style="padding:12px 14px;margin-bottom:14px"><div style="display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end">
+      <div><label class="mini">De (vencimento)</label><br><input type="date" id="fcDataIni" onchange="renderContas()"></div>
+      <div><label class="mini">Até (vencimento)</label><br><input type="date" id="fcDataFim" onchange="renderContas()"></div>
+      <div style="flex:1;min-width:150px"><label class="mini">Cliente / descrição</label><br><input type="text" id="fcCliente" placeholder="buscar..." oninput="renderContas()" style="width:100%"></div>
+      <div><label class="mini">Valor de (R$)</label><br><input type="number" id="fcValMin" placeholder="0,00" step="0.01" oninput="renderContas()" style="width:110px"></div>
+      <div><label class="mini">até (R$)</label><br><input type="number" id="fcValMax" placeholder="0,00" step="0.01" oninput="renderContas()" style="width:110px"></div>
+      <button class="btn sec peq" onclick="limparFiltroContas()">✕ Limpar</button>
+    </div></div>
     <div class="card">
       <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px;margin-bottom:6px">
         <h2 style="margin:0">A receber</h2>
@@ -2767,8 +2775,13 @@ function renderOrcamento(){
   document.getElementById('orcVazio').style.display=orc.length?'none':'block';
   const realizadoCat={};
   dados().lancamentos.filter(l=>l.tipo==='despesa'&&l.status!=='previsto'&&l.data&&l.data.slice(0,7)===mes).forEach(l=>{realizadoCat[l.categoria]=(realizadoCat[l.categoria]||0)+(+l.valor||0);});
+  const _est=orc.filter(o=>{var r=realizadoCat[o.categoria]||0;return o.valor>0&&r/o.valor>1;});
+  const _lim=orc.filter(o=>{var r=realizadoCat[o.categoria]||0;var p=o.valor>0?r/o.valor:0;return p>0.8&&p<=1;});
+  let _alerta='';
+  if(_est.length)_alerta=`<div style="background:#F7DDD7;border:1px solid #E0A99A;border-left:6px solid var(--rubro);border-radius:12px;padding:16px 18px;margin-bottom:16px;color:#8a2f22"><b style="font-size:16px">🚨 Orçamento estourado</b><br><span style="font-size:13px">${_est.length} categoria(s) passaram de 100% do orçamento: <b>${_est.map(o=>esc(o.categoria)).join(', ')}</b>. Reveja os gastos.</span></div>`;
+  else if(_lim.length)_alerta=`<div style="background:#F7EFD6;border:1px solid #E0C86A;border-left:6px solid var(--ouro);border-radius:12px;padding:16px 18px;margin-bottom:16px;color:#7a5f16"><b style="font-size:16px">⚠️ Atenção — orçamento passando de 80%</b><br><span style="font-size:13px">${_lim.length} categoria(s) já consumiram mais de 80% do previsto: <b>${_lim.map(o=>esc(o.categoria)).join(', ')}</b>.</span></div>`;
   const box=document.getElementById('orcLista');
-  box.innerHTML=orc.slice().sort((a,b)=>b.valor-a.valor).map(o=>{
+  box.innerHTML=_alerta+orc.slice().sort((a,b)=>b.valor-a.valor).map(o=>{
     const real=realizadoCat[o.categoria]||0;const p=o.valor>0?real/o.valor:0;const larg=Math.min(100,p*100);
     let cor=p>1?'var(--rubro)':p>0.85?'var(--ouro)':'var(--verde)';
     let st=p>1?`<span class="pill bad">estourou ${pct(p-1)}</span>`:p>0.85?'<span class="pill warn">no limite</span>':'<span class="pill ok">dentro</span>';
@@ -3438,7 +3451,10 @@ function setAutoConciliar(){dados().autoConciliar=document.getElementById('autoC
 function renderContas(){
   if(!document.getElementById('tbodyRec'))return;
   const _ac=document.getElementById('autoConcChk');if(_ac)_ac.checked=dados().autoConciliar!==false;
-  const abertos=dados().lancamentos.filter(l=>l.status==='previsto'&&!l.baixado&&noUnidade(l));
+  const _gv=id=>{var e=document.getElementById(id);return e?e.value:'';};
+  const _fc={ini:_gv('fcDataIni'),fim:_gv('fcDataFim'),cli:(_gv('fcCliente')||'').toLowerCase(),vmin:_gv('fcValMin'),vmax:_gv('fcValMax')};
+  const _passaC=l=>{var d=l.data||'';if(_fc.ini&&d<_fc.ini)return false;if(_fc.fim&&d>_fc.fim)return false;if(_fc.cli&&!(((l.cliente||'')+' '+(l.descricao||'')+' '+(l.servico||'')).toLowerCase().includes(_fc.cli)))return false;var v=+l.valor||0;if(_fc.vmin!==''&&!isNaN(+_fc.vmin)&&v<+_fc.vmin)return false;if(_fc.vmax!==''&&!isNaN(+_fc.vmax)&&v>+_fc.vmax)return false;return true;};
+  const abertos=dados().lancamentos.filter(l=>l.status==='previsto'&&!l.baixado&&noUnidade(l)&&_passaC(l));
   const rec=abertos.filter(l=>l.tipo==='receita').sort((a,b)=>(a.data||'').localeCompare(b.data||''));
   const pag=abertos.filter(l=>l.tipo==='despesa').sort((a,b)=>(a.data||'').localeCompare(b.data||''));
   const tRec=rec.reduce((s,l)=>s+(+l.valor||0),0),tPag=pag.reduce((s,l)=>s+(+l.valor||0),0);
@@ -3451,6 +3467,7 @@ function renderContas(){
   document.getElementById('tbodyRec').innerHTML=rec.map(linha).join('');document.getElementById('recVazio').style.display=rec.length?'none':'block';
   document.getElementById('tbodyPag').innerHTML=pag.map(linha).join('');document.getElementById('pagVazio').style.display=pag.length?'none':'block';
 }
+function limparFiltroContas(){['fcDataIni','fcDataFim','fcCliente','fcValMin','fcValMax'].forEach(function(id){var e=document.getElementById(id);if(e)e.value='';});renderContas();}
 function _dtBR(d){return d?new Date(d+'T00:00:00').toLocaleDateString('pt-BR'):'';}
 function baixarConta(pid){const p=dados().lancamentos.find(l=>l.id===pid);if(!p)return;window._baixaId=pid;const m=acharMatch(p);const bs=(dados().bancos||[]).filter(b=>b.ativo!==false);const bopts='<option value="">— escolha o banco —</option>'+bs.map(b=>`<option value="${esc(b.nome)}"${p.banco===b.nome?' selected':''}>${esc(b.nome)}</option>`).join('');const hoje=new Date().toISOString().slice(0,10);const eRec=p.tipo==='receita';
   const _venc=p.dataVencimento||p.data;
