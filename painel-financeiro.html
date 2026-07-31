@@ -467,11 +467,12 @@
   <!-- PAINEL -->
   <section class="pagina ativa" id="pg-painel">
     <div class="saudacao" id="saudacao">Bem-vinda à gestão da sua empresa.</div>
+    <div id="avisoConcil"></div>
     <div class="grid-kpi stagger">
-      <div class="kpi l"><div class="rotulo">Lucro da empresa</div><div class="valor" id="kLucro">R$ 0,00</div><div class="nota" id="kLucroNota">o que ficou para a empresa</div></div>
-      <div class="kpi r"><div class="rotulo">Receita do período</div><div class="valor" id="kReceita">R$ 0,00</div><div class="nota">tudo que entrou no caixa</div></div>
-      <div class="kpi d"><div class="rotulo">Total de despesas</div><div class="valor" id="kDespesa">R$ 0,00</div><div class="nota">tudo que saiu</div></div>
-      <div class="kpi m"><div class="rotulo">Margem líquida</div><div class="valor" id="kMargem">R$ 0,00</div><div class="nota" id="kMargemNota">0% de margem · meta saudável 10% a 20%</div></div>
+      <div class="kpi l" title="Receita conciliada menos as despesas conciliadas do período. Só entra o que já foi conciliado."><div class="rotulo">Lucro da empresa</div><div class="valor" id="kLucro">R$ 0,00</div><div class="nota" id="kLucroNota">o que ficou para a empresa</div></div>
+      <div class="kpi r"><div class="rotulo">Receita do período</div><div class="valor" id="kReceita">R$ 0,00</div><div class="nota">entradas já conciliadas no período</div></div>
+      <div class="kpi d"><div class="rotulo">Total de despesas</div><div class="valor" id="kDespesa">R$ 0,00</div><div class="nota">saídas já conciliadas no período</div></div>
+      <div class="kpi m" title="Quanto do que entrou virou lucro. Meta saudável: 10% a 20%."><div class="rotulo">Margem líquida</div><div class="valor" id="kMargem">R$ 0,00</div><div class="nota" id="kMargemNota">0% de margem · meta saudável 10% a 20%</div></div>
     </div>
     <div id="lembretesVenc"></div>
     <div class="grid2" style="grid-template-columns:1fr 1fr">
@@ -1513,6 +1514,18 @@ function render(){
   document.getElementById('negPerfil').textContent=p.negocio||'cliente';
   montarFiltros();
   const c=calcular();
+  try{
+    var _perR=dados().lancamentos.filter(function(l){return visivel(l)&&l.status!=='previsto'&&l.data&&noPeriodo(l)&&!l.conciliado;});
+    var _fRec=_perR.filter(function(l){return l.tipo==='receita'&&!ehEstorno(l)&&!ehMovimento(l.categoria)&&!catForaDoLucro(l.categoria);}).reduce(function(s,l){return s+(+l.valor||0);},0);
+    var _fDesp=_perR.filter(function(l){return l.tipo==='despesa'&&!ehMovimento(l.categoria);}).reduce(function(s,l){return s+(+l.valor||0);},0);
+    var _recTot=(c.receita||0)+_fRec;var _pc=_recTot>0?Math.round((c.receita||0)/_recTot*100):100;
+    var _av=document.getElementById('avisoConcil');
+    if(_av){
+      if(_fRec>0.005||_fDesp>0.005){
+        _av.innerHTML='<div style="background:#FFF6E3;border:1px solid #E9D9A9;border-left:4px solid #E0A53A;border-radius:12px;padding:12px 16px;margin:0 0 14px;font-size:13px;color:#6b5518;line-height:1.55"><b>⚠️ '+_pc+'% das entradas deste período já estão conciliadas.</b> Ainda faltam conciliar '+moeda(_fRec)+' em entradas'+(_fDesp>0.005?' e '+moeda(_fDesp)+' em saídas':'')+'. Os números abaixo somam <b>só o que já foi conciliado</b> — então ainda não refletem o período inteiro. Concilie em <b>Financeiro → Conferência de bancos</b> para o painel ficar completo.</div>';
+      } else { _av.innerHTML=''; }
+    }
+  }catch(e){}
   document.getElementById('kLucro').textContent=moeda(c.lucro);
   document.getElementById('kReceita').textContent=moeda(c.receita);
   document.getElementById('kDespesa').textContent=moeda(c.totalDesp);
