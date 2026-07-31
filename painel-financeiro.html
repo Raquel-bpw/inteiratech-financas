@@ -596,6 +596,7 @@
     <div class="card">
       <h2>Extrato de contas</h2>
       <div class="cap">Igual à planilha que você exporta — com o saldo acumulado linha a linha.</div>
+      <div style="display:flex;gap:14px;flex-wrap:wrap;align-items:center;background:#FAF7F0;border:1px solid #EDE6D8;border-radius:9px;padding:8px 12px;font-size:11.5px;margin:8px 0 12px"><b>Situação:</b><span style="display:inline-flex;align-items:center;gap:5px"><span style="width:10px;height:10px;border-radius:50%;background:#16447a;display:inline-block"></span>Confirmado (falta conciliar)</span><span style="display:inline-flex;align-items:center;gap:5px"><span style="width:10px;height:10px;border-radius:50%;background:#2f7d5b;display:inline-block"></span>Conciliado</span><span style="display:inline-flex;align-items:center;gap:5px"><span style="background:#F3E7C8;color:#8a6d1f;border:1px solid #E4CE8F;border-radius:20px;padding:1px 8px;font-size:10px;font-weight:600">🏷️ etiqueta</span>= pendência a resolver</span></div>
       <div class="filtros" style="margin-bottom:12px"><input id="fcBusca" placeholder="🔎 Buscar por cliente, descrição..." oninput="renderFluxo()"><button class="btn sec peq" id="btnFiltrarExt" onclick="abrirFiltroExtrato()">🔍 Filtrar</button><button class="btn sec peq" onclick="limparFiltrosExtrato()" title="Limpar filtros">✕ Limpar</button></div>
       <div style="overflow-x:auto"><table><thead><tr><th>Data</th><th>Descrição</th><th>Categoria</th><th>Banco</th><th style="text-align:right">Entrada</th><th style="text-align:right">Saída</th><th style="text-align:right">Saldo</th></tr></thead><tbody id="tbodyFcExtrato"></tbody></table></div>
       <div id="fcVazio" class="vazio" style="display:none">Sem lançamentos realizados no período.</div>
@@ -2627,19 +2628,19 @@ function editarLanc(lid){
     <div style="font-size:12px;color:var(--tinta);margin:-8px 0 6px">Origem do título: <b style="color:var(--ouro)">${origemLanc(l)}</b></div>
     ${_vinc}
     <div class="fg-sec">Datas e situação</div><div class="form-grid">
-    <div style="grid-column:span 2"><label class="obrig">Data de emissão</label><input type="date" id="eData" value="${l.data||''}"></div>
-    <div style="grid-column:span 2"><label>Data de vencimento</label><input type="date" id="eVencimento" value="${l.dataVencimento||l.venc||''}"></div>
-    <div style="grid-column:span 2"><label class="obrig">Data de baixa</label><input type="date" id="eBaixaData" value="${l.baixaData||l.dataBaixa||''}"></div>
+    <div id="wEmis" style="grid-column:span 2"><label class="obrig">Data de emissão</label><input type="date" id="eData" value="${l.data||''}"></div>
+    <div id="wVenc" style="grid-column:span 2"><label id="lblVenc">Data de vencimento</label><input type="date" id="eVencimento" value="${l.dataVencimento||l.venc||''}"></div>
+    <div id="wBaixa" style="grid-column:span 2"><label class="obrig">Data de baixa</label><input type="date" id="eBaixaData" value="${l.baixaData||l.dataBaixa||''}"></div>
     <div style="grid-column:span 2"><label>Situação</label><select id="eStatus"><option value="realizado" ${l.status!=='previsto'?'selected':''}>Realizado</option><option value="previsto" ${l.status==='previsto'?'selected':''}>Previsto</option></select></div>
     </div>
     <div class="fg-sec">Identificação</div><div class="form-grid">
-    <div style="grid-column:span 2"><label>Tipo</label><select id="eTipo" onchange="recarregaCatEdit()"><option value="receita" ${tipoInicial==='receita'?'selected':''}>Receita (entrada)</option><option value="despesa" ${tipoInicial==='despesa'?'selected':''}>Despesa (saída)</option><option value="estorno_receita" ${tipoInicial==='estorno_receita'?'selected':''}>Estorno de receita (saída em receita)</option><option value="estorno_despesa" ${tipoInicial==='estorno_despesa'?'selected':''}>Estorno de despesa (entrada em despesa)</option></select></div>
+    <div style="grid-column:span 2"><label>Tipo</label><select id="eTipo" onchange="recarregaCatEdit();sincDatasLanc()"><option value="receita" ${tipoInicial==='receita'?'selected':''}>Receita (entrada)</option><option value="despesa" ${tipoInicial==='despesa'?'selected':''}>Despesa (saída)</option><option value="estorno_receita" ${tipoInicial==='estorno_receita'?'selected':''}>Estorno de receita (saída em receita)</option><option value="estorno_despesa" ${tipoInicial==='estorno_despesa'?'selected':''}>Estorno de despesa (entrada em despesa)</option></select></div>
     <div style="grid-column:span 4"><label>Cliente ou fornecedor</label><input id="eCliente" placeholder="Nome do cliente ou fornecedor" value="${(l.cliente||'').replace(/"/g,'&quot;')}"></div>
     <div style="grid-column:span 4"><label class="obrig">Descrição</label><input id="eDesc" value="${((l.servico||l.descricao)||'').replace(/"/g,'&quot;')}"></div>
     <div style="grid-column:span 2"><label class="obrig">Valor</label><input type="text" inputmode="decimal" id="eValor" value="${fmtMoedaInput(l.valor)}" onblur="this.value=fmtMoedaInput(this.value)"></div>
     </div>
     <div class="fg-sec">Classificação e conta</div><div class="form-grid">
-    <div style="grid-column:span 3"><label class="obrig">Categoria</label><select id="eCat"></select></div>
+    <div style="grid-column:span 3"><label class="obrig">Categoria</label><select id="eCat" onchange="sincDatasLanc()"></select></div>
     <div style="grid-column:span 3"><label>Forma de pagamento</label><select id="eForma">${formas.map(x=>`<option value="${x}" ${(l.formaPagto||'')===x?'selected':''}>${x||'—'}</option>`).join('')}</select></div>
     <div style="grid-column:span ${_optUni?2:3}"><label class="obrig">Banco</label><select id="eBanco" onchange="autoUnidadeDoBanco('e')">${bopts}</select></div>
     <div style="grid-column:span ${_optUni?2:3}"><label>Cartão de crédito (opcional)</label><select id="eCartao">${copts}</select></div>
@@ -2650,8 +2651,9 @@ function editarLanc(lid){
     <div style="grid-column:span 6"><label>Conciliação com o extrato</label><br>${((l.status!=='previsto')||l.baixado||l.baixaRef)?`<button type="button" id="eConcBtn" data-on="${l.conciliado?'1':'0'}" class="btn-conc${l.conciliado?' on':''}" title="Marca como conciliado — bate com o extrato e entra no saldo" onclick="var o=this.dataset.on==='1';this.dataset.on=o?'0':'1';this.classList.toggle('on',!o);this.querySelector('.txt').textContent=o?'Marcar como conciliado':'Conciliado'"><span class="tk">✓✓</span> <span class="txt">${l.conciliado?'Conciliado':'Marcar como conciliado'}</span></button>`:`<div style="font-size:12.5px;color:#8a7f6f;background:#F3ECDD;border-radius:9px;padding:9px 11px;line-height:1.5">📌 Título em aberto (contas a receber/pagar). Ele é conciliado quando você <b>amarra o movimento do extrato</b> na tela de Conciliação — não dá para marcar conciliado na mão.</div>`}</div>
     </div><div class="modal-acoes">${!ehEstorno(l)?`<button class="btn sec" onclick="estornarLanc('${lid}')" style="margin-right:auto">↩️ Estornar</button>`:''}<button class="btn sec" onclick="fecharModal()">Cancelar</button><button class="btn" onclick="confirmarEdicao('${lid}')">Salvar</button></div>`;
   var _mbe=document.getElementById('modalConteudo').closest('.modal');if(_mbe)_mbe.style.maxWidth='860px';
-  document.getElementById('modalBg').classList.add('show');recarregaCatEdit(l.categoria);
+  document.getElementById('modalBg').classList.add('show');recarregaCatEdit(l.categoria);sincDatasLanc();
 }
+function sincDatasLanc(){var t=(document.getElementById('eTipo')||{}).value||'';var c=(document.getElementById('eCat')||{}).value||'';var m=(typeof mapeiaTipoEstorno==='function')?mapeiaTipoEstorno(t):{tipo:t};var receb=(m.tipo==='receita'&&!ehMovimento(c));var we=document.getElementById('wEmis'),wb=document.getElementById('wBaixa'),lv=document.getElementById('lblVenc');if(!we)return;we.style.display=receb?'':'none';wb.style.display=receb?'':'none';if(lv)lv.textContent=receb?'Data de vencimento':'Data do lançamento';}
 function editarTransferencia(ref,lid){
   const legs=dados().lancamentos.filter(x=>x.transfRef===ref);
   const l=legs.find(x=>x.id===lid)||legs[0];if(!l)return;
@@ -2731,21 +2733,24 @@ function confirmarEdicao(lid){const l=dados().lancamentos.find(x=>x.id===lid);if
   const _cat=document.getElementById('eCat').value;
   const _desc=document.getElementById('eDesc').value.trim();
   const _banco=(document.getElementById('eBanco')||{}).value||'';
-  const _dataE=document.getElementById('eData').value;
-  const _status=document.getElementById('eStatus').value;
-  const _conc=!!(document.getElementById('eConcBtn')&&document.getElementById('eConcBtn').dataset.on==='1');
-  const _baixa=(document.getElementById('eBaixaData')||{}).value||'';
+  let _dataE=document.getElementById('eData').value;
+  let _status=document.getElementById('eStatus').value;
+  let _conc=!!(document.getElementById('eConcBtn')&&document.getElementById('eConcBtn').dataset.on==='1');
+  let _baixa=(document.getElementById('eBaixaData')||{}).value||'';
+  const _mapaT=mapeiaTipoEstorno(document.getElementById('eTipo').value);
+  const _receb=(_mapaT.tipo==='receita'&&!ehMovimento(_cat));
+  if(!_receb){var _u=(document.getElementById('eVencimento')||{}).value||_dataE||_baixa;_dataE=_u;if(_status!=='previsto'){_baixa=_u;_conc=true;}}
   const _realiz=(_status!=='previsto')||_conc;
   if(_conc&&_status==='previsto'&&!(l.baixado||l.baixaRef)){alert('Um título em aberto (contas a receber/pagar) só é conciliado quando amarrado a um movimento do extrato.\n\nMude a situação para realizado ou concilie pela tela de Conciliação.');return;}
   const falta=[];
   if(!_val)falta.push('Valor');
   if(!_cat||_cat==='A classificar')falta.push('Categoria (escolha uma do cadastro)');
   if(!_desc)falta.push('Descrição');
-  if(!_dataE)falta.push('Data de emissão');
+  if(!_dataE)falta.push(_receb?'Data de emissão':'Data do lançamento');
   if(_realiz&&!_banco)falta.push('Banco');
-  if(_realiz&&!_baixa)falta.push('Data de baixa');
+  if(_receb&&_realiz&&!_baixa)falta.push('Data de baixa');
   if(falta.length){alert('Para salvar, preencha os campos obrigatórios:\n\n• '+falta.join('\n• '));return;}
-  l.data=_dataE;l.cliente=document.getElementById('eCliente').value.trim();l.servico=_desc;l.descricao=(l.cliente?l.cliente+' — ':'')+_desc;const _mapa=mapeiaTipoEstorno(document.getElementById('eTipo').value);l.tipo=_mapa.tipo;l.estorno=_mapa.estorno;l.valor=_val;l.categoria=_cat;if(!validaEstorno(document.getElementById('eTipo').value,l.categoria,l.valor,lid))return;const ef=document.getElementById('eForma');if(ef)l.formaPagto=ef.value;const eb=document.getElementById('eBanco');if(eb)l.banco=eb.value;const ec=document.getElementById('eCartao');if(ec)l.cartaoId=ec.value;l.status=_status;const eu=document.getElementById('eUnidade');if(eu)l.unidade=eu.value;l.dataEmissao=l.data;const eve=document.getElementById('eVencimento');if(eve){l.dataVencimento=eve.value;l.venc=eve.value;}const eba=document.getElementById('eBaixaData');if(eba){l.baixaData=eba.value;if(eba.value)l.dataBaixa=eba.value;}const etg=document.getElementById('eTag');if(etg)l.tagConcil=etg.value;l.conciliado=_conc;if(_conc){if(l.tagConcil)l.tagConcilAnt=l.tagConcil;l.tagConcil='';}else if(l.tagConcilAnt&&!l.tagConcil){l.tagConcil=l.tagConcilAnt;delete l.tagConcilAnt;}if(_conc&&!l.conciliadoEm)l.conciliadoEm=new Date().toISOString().slice(0,10);if(!_conc){delete l.conciliadoEm;delete l.conciliadoPor;}if((l.banco||'').toLowerCase().trim()==='caixa'||(l.formaPagto||'').toUpperCase()==='DINHEIRO'){l.dataBaixa=l.data;l.baixaData=l.data;l.dataVencimento=l.data;l.venc=l.data;}try{aprenderRegra(l);}catch(e){}saveApp();fecharModal();render();}
+  l.data=_dataE;l.cliente=document.getElementById('eCliente').value.trim();l.servico=_desc;l.descricao=(l.cliente?l.cliente+' — ':'')+_desc;const _mapa=mapeiaTipoEstorno(document.getElementById('eTipo').value);l.tipo=_mapa.tipo;l.estorno=_mapa.estorno;l.valor=_val;l.categoria=_cat;if(!validaEstorno(document.getElementById('eTipo').value,l.categoria,l.valor,lid))return;const ef=document.getElementById('eForma');if(ef)l.formaPagto=ef.value;const eb=document.getElementById('eBanco');if(eb)l.banco=eb.value;const ec=document.getElementById('eCartao');if(ec)l.cartaoId=ec.value;l.status=_status;const eu=document.getElementById('eUnidade');if(eu)l.unidade=eu.value;l.dataEmissao=l.data;if(_receb){const eve=document.getElementById('eVencimento');if(eve){l.dataVencimento=eve.value;l.venc=eve.value;}const eba=document.getElementById('eBaixaData');if(eba){l.baixaData=eba.value;if(eba.value)l.dataBaixa=eba.value;}}else{l.dataVencimento=_dataE;l.venc=_dataE;if(_conc){l.dataBaixa=_dataE;l.baixaData=_dataE;}}const etg=document.getElementById('eTag');if(etg)l.tagConcil=etg.value;l.conciliado=_conc;if(_conc){if(l.tagConcil)l.tagConcilAnt=l.tagConcil;l.tagConcil='';}else if(l.tagConcilAnt&&!l.tagConcil){l.tagConcil=l.tagConcilAnt;delete l.tagConcilAnt;}if(_conc&&!l.conciliadoEm)l.conciliadoEm=new Date().toISOString().slice(0,10);if(!_conc){delete l.conciliadoEm;delete l.conciliadoPor;}if((l.banco||'').toLowerCase().trim()==='caixa'||(l.formaPagto||'').toUpperCase()==='DINHEIRO'){l.dataBaixa=l.data;l.baixaData=l.data;l.dataVencimento=l.data;l.venc=l.data;}try{aprenderRegra(l);}catch(e){}saveApp();fecharModal();render();}
 function excluirLanc(lid){const l=dados().lancamentos.find(x=>x.id===lid);if(l&&l.transfRef){if(!confirm('Este lançamento faz parte de uma transferência. Excluir apaga as DUAS pernas (origem e destino). Continuar?'))return;dados().lancamentos=dados().lancamentos.filter(x=>x.transfRef!==l.transfRef);saveApp();render();return;}if(!confirm('Excluir este lançamento?'))return;dados().lancamentos=dados().lancamentos.filter(x=>x.id!==lid);saveApp();render();}
 function copiarLanc(lid){const l=dados().lancamentos.find(x=>x.id===lid);if(!l)return;if(l.transfRef){const legs=dados().lancamentos.filter(x=>x.transfRef===l.transfRef);const novoRef=id();legs.forEach(function(leg){const nv=Object.assign({},leg,{id:id(),transfRef:novoRef});delete nv.baixado;delete nv.baixaRef;delete nv.baixaData;delete nv.vencId;dados().lancamentos.push(nv);});saveApp();render();editarTransferencia(novoRef);return;}const novo=Object.assign({},l,{id:id()});delete novo.baixado;delete novo.baixaRef;delete novo.baixaData;delete novo.vencId;dados().lancamentos.push(novo);saveApp();render();editarLanc(novo.id);}
 function fecharModal(){document.getElementById('modalBg').classList.remove('show');var _mc=document.getElementById('modalConteudo');if(_mc){var _mm=_mc.closest('.modal');if(_mm)_mm.style.maxWidth='';}}
