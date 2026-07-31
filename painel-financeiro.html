@@ -578,7 +578,7 @@
     <div class="card" id="pendConcilCard">
       <h2>Pendências de conciliação</h2>
       <div class="cap">O que ainda não bateu entre o sistema e o banco. De um lado, o que está a receber e ainda não caiu ou não casou; do outro, o que caiu no banco e ainda não foi identificado.</div>
-      <div style="display:flex;gap:10px;align-items:center;margin:10px 0;flex-wrap:wrap"><button class="btn ouro" onclick="abrirConciliacaoBanco()">🏦 Conciliação de bancos</button><button class="btn sec" onclick="abrirConciliacaoTela()">🔗 Conciliar recebimentos (por mês)</button><label style="font-size:13px;color:var(--tinta);font-weight:600">Mês:</label><select id="pendMes" onchange="renderPendenciasConcil()" style="padding:7px 11px;border:1px solid #e2ddd0;border-radius:9px;font-family:inherit"></select><span class="mini">Concilie um mês de cada vez, ou abra a tela para selecionar e vincular.</span></div>
+      <div style="display:flex;gap:10px;align-items:center;margin:10px 0;flex-wrap:wrap"><button class="btn ouro" onclick="abrirConciliacaoBanco()">🏦 Conciliação de bancos</button><label style="font-size:13px;color:var(--tinta);font-weight:600">Mês:</label><select id="pendMes" onchange="renderPendenciasConcil()" style="padding:7px 11px;border:1px solid #e2ddd0;border-radius:9px;font-family:inherit"></select><span class="mini">Concilie um mês de cada vez, ou abra a tela para selecionar e vincular.</span></div>
       <div class="pend-grid" style="display:grid;grid-template-columns:1fr 1fr;gap:18px">
         <div>
           <h3 style="font-size:14px;color:var(--vinho);margin:4px 0 8px">Atendimento sem vínculo <span id="pendRecTot" class="mini" style="color:var(--ouro)"></span></h3>
@@ -2956,7 +2956,7 @@ function importarExtrato(ev){const f=ev.target.files[0];if(!f)return;const banco
   let nR=0,nD=0,nDup=0;const _existe=new Set((dados().lancamentos||[]).map(_sigLanc));regs.forEach(x=>{if(!x.data||!x.v)return;const tipo=x.v<0?'despesa':'receita';const l={id:id(),data:x.data,descricao:x.desc||'-',servico:'',cliente:'',banco,categoria:'',tipo,valor:Math.abs(x.v),status:'realizado',unidade:'',formaPagto:(/pix/i.test(x.desc||'')?'PIX':''),usuario:usuariaAtivaNome()};l.categoria=regraMatch(l)||'A classificar';const sg=_sigLanc(l);if(_existe.has(sg)){nDup++;return;}_existe.add(sg);dados().lancamentos.push(l);if(tipo==='receita')nR++;else nD++;});
   if(saldoFin!=null){dados().saldoExtrato=dados().saldoExtrato||{};dados().saldoExtratoData=dados().saldoExtratoData||{};var _maxd="";regs.forEach(function(x){if(x.data&&x.data>_maxd)_maxd=x.data;});var _prevD=dados().saldoExtratoData[banco]||"";if(!_prevD||(_maxd&&_maxd>=_prevD)){dados().saldoExtrato[banco]=saldoFin;if(_maxd)dados().saldoExtratoData[banco]=_maxd;}}saveApp();const nb=autoConciliar();autoBaixaCorrespondentes();saveApp();render();ev.target.value='';
   alert('Extrato importado em '+banco+'!\nEntradas: '+nR+'\nSaídas: '+nD+(saldoFin!=null?'\nSaldo final do extrato capturado: '+moeda(saldoFin)+' (confira em Conferência de bancos)':'')+(nDup?'\nJá existentes (ignorados p/ não duplicar): '+nDup:'')+(nb?'\nContas a receber baixadas e amarradas: '+nb:''));
-  if(dados().autoAbrirConcil!==false){window._concMes=undefined;window._concMovSel=null;window._concTitSel=new Set();abrirConciliacaoTela();}};r.readAsArrayBuffer(f);}
+  if(dados().autoAbrirConcil!==false){window._cbBanco=banco;window._cbMes='';abrirConciliacaoBanco();}};r.readAsArrayBuffer(f);}
 function importarLancamentos(ev){const f=ev.target.files[0];if(!f)return;const r=new FileReader();r.onload=e=>{const o=lerCSVsimples(decodeArq(e.target.result));const H=o.header,rows=o.rows;const ix=n=>H.findIndex(h=>h.indexOf(n)>=0);
   const iData=ix('data'),iDesc=(ix('descri')>=0?ix('descri'):ix('hist')),iCat=ix('categ'),iEnt=(ix('entrada')>=0?ix('entrada'):ix('crédito')>=0?ix('crédito'):ix('credito')),iSai=(ix('saída')>=0?ix('saída'):ix('saida')>=0?ix('saida'):ix('débito')>=0?ix('débito'):ix('debito')),iBanco=ix('banco'),iVal=ix('valor');
   if(iData<0){alert('A planilha precisa ter a coluna Data. Confira o cabeçalho.');return;}
@@ -2970,7 +2970,7 @@ function importarLancamentos(ev){const f=ev.target.files[0];if(!f)return;const r
     if(tipo==='receita')nR++;else nD++;});
   saveApp();const _nb=autoConciliar()+autoBaixaCorrespondentes();saveApp();render();document.getElementById('arqLanc').value='';
   alert('Planilha importada!\nEntradas: '+nR+'\nSaídas: '+nD+(nDup?'\nJá existentes (ignorados p/ não duplicar): '+nDup:'')+(_nb?'\nConciliados automaticamente: '+_nb:''));
-  if(dados().autoAbrirConcil!==false){window._concMes=undefined;window._concMovSel=null;window._concTitSel=new Set();abrirConciliacaoTela();}};r.readAsArrayBuffer(f);}
+  if(dados().autoAbrirConcil!==false){abrirConciliacaoBanco();}};r.readAsArrayBuffer(f);}
 function importarZoop(ev){const f=ev.target.files[0];if(!f)return;const r=new FileReader();r.onload=e=>{const o=lerCSVsimples(decodeArq(e.target.result));const H=o.header,rows=o.rows;const ix=n=>H.findIndex(h=>h.includes(n));
   const iData=(ix('data pgto')>=0?ix('data pgto'):ix('data')),iNome=ix('nome'),iBruto=(ix('valor total')>=0?ix('valor total'):ix('total')),iLiq=(ix('receber')>=0?ix('receber'):ix('liquido')),iParc=ix('parcela');
   if(iData<0||iLiq<0){alert('CSV do Zoop precisa ter Data Pgto e Valor a Receber. Exporte o controle de links em CSV.');return;}
@@ -3517,6 +3517,7 @@ function abrirConciliacaoBanco(){
   document.getElementById('modalBg').classList.add('show');
 }
 function fecharCBTela(){var mbox=document.getElementById('modalConteudo').closest('.modal');if(mbox)mbox.style.maxWidth='';window._cbSel=null;window._cbMarc=new Set();fecharModal();render();}
+function cbEditar(id){var mbox=document.getElementById('modalConteudo').closest('.modal');if(mbox)mbox.style.maxWidth='';editarLanc(id);}
 function _cbBn(){return (window._cbBanco||'').toLowerCase().trim();}
 function cbMovs(){
   var bn=_cbBn();var L=dados().lancamentos||[];
@@ -3599,7 +3600,7 @@ function renderCBTela(){
     if(msel.tipo==='receita'){var f=cats.filter(function(x){return x.grupo==='OUTRAS ENTRADAS'||ehMovimento(x.nome);});if(f.length)cats=f;}
     cats.sort(function(a,b){return (a.nome||'').localeCompare(b.nome||'','pt-BR');});
     var regraNota=msel.tipo==='receita'?'Entrada sem atendimento cadastrado (aporte, transferência, rendimento). Classifique e concilie.':'Saída do banco sem título previsto (tarifa, débito avulso). Classifique e concilie direto.';
-    var alt='<div style="border-top:1px dashed #ddd3c0;margin:14px 0"></div><div style="background:#FFF9EC;border:1px solid #E9D9A9;border-radius:10px;padding:12px 13px"><b style="font-size:12.5px;color:#7a6320">Não tem título para casar?</b><div class=mini style="margin:6px 0 8px">'+regraNota+'</div><select id="cbCatAvulsa" style="width:100%;margin-bottom:8px;padding:8px 10px;border:1px solid #dcd4c4;border-radius:8px;font-family:inherit"><option value="">— escolher categoria —</option>'+cats.map(function(c){return '<option value="'+esc(c.nome)+'">'+esc(c.nome)+'</option>';}).join('')+'</select><button class="btn" style="background:#1E3A44;color:#fff" onclick="cbClassificar()">✓ Classificar e conciliar direto</button></div>';
+    var alt='<div style="border-top:1px dashed #ddd3c0;margin:14px 0"></div><div style="background:#FFF9EC;border:1px solid #E9D9A9;border-radius:10px;padding:12px 13px"><b style="font-size:12.5px;color:#7a6320">Não tem título para casar?</b><div class=mini style="margin:6px 0 8px">'+regraNota+'</div><button class="btn sec" style="width:100%;margin-bottom:8px" onclick="cbEditar(\''+msel.id+'\')">✏️ Abrir lançamento completo (cliente, serviço, categoria)</button><select id="cbCatAvulsa" style="width:100%;margin-bottom:8px;padding:8px 10px;border:1px solid #dcd4c4;border-radius:8px;font-family:inherit"><option value="">— escolher categoria —</option>'+cats.map(function(c){return '<option value="'+esc(c.nome)+'">'+esc(c.nome)+'</option>';}).join('')+'</select><button class="btn" style="background:#1E3A44;color:#fff" onclick="cbClassificar()">✓ Classificar e conciliar direto</button></div>';
     right=head+'<div class=mini style="font-weight:700;color:#7A2E39;margin-bottom:6px">Títulos '+(msel.tipo==='receita'?'a receber':'a pagar')+' que casam</div>'+titRows+somaBox+'<div style="margin-top:10px">'+btn+aviso+'</div>'+alt;
   }
   box.innerHTML='<div style="display:flex;justify-content:space-between;align-items:center;gap:10px;margin-bottom:10px"><h3 style="margin:0">Conciliação de bancos</h3><button class="btn-ico" onclick="fecharCBTela()" title="Fechar">✖️</button></div>'+
