@@ -1948,7 +1948,7 @@ function _seStatusHtml(dd){
 function _seRowHtml(b,i){
   var dd=_seDadosBanco(b);var SD=dados().saldoExtratoData||{};
   var nesc=b.nome.replace(/\\/g,'\\\\').replace(/'/g,"\\'");
-  var impo=SD[b.nome]?'<div class="mini" style="color:var(--suave);margin-top:4px;text-align:right">&#128229; importado at&eacute; '+new Date(SD[b.nome]+'T00:00:00').toLocaleDateString('pt-BR')+'</div>':'';
+  var _bn=(b.nome||'').toLowerCase().trim();var _mExt='';(dados().lancamentos||[]).forEach(function(l){if((l.banco||'').toLowerCase().trim()===_bn&&l.origem==='Extrato bancário'&&l.data&&l.data>_mExt)_mExt=l.data;});var _impD=_mExt||SD[b.nome]||'';var impo=_impD?'<div class="mini" style="color:var(--suave);margin-top:4px;text-align:right">&#128229; importado at&eacute; '+new Date(_impD+'T00:00:00').toLocaleDateString('pt-BR')+'</div>':'';
   return '<td style="padding:13px 8px"><b>'+esc(b.nome)+'</b></td>'+
     '<td style="text-align:right;padding:13px 8px"><input type="text" inputmode="decimal" value="'+(dd.tem?_fmtValorBR(dd.inf):'')+'" placeholder="informar" onchange="setSaldoExtratoBanco(\''+nesc+'\',this.value,'+i+')" style="width:140px;text-align:right;padding:7px 9px;border:1px solid #e2ddd0;border-radius:8px;font-size:14px">'+impo+'</td>'+
     '<td style="text-align:right;padding:13px 8px;font-weight:700;font-size:15px;color:'+(dd.saldoC>=0?'var(--vinho)':'var(--rubro)')+'">'+moeda(dd.saldoC)+'</td>'+
