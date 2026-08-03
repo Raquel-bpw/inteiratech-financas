@@ -616,7 +616,8 @@
     <div id="resultadosBancoExt"></div>
     <div class="card">
       <h2>Extrato para conciliação</h2>
-      <div class="cap">Selecione o banco e o mês. Clique na bolinha de um lançamento realizado para marcá-lo como conciliado.</div>
+      <div class="cap">Recomendado: use a <b>conciliação guiada</b> — seleciona o movimento, mostra os títulos que casam e vincula com ordenação por data ou valor. A tabela abaixo é a visão manual (clique na bolinha para marcar conciliado).</div>
+      <div style="margin:10px 0"><button class="btn ouro" onclick="abrirConciliacaoBanco()" title="Amarrar os movimentos do banco aos títulos em aberto">🏦 Abrir conciliação guiada</button></div>
       <div class="extrato-wrap">
         <div class="extrato-lado">
           <div><label>Banco / Conta</label><select id="concBanco" onchange="renderConciliacao()"></select></div>
@@ -1936,13 +1937,15 @@ function _seDadosBanco(b){
   var saldoC=(b.saldoInicial||0)+priorC+somaV(movsC.filter(function(l){return noPeriodo(l);}));
   var SE=dados().saldoExtrato||{};var inf=SE[b.nome];var tem=(inf!==undefined&&inf!==null&&inf!=='');
   var dif=tem?Math.round(((+inf)-saldoC)*100)/100:0;
-  return {saldoC:saldoC,inf:inf,tem:tem,dif:dif};
+  var pend=dados().lancamentos.filter(function(l){return (l.banco||'').toLowerCase().trim()===bn&&noUnidade(l)&&l.status!=='previsto'&&!l.conciliado&&(ym?((l.data||'').slice(0,7)<=ym):true)&&l.origem==='Extrato bancário';});
+  var somaPend=Math.round(pend.reduce(function(s,l){return s+(l.tipo==='receita'?+l.valor:-+l.valor);},0)*100)/100;
+  return {saldoC:saldoC,inf:inf,tem:tem,dif:dif,nPend:pend.length,somaPend:somaPend};
 }
 function _seStatusHtml(dd){
   if(!dd.tem)return '<span class="mini" style="color:var(--suave)">— informe o saldo do extrato ao lado</span>';
   var dif=dd.dif;
   if(Math.abs(dif)<0.01)return '<span style="display:inline-flex;align-items:center;gap:7px;color:#2f7d5b;font-weight:700"><span style="width:22px;height:22px;border-radius:50%;background:#2f7d5b;color:#fff;display:inline-flex;align-items:center;justify-content:center;font-size:13px">&#10003;</span> Fechado &mdash; sem diferen&ccedil;a</span>';
-  if(dif>0)return '<span style="display:inline-flex;align-items:center;gap:7px;color:#a06a1a;font-weight:700"><span style="width:22px;height:22px;border-radius:50%;background:#e0a53a;color:#fff;display:inline-flex;align-items:center;justify-content:center;font-size:13px">!</span> Faltam '+moeda(dif)+' para conciliar</span>';
+  if(dif>0)return '<span style="display:inline-flex;align-items:center;gap:7px;color:#a06a1a;font-weight:700"><span style="width:22px;height:22px;border-radius:50%;background:#e0a53a;color:#fff;display:inline-flex;align-items:center;justify-content:center;font-size:13px">!</span> Faltam '+moeda(dif)+' para conciliar</span>'+(dd.nPend?'<div class="mini" style="color:#a06a1a;margin-top:3px">'+dd.nPend+' movimento(s) do extrato ainda sem conciliar ('+moeda(dd.somaPend)+')</div>':'');
   return '<span style="display:inline-flex;align-items:center;gap:7px;color:var(--rubro);font-weight:700"><span style="width:22px;height:22px;border-radius:50%;background:#b04a3a;color:#fff;display:inline-flex;align-items:center;justify-content:center;font-size:13px">!</span> '+moeda(Math.abs(dif))+' a mais no sistema &mdash; confira</span>';
 }
 function _seRowHtml(b,i){
@@ -1952,7 +1955,7 @@ function _seRowHtml(b,i){
   return '<td style="padding:13px 8px"><b>'+esc(b.nome)+'</b></td>'+
     '<td style="text-align:right;padding:13px 8px"><input type="text" inputmode="decimal" value="'+(dd.tem?_fmtValorBR(dd.inf):'')+'" placeholder="informar" onchange="setSaldoExtratoBanco(\''+nesc+'\',this.value,'+i+')" style="width:140px;text-align:right;padding:7px 9px;border:1px solid #e2ddd0;border-radius:8px;font-size:14px">'+impo+'</td>'+
     '<td style="text-align:right;padding:13px 8px;font-weight:700;font-size:15px;color:'+(dd.saldoC>=0?'var(--vinho)':'var(--rubro)')+'">'+moeda(dd.saldoC)+'</td>'+
-    '<td id="seSt_'+i+'" style="padding:13px 8px">'+_seStatusHtml(dd)+'</td>';
+    '<td id="seSt_'+i+'" style="padding:13px 8px">'+_seStatusHtml(dd)+(dd.nPend?'<div style="margin-top:6px"><button class="btn sec peq" onclick="conciliarBanco(\''+nesc+'\')" title="Abrir a conciliação deste banco">🏦 Conciliar '+dd.nPend+'</button></div>':'')+'</td>';
 }
 function _seFaixaHtml(){
   var bancos=bancosParaFluxo();var nInform=0,nDif=0;
@@ -2315,7 +2318,7 @@ function renderPendenciasConcil(){
   document.getElementById('pendRecVazio').style.display=rec.length?'none':'block';
   var ext=L.filter(function(l){return l.status!=='previsto'&&l.tipo==='receita'&&visivel(l)&&!l.baixaDe&&!/transfer|aplica|resgate|devolu/i.test((l.categoria||'')+' '+(l.descricao||''))&&noMes(l);}).sort(function(a,b){return (a.data||'').localeCompare(b.data||'');});
   var tExt=ext.reduce(function(s,l){return s+(+l.valor||0);},0);
-  document.getElementById('tbodyPendExtrato').innerHTML=ext.map(function(l){return '<tr><td>'+(l.data?new Date(l.data+'T00:00:00').toLocaleDateString('pt-BR'):'-')+'</td><td class=mini>'+esc((l.descricao||'-').slice(0,34))+'</td><td class=mini>'+esc(l.banco||'-')+'</td><td style="text-align:right;font-weight:700;white-space:nowrap"><button class="btn-ico" onclick="abrirAmarrar(\''+l.id+'\')" title="Amarrar a um título">🔗</button> '+moeda(+l.valor||0)+'</td></tr>';}).join('');
+  document.getElementById('tbodyPendExtrato').innerHTML=ext.map(function(l){return '<tr><td>'+(l.data?new Date(l.data+'T00:00:00').toLocaleDateString('pt-BR'):'-')+'</td><td class=mini>'+esc((l.descricao||'-').slice(0,34))+'</td><td class=mini>'+esc(l.banco||'-')+'</td><td style="text-align:right;font-weight:700;white-space:nowrap"><button class="btn-ico" onclick="conciliarMov(\''+l.id+'\')" title="Conciliar: amarrar a um título">🔗</button> '+moeda(+l.valor||0)+'</td></tr>';}).join('');
   document.getElementById('pendExtTot').textContent=ext.length?('· '+ext.length+' · '+moeda(tExt)):'';
   document.getElementById('pendExtVazio').style.display=ext.length?'none':'block';
 }
@@ -3589,11 +3592,14 @@ function renderConcTela(){
   box.innerHTML='<div style="display:flex;justify-content:space-between;align-items:center;gap:10px;margin-bottom:12px"><h3 style="margin:0">Conciliação</h3><div style="display:flex;gap:8px;align-items:center"><label class=mini>Mês</label><select onchange="window._concMes=this.value;window._concMovSel=null;window._concTitSel=new Set();renderConcTela()" style="padding:6px 9px;border:1px solid #e2ddd0;border-radius:8px;font-family:inherit">'+mesOpts+'</select><button class="btn-ico" onclick="fecharConcTela()" title="Fechar">✖️</button></div></div><div style="display:flex;gap:8px;align-items:center;margin-bottom:10px;flex-wrap:wrap"><input placeholder="Filtrar movimentos..." value="'+esc(window._concBusca||'')+'" oninput="window._concBusca=this.value;renderConcTela()" style="flex:1;min-width:160px;padding:8px 10px;border:1px solid #e2ddd0;border-radius:8px;font-family:inherit"><label class=mini style="display:flex;gap:5px;align-items:center;white-space:nowrap"><input type="checkbox" '+(window._concSoPend?'checked':'')+' onchange="window._concSoPend=this.checked;renderConcTela()" style="width:auto"> só pendentes</label><label class=mini style="display:flex;gap:5px;align-items:center;white-space:nowrap" title="Abrir esta tela sozinha depois de importar"><input type="checkbox" '+(autoOn?'checked':'')+' onchange="dados().autoAbrirConcil=this.checked;saveApp()" style="width:auto"> abrir após importar</label><button class="btn sec" style="font-size:12px;padding:7px 11px" onclick="marcarTodosConcMes()" title="Conferência manual: marca todos os movimentos deste mês como conciliados">✅ Marcar todos conciliados</button></div><div style="display:grid;grid-template-columns:1fr 1fr;gap:14px"><div style="overflow-y:auto;max-height:58vh;padding-right:4px"><div class=mini style="margin-bottom:6px;font-weight:700;color:var(--vinho)">Movimentos do extrato ('+movs.length+')</div>'+movRows+'</div><div style="overflow-y:auto;max-height:58vh;border-left:1px solid #EDE6D8;padding-left:12px"><div class=mini style="margin-bottom:6px;font-weight:700;color:var(--vinho)">Escolher títulos para conciliar</div>'+right+'</div></div>';
 }
 // ===================== CONCILIAÇÃO DE BANCOS (tela em duas colunas por banco) =====================
+function conciliarBanco(nome){var bs=bancosParaFluxo();if(bs.some(function(b){return b.nome===nome;}))window._cbBanco=nome;window._cbMes='';window._cbSoPend=true;abrirConciliacaoBanco();}
+function conciliarMov(movId){var m=(dados().lancamentos||[]).find(function(x){return x.id===movId;});if(!m)return;var bs=bancosParaFluxo();var bn=(m.banco||'').toLowerCase().trim();var bhit=bs.find(function(b){return (b.nome||'').toLowerCase().trim()===bn;});window._cbBanco=bhit?bhit.nome:((bs[0]&&bs[0].nome)||'');window._cbMes='';window._cbSoPend=true;window._cbSort=window._cbSort||'data_asc';window._cbBusca='';renderCBTela();var mbox=document.getElementById('modalConteudo').closest('.modal');if(mbox)mbox.style.maxWidth='1080px';document.getElementById('modalBg').classList.add('show');cbSelMov(movId);}
 function abrirConciliacaoBanco(){
   var bs=bancosParaFluxo();
   if(window._cbBanco===undefined||!bs.some(function(b){return b.nome===window._cbBanco;}))window._cbBanco=(bs[0]&&bs[0].nome)||'';
   if(window._cbMes===undefined)window._cbMes='';
   if(window._cbSoPend===undefined)window._cbSoPend=true;
+  if(window._cbSort===undefined)window._cbSort='data_asc';
   window._cbSel=null;window._cbMarc=new Set();window._cbBusca='';
   renderCBTela();
   var mbox=document.getElementById('modalConteudo').closest('.modal');if(mbox)mbox.style.maxWidth='1080px';
@@ -3602,13 +3608,15 @@ function abrirConciliacaoBanco(){
 function fecharCBTela(){var mbox=document.getElementById('modalConteudo').closest('.modal');if(mbox)mbox.style.maxWidth='';window._cbSel=null;window._cbMarc=new Set();fecharModal();render();}
 function cbEditar(id){var mbox=document.getElementById('modalConteudo').closest('.modal');if(mbox)mbox.style.maxWidth='';editarLanc(id);}
 function _cbBn(){return (window._cbBanco||'').toLowerCase().trim();}
+function _cbSortFn(campoData){var s=window._cbSort||'data_asc';return function(a,b){var da=(campoData?campoData(a):(a.data||''))||'',db=(campoData?campoData(b):(b.data||''))||'';var va=Math.abs(+a.valor||0),vb=Math.abs(+b.valor||0);if(s==='data_desc')return db.localeCompare(da)||(vb-va);if(s==='val_desc')return (vb-va)||da.localeCompare(db);if(s==='val_asc')return (va-vb)||da.localeCompare(db);return da.localeCompare(db)||(vb-va);};}
+function _cbSortLabel(){var s=window._cbSort||'data_asc';return {data_asc:'Data ↑ (antigo→recente)',data_desc:'Data ↓ (recente→antigo)',val_desc:'Valor ↓ (maior→menor)',val_asc:'Valor ↑ (menor→maior)'}[s]||'';}
 function cbMovs(){
   var bn=_cbBn();var L=dados().lancamentos||[];
   var arr=L.filter(function(l){return l.status!=='previsto'&&noUnidade(l)&&(l.banco||'').toLowerCase().trim()===bn&&l.data;});
   if(window._cbMes)arr=arr.filter(function(l){return (l.data||'').slice(0,7)===window._cbMes;});
   if(window._cbSoPend)arr=arr.filter(function(l){return !l.conciliado;});
   if(window._cbBusca){var q=window._cbBusca.toLowerCase();arr=arr.filter(function(l){return ((l.descricao||'')+' '+(l.cliente||'')+' '+l.valor).toLowerCase().indexOf(q)>=0;});}
-  arr.sort(function(a,b){return (a.data||'').localeCompare(b.data||'');});
+  arr.sort(_cbSortFn(function(l){return l.data||'';}));
   return arr;
 }
 function cbSelMov(id){window._cbSel=id;window._cbMarc=new Set();var L=dados().lancamentos||[];var m=L.find(function(x){return x.id===id;});if(m&&!m.conciliado){var ex=L.find(function(p){return p.status==='previsto'&&!p.baixado&&p.tipo===m.tipo&&Math.abs((+p.valor)-(+m.valor))<0.005;});if(ex)window._cbMarc.add(ex.id);}renderCBTela();}
@@ -3672,7 +3680,8 @@ function renderCBTela(){
     var cands=L.filter(function(p){return p.status==='previsto'&&!p.baixado&&p.tipo===msel.tipo;});
     if(window._cbMes){cands=cands.filter(function(p){return ((p.venc||p.data||'').slice(0,7)===window._cbMes)||Math.abs((+p.valor)-absv)<0.005;});}
     cands.forEach(function(p){p.__mv=Math.abs((+p.valor)-absv)<0.005;});
-    cands.sort(function(a,b){if(a.__mv!==b.__mv)return a.__mv?-1:1;return (a.venc||a.data||'').localeCompare(b.venc||b.data||'');});
+    var _cbTitSort=_cbSortFn(function(p){return p.venc||p.data||'';});
+    cands.sort(function(a,b){if(a.__mv!==b.__mv)return a.__mv?-1:1;return _cbTitSort(a,b);});
     var soma=0;window._cbMarc.forEach(function(tid){var p=L.find(function(x){return x.id===tid;});if(p)soma+=(+p.valor||0);});
     var dif=Math.round((absv-soma)*100)/100;var ok=Math.abs(dif)<0.005&&window._cbMarc.size>0;
     var head='<div style="background:#FAF7F0;border:1px solid #EDE6D8;border-radius:10px;padding:11px 13px;margin-bottom:10px"><div style="display:flex;justify-content:space-between"><span class=mini>Movimento do extrato</span><b>'+(msel.tipo==='receita'?'Entrada':'Saída')+'</b></div><div style="display:flex;justify-content:space-between"><span class=mini>'+esc((msel.descricao||msel.cliente||'-').slice(0,34))+'</span><b>'+moeda(absv)+'</b></div></div>';
@@ -3691,6 +3700,7 @@ function renderCBTela(){
     '<div style="display:flex;gap:9px;align-items:center;flex-wrap:wrap;margin-bottom:10px"><label class=mini style="font-weight:700;color:#7A2E39">Banco</label><select onchange="window._cbBanco=this.value;window._cbSel=null;window._cbMarc=new Set();renderCBTela()" style="padding:7px 10px;border:1px solid #dcd4c4;border-radius:8px;font-family:inherit">'+bancoOpts+'</select>'+
     '<label class=mini style="font-weight:700;color:#7A2E39">Mês</label><select onchange="window._cbMes=this.value;window._cbSel=null;window._cbMarc=new Set();renderCBTela()" style="padding:7px 10px;border:1px solid #dcd4c4;border-radius:8px;font-family:inherit">'+mesOpts+'</select>'+
     '<label class=mini style="display:flex;gap:5px;align-items:center"><input type="checkbox" '+(window._cbSoPend?'checked':'')+' onchange="window._cbSoPend=this.checked;window._cbSel=null;renderCBTela()" style="width:auto"> só pendentes</label>'+
+    '<label class=mini style="font-weight:700;color:#7A2E39">Ordenar</label><select onchange="window._cbSort=this.value;renderCBTela()" style="padding:7px 10px;border:1px solid #dcd4c4;border-radius:8px;font-family:inherit">'+['data_asc','data_desc','val_desc','val_asc'].map(function(v){return '<option value="'+v+'" '+(v===(window._cbSort||'data_asc')?'selected':'')+'>'+{data_asc:'Data ↑ (antigo→recente)',data_desc:'Data ↓ (recente→antigo)',val_desc:'Valor ↓ (maior→menor)',val_asc:'Valor ↑ (menor→maior)'}[v]+'</option>';}).join('')+'</select>'+
     '<input placeholder="Filtrar no extrato..." value="'+esc(window._cbBusca||'')+'" oninput="window._cbBusca=this.value;renderCBTela()" style="flex:1;min-width:150px;padding:8px 10px;border:1px solid #dcd4c4;border-radius:8px;font-family:inherit"></div>'+
     '<div style="display:flex;gap:14px;flex-wrap:wrap;align-items:center;background:#FAF7F0;border:1px solid #EDE6D8;border-radius:9px;padding:8px 12px;font-size:11.5px;margin-bottom:12px"><b>Situação:</b><span style="display:inline-flex;align-items:center;gap:5px"><span style="width:10px;height:10px;border-radius:50%;background:#16447a;display:inline-block"></span>Confirmado (falta conciliar)</span><span style="display:inline-flex;align-items:center;gap:5px"><span style="width:10px;height:10px;border-radius:50%;background:#2f7d5b;display:inline-block"></span>Conciliado</span><span style="display:inline-flex;align-items:center;gap:5px"><span style="background:#F3E7C8;color:#8a6d1f;border:1px solid #E4CE8F;border-radius:20px;padding:1px 8px;font-size:10px;font-weight:600">🏷️ etiqueta</span>= pendência</span></div>'+
     '<div style="display:grid;grid-template-columns:1fr 1fr;gap:14px"><div style="overflow-y:auto;max-height:56vh;padding-right:4px"><div class=mini style="font-weight:700;color:#7A2E39;margin-bottom:6px">Extrato importado — '+esc(window._cbBanco||'')+' ('+nPend+' pendente'+(nPend===1?'':'s')+')</div>'+movRows+'</div><div style="overflow-y:auto;max-height:56vh;border-left:1px solid #EDE6D8;padding-left:13px"><div class=mini style="font-weight:700;color:#7A2E39;margin-bottom:6px">Conciliar o movimento selecionado</div>'+right+'</div></div>';
