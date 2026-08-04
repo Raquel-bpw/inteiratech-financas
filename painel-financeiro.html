@@ -580,17 +580,23 @@
     <div id="fluxoSaldoBanco"></div>
     <div id="fluxoConferencia"></div>
     <div class="card" id="pendConcilCard">
-      <h2>Pendências de conciliação</h2>
-      <div class="cap">O que ainda não bateu entre o sistema e o banco. De um lado, o que está a receber e ainda não caiu ou não casou; do outro, o que caiu no banco e ainda não foi identificado.</div>
-      <div style="display:flex;gap:10px;align-items:center;margin:10px 0;flex-wrap:wrap"><button class="btn ouro" onclick="abrirConciliacaoBanco()" title="Amarrar os movimentos do banco aos títulos em aberto e dar baixa">🏦 Conciliação de bancos</button><button class="btn sec" onclick="reamarrarEtiquetados()" title="Depois de incluir os títulos que a empresa criou, roda esta rotina para amarrar os recebimentos etiquetados 'amarrar título' — sem duplicar">🔁 Amarrar títulos que chegaram</button><button class="btn sec" onclick="ajudaConciliacao()" title="Explicação rápida: conciliar, amarrar e baixa">❓ Como funciona</button><button class="btn sec" id="btnVerPend" onclick="togglePendVer()" title="Mostrar ou ocultar as listas de pendências sem vínculo">👁 Ver pendências</button><label style="font-size:13px;color:var(--tinta);font-weight:600">Mês:</label><select id="pendMes" onchange="renderPendenciasConcil()" style="padding:7px 11px;border:1px solid #e2ddd0;border-radius:9px;font-family:inherit"></select><span class="mini">Concilie um mês de cada vez, ou abra a tela para selecionar e vincular.</span></div>
+      <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap">
+        <h2 style="margin:0">Pendências de conciliação</h2>
+        <div style="display:flex;gap:8px;align-items:center"><label class=mini style="font-weight:700;color:var(--vinho)">Mês</label><select id="pendMes" onchange="renderPendenciasConcil()" style="padding:7px 10px;border:1px solid #dcd4c4;border-radius:8px;font-family:inherit"></select></div>
+      </div>
+      <div class="cap">O que ainda não bateu entre o sistema e o banco. As listas aparecem só quando você clica em <b>Ver pendências</b> — no dia a dia, use a rotina de conciliação.</div>
+      <div style="display:flex;gap:10px;align-items:center;margin:10px 0 6px;flex-wrap:wrap"><button class="btn ouro" onclick="abrirConciliacaoBanco()" title="Abrir a tela para amarrar recebimentos aos títulos">🏦 Conciliação de bancos</button><button class="btn sec" onclick="reamarrarEtiquetados()" title="Casa automaticamente os recebimentos etiquetados aos títulos que chegaram, sem duplicar">🔁 Amarrar títulos que chegaram</button><button class="btn sec" id="btnVerPend" onclick="togglePendVer()" title="Mostrar ou ocultar as duas listas de pendências">👁 Ver pendências</button><button class="btn sec" onclick="ajudaConciliacao()" title="Explicação rápida: conciliar, amarrar e baixa">❓ Como funciona</button></div>
+      <div class="mini" style="background:#FAF7F0;border:1px solid #EDE6D8;border-radius:9px;padding:9px 12px;margin-bottom:12px;line-height:1.6">🏦 <b>Conciliação de bancos</b>: abre a rotina para amarrar cada recebimento ao seu título. &nbsp;·&nbsp; 🔁 <b>Amarrar títulos que chegaram</b>: depois que a empresa criar os títulos, casa sozinho os recebimentos etiquetados “amarrar título”, sem duplicar. &nbsp;·&nbsp; 👁 <b>Ver pendências</b>: mostra as duas listas abaixo.</div>
       <div id="pendGridWrap" class="pend-grid" style="display:none;grid-template-columns:1fr 1fr;gap:18px">
         <div>
-          <h3 style="font-size:14px;color:var(--vinho);margin:4px 0 8px">Atendimento sem vínculo <span id="pendRecTot" class="mini" style="color:var(--ouro)"></span></h3>
+          <h3 style="font-size:14px;color:var(--vinho);margin:4px 0 2px">Atendimento sem vínculo <span id="pendRecTot" class="mini" style="color:var(--ouro)"></span></h3>
+          <div class="mini" style="margin:0 0 8px">Título a receber que ainda <b>não caiu no banco</b> ou não casou com um recebimento.</div>
           <div style="overflow-x:auto"><table><thead><tr><th>Data</th><th>Cliente</th><th>Forma</th><th style="text-align:right">Valor</th></tr></thead><tbody id="tbodyPendReceber"></tbody></table></div>
           <div id="pendRecVazio" class="vazio" style="display:none">Nada a receber em aberto.</div>
         </div>
         <div>
-          <h3 style="font-size:14px;color:var(--vinho);margin:4px 0 8px">Recebimento sem vínculo <span id="pendExtTot" class="mini" style="color:var(--ouro)"></span></h3>
+          <h3 style="font-size:14px;color:var(--vinho);margin:4px 0 2px">Recebimento sem vínculo <span id="pendExtTot" class="mini" style="color:var(--ouro)"></span></h3>
+          <div class="mini" style="margin:0 0 8px">Dinheiro que <b>caiu no banco</b> e ainda não foi identificado / amarrado a um título.</div>
           <div style="overflow-x:auto"><table><thead><tr><th>Data</th><th>Descrição</th><th>Banco</th><th style="text-align:right">Valor</th></tr></thead><tbody id="tbodyPendExtrato"></tbody></table></div>
           <div id="pendExtVazio" class="vazio" style="display:none">Nada sem vínculo no extrato.</div>
         </div>
@@ -2103,7 +2109,7 @@ function limparFiltrosExtrato(){window._filtroExt={};var b=document.getElementBy
 function contaFiltrosExt(){var f=window._filtroExt||{};var n=0;['tipo','status','categoria','banco','forma','dataIni','dataFim'].forEach(function(k){if(f[k])n++;});if(f.valorMin!==''&&f.valorMin!=null)n++;if(f.valorMax!==''&&f.valorMax!=null)n++;if(f.aClassificar)n++;if(f.semCliente)n++;var bu=document.getElementById('fcBusca');if(bu&&bu.value)n++;return n;}
 function atualizaBadgeFiltroExtrato(){var b=document.getElementById('btnFiltrarExt');if(!b)return;var n=contaFiltrosExt();b.innerHTML=n?('🔍 Filtrar ('+n+')'):'🔍 Filtrar';}
 function aplicarAtalhoFiltroExtrato(kind){var f=window._filtroExt=window._filtroExt||{};if(kind==='aclassificar')f.aClassificar=!f.aClassificar;else if(kind==='semcliente')f.semCliente=!f.semCliente;else if(kind==='entradas')f.tipo=(f.tipo==='receita')?'':'receita';else if(kind==='saidas')f.tipo=(f.tipo==='despesa')?'':'despesa';renderFluxo();abrirFiltroExtrato();}
-function abrirFiltroExtrato(){var f=window._filtroExt=window._filtroExt||{};var _mmf=document.getElementById('modalConteudo').closest('.modal');if(_mmf)_mmf.style.maxWidth='820px';
+function abrirFiltroExtrato(){var f=window._filtroExt=window._filtroExt||{};var _mmf=document.getElementById('modalConteudo').closest('.modal');if(_mmf)_mmf.style.maxWidth='560px';var _cst='padding:6px 8px;font-size:13px';
   var cats=(dados().categorias||[]).slice().sort(function(a,b){return (a.nome||'').localeCompare(b.nome||'');});
   var catOpts='<option value="">Todas categorias</option>'+cats.map(function(c){return '<option value="'+esc(c.nome)+'"'+(f.categoria===c.nome?' selected':'')+'>'+esc(c.nome)+'</option>';}).join('');
   var bancos=(dados().bancos||[]).filter(function(b){return b.ativo!==false;});
@@ -2115,15 +2121,15 @@ function abrirFiltroExtrato(){var f=window._filtroExt=window._filtroExt||{};var 
    +'<button type="button" class="ex-chip '+(f.tipo==='receita'?'':'off')+'" onclick="aplicarAtalhoFiltroExtrato(\'entradas\')">Só entradas</button>'
    +'<button type="button" class="ex-chip '+(f.tipo==='despesa'?'':'off')+'" onclick="aplicarAtalhoFiltroExtrato(\'saidas\')">Só saídas</button>'
    +'</div></div><div class="form-grid">'
-   +'<div style="grid-column:span 3"><label>Tipo</label><select id="feTipo"><option value="">Todos os tipos</option><option value="receita"'+(f.tipo==='receita'?' selected':'')+'>Receita</option><option value="despesa"'+(f.tipo==='despesa'?' selected':'')+'>Despesa</option></select></div>'
-   +'<div style="grid-column:span 3"><label>Situação</label><select id="feStatus"><option value="">Todas situações</option><option value="realizado"'+(f.status==='realizado'?' selected':'')+'>Realizado</option><option value="previsto"'+(f.status==='previsto'?' selected':'')+'>Previsto</option></select></div>'
-   +'<div style="grid-column:span 3"><label>Categoria</label><select id="feCategoria">'+catOpts+'</select></div>'
-   +'<div style="grid-column:span 3"><label>Banco / Conta</label><select id="feBanco">'+bancoOpts+'</select></div>'
-   +'<div style="grid-column:span 3"><label>Forma</label><select id="feForma">'+_formaOpts(f.forma)+'</select></div>'
-   +'<div style="grid-column:span 3"><label>Valor de (R$)</label><input type="number" step="0.01" id="feValorMin" placeholder="0,00" value="'+((f.valorMin!=null&&f.valorMin!=='')?f.valorMin:'')+'"></div>'
-   +'<div style="grid-column:span 3"><label>Valor até (R$)</label><input type="number" step="0.01" id="feValorMax" placeholder="0,00" value="'+((f.valorMax!=null&&f.valorMax!=='')?f.valorMax:'')+'"></div>'
-   +'<div style="grid-column:span 3"><label>Período — início</label><input type="date" id="feDataIni" value="'+(f.dataIni||'')+'"></div>'
-   +'<div style="grid-column:span 3"><label>Período — fim</label><input type="date" id="feDataFim" value="'+(f.dataFim||'')+'"></div>'
+   +'<div style="grid-column:span 3"><label>Tipo</label><select id="feTipo" style="'+_cst+'"><option value="">Todos os tipos</option><option value="receita"'+(f.tipo==='receita'?' selected':'')+'>Receita</option><option value="despesa"'+(f.tipo==='despesa'?' selected':'')+'>Despesa</option></select></div>'
+   +'<div style="grid-column:span 3"><label>Situação</label><select id="feStatus" style="'+_cst+'"><option value="">Todas situações</option><option value="realizado"'+(f.status==='realizado'?' selected':'')+'>Realizado</option><option value="previsto"'+(f.status==='previsto'?' selected':'')+'>Previsto</option></select></div>'
+   +'<div style="grid-column:span 3"><label>Categoria</label><select id="feCategoria" style="'+_cst+'">'+catOpts+'</select></div>'
+   +'<div style="grid-column:span 3"><label>Banco / Conta</label><select id="feBanco" style="'+_cst+'">'+bancoOpts+'</select></div>'
+   +'<div style="grid-column:span 6"><label>Forma</label><select id="feForma" style="'+_cst+'">'+_formaOpts(f.forma)+'</select></div>'
+   +'<div style="grid-column:span 3"><label>Valor de (R$)</label><input type="number" step="0.01" id="feValorMin" placeholder="0,00" style="'+_cst+'" value="'+((f.valorMin!=null&&f.valorMin!=='')?f.valorMin:'')+'"></div>'
+   +'<div style="grid-column:span 3"><label>Valor até (R$)</label><input type="number" step="0.01" id="feValorMax" placeholder="0,00" style="'+_cst+'" value="'+((f.valorMax!=null&&f.valorMax!=='')?f.valorMax:'')+'"></div>'
+   +'<div style="grid-column:span 3"><label>Período — início</label><input type="date" id="feDataIni" style="'+_cst+'" value="'+(f.dataIni||'')+'"></div>'
+   +'<div style="grid-column:span 3"><label>Período — fim</label><input type="date" id="feDataFim" style="'+_cst+'" value="'+(f.dataFim||'')+'"></div>'
    +'</div><div style="font-size:11px;color:#999;margin:6px 2px 0">O extrato mostra realizados com saldo acumulado. Escolha Situação = Previsto para ver as contas em aberto com saldo projetado.</div>'
    +'<div class="modal-acoes"><button class="btn danger" style="margin-right:auto" onclick="limparFiltrosExtrato();fecharModal()">✕ Limpar filtros</button><button class="btn sec" onclick="fecharModal()">Fechar</button><button class="btn" onclick="buscarFiltroExtrato()">Buscar</button></div>';
   document.getElementById('modalBg').classList.add('show');}
