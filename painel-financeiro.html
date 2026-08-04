@@ -2028,6 +2028,16 @@ function renderFluxoCaixa(){
   document.getElementById('fcEnt').textContent=moeda(entradas);document.getElementById('fcSai').textContent=moeda(saidas);
   document.getElementById('fcIni').textContent=moeda(saldoIni);document.getElementById('fcFim').textContent=moeda(saldoFim);
   renderConferenciaSaldo('fluxoConferencia');
+  // Só mostra o extrato depois de aplicar um filtro ou busca (pedido da Raquel: nada aparece sem filtro)
+  var _nFiltAtivos=(typeof contaFiltrosExt==='function')?contaFiltrosExt():0;
+  if(_nFiltAtivos===0){
+    var _tbFc=document.getElementById('tbodyFcExtrato');
+    if(_tbFc)_tbFc.innerHTML='<tr><td colspan="7" class="mini" style="text-align:center;padding:26px;color:var(--suave)">🔍 Use a busca ou o botão <b>Filtrar</b> acima para exibir os lançamentos do extrato.</td></tr>';
+    var _fcV=document.getElementById('fcVazio');if(_fcV)_fcV.style.display='none';
+    window._extratoCSV={abertura:0,linhas:[],banco:'—'};
+    if(typeof atualizaBadgeFiltroExtrato==='function')atualizaBadgeFiltroExtrato();
+    return;
+  }
   const fe=window._filtroExt=window._filtroExt||{};
   const fb=((document.getElementById('fcBusca')||{}).value||'').toLowerCase();
   const fcat=fe.categoria||'',ftp=fe.tipo||'',fst=fe.status||'',fbco=fe.banco||'',fde=fe.dataIni||'',fate=fe.dataFim||'',fforma=fe.forma||'';
