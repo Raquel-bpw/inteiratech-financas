@@ -851,6 +851,9 @@
       <div class="rel-filtros" style="display:flex;gap:14px;flex-wrap:wrap;align-items:flex-end;background:var(--vinho-fog);border:1px solid var(--borda);border-radius:12px;padding:11px 14px;margin:10px 0 16px">
         <div><label style="display:block;font-size:10px;text-transform:uppercase;letter-spacing:1px;color:var(--suave);margin-bottom:4px">Empresa / filial</label><div id="msUniRel" class="msel" style="min-width:200px"></div></div>
         <div id="wrapPerRel"><label style="display:block;font-size:10px;text-transform:uppercase;letter-spacing:1px;color:var(--suave);margin-bottom:4px">Período</label><div id="msPerRel" class="msel" style="min-width:180px"></div></div>
+        <div id="wrapBancoRel" style="display:none"><label style="display:block;font-size:10px;text-transform:uppercase;letter-spacing:1px;color:var(--suave);margin-bottom:4px">Banco</label><div id="msBancoRel" class="msel" style="min-width:170px"></div></div>
+        <div id="wrapTipoRel" style="display:none"><label style="display:block;font-size:10px;text-transform:uppercase;letter-spacing:1px;color:var(--suave);margin-bottom:4px">Tipo</label><select id="tipoRel" onchange="setRelTipo(this.value)" style="min-width:130px"><option value="">Entradas e saídas</option><option value="receita">Só entradas</option><option value="despesa">Só saídas</option></select></div>
+        <div id="wrapCatRel" style="display:none"><label style="display:block;font-size:10px;text-transform:uppercase;letter-spacing:1px;color:var(--suave);margin-bottom:4px">Categoria</label><div id="msCatRel" class="msel" style="min-width:190px"></div></div>
         <span id="relDemoCtrls" style="display:none;gap:12px;align-items:flex-end;flex-wrap:wrap">
           <div><label style="display:block;font-size:10px;text-transform:uppercase;letter-spacing:1px;color:var(--suave);margin-bottom:4px">De</label><select id="demoIniRel" onchange="renderRelFluxo()" style="min-width:140px"></select></div>
           <div><label style="display:block;font-size:10px;text-transform:uppercase;letter-spacing:1px;color:var(--suave);margin-bottom:4px">Até</label><select id="demoFimRel" onchange="renderRelFluxo()" style="min-width:140px"></select></div>
@@ -1835,54 +1838,63 @@ const RELATORIOS_DEF=[
 ];
 function renderCardsRelatorios(){
   const box=document.getElementById('relCards');if(!box)return;
-  box.innerHTML=RELATORIOS_DEF.map(r=>`<div class="rel-card" onclick="gerarRelatorio('${r.tipo}')"><div class="ric" style="background:${r.cor}">${r.icone}</div><h3>${r.titulo}</h3><p>${r.desc}</p></div>`).join('');
+  box.innerHTML=RELATORIOS_DEF.map(r=>`<div class="rel-card" onclick="abrirRelatorioCard('${r.tipo}')"><div class="ric" style="background:${r.cor}">${r.icone}</div><h3>${r.titulo}</h3><p>${r.desc}</p></div>`).join('');
   if(window._relAtual)renderRelatorioOut();
 }
 function fmtDataRel(d){return d?new Date(d+'T00:00:00').toLocaleDateString('pt-BR'):'-';}
 function unidadeDe(l){return (l.unidade||'')||(typeof bancoUnidade==='function'?bancoUnidade(l.banco):'')||'(sem unidade)';}
+function _relFiltrosCfg(tipo){var m={'lancamentos':{banco:1,tipo:1,cat:1},'contas-pagas':{banco:1,cat:1},'contas-recebidas':{banco:1,cat:1},'contas-pagar':{cat:1},'contas-receber':{cat:1},'por-cliente':{banco:1},'receitas-cat':{cat:1},'despesas-cat':{cat:1}};return m[tipo]||{};}
+function _relCatOpts(tipo){var tp=(tipo==='receitas-cat'||tipo==='contas-receber'||tipo==='contas-recebidas')?'receita':((tipo==='despesas-cat'||tipo==='contas-pagar'||tipo==='contas-pagas')?'despesa':'');var set={};(dados().categorias||[]).forEach(function(c){if(!tp||c.tipo===tp)set[c.nome]=1;});(dados().lancamentos||[]).forEach(function(l){if((!tp||l.tipo===tp)&&l.categoria)set[l.categoria]=1;});return Object.keys(set).sort(function(a,b){return String(a).localeCompare(String(b),'pt-BR');});}
+function abrirRelatorioCard(tipo){const def=RELATORIOS_DEF.find(r=>r.tipo===tipo);if(!def)return;window._relBanco=new Set();window._relTipo='';window._relCat=new Set();window._relAtual={tipo,titulo:def.titulo,desc:def.desc,colunas:[],linhas:[],demo:(tipo==='fluxo'),mostrar:false};renderRelatorioOut();}
+function gerarRelAtual(){if(window._relAtual)gerarRelatorio(window._relAtual.tipo);}
 function gerarRelatorio(tipo){
   const def=RELATORIOS_DEF.find(r=>r.tipo===tipo);if(!def)return;
   const lancs=dados().lancamentos||[];
   const realizado=l=>l.status!=='previsto';
   const previsto=l=>l.status==='previsto';
+  const RB=window._relBanco||new Set(),RC=window._relCat||new Set(),RT=window._relTipo||'';
+  const fBanco=l=>!RB.size||RB.has(l.banco||'');
+  const fCat=l=>!RC.size||RC.has(l.categoria||'');
+  const fTipo=l=>!RT||l.tipo===RT;
   const noFiltro=l=>noPeriodo(l)&&noUnidade(l);
   let colunas=[],linhas=[],demo=false;
   if(tipo==='fluxo'){
     demo=true;
   }else if(tipo==='lancamentos'){
     colunas=['Data','Descrição','Cliente','Categoria','Banco','Tipo','Valor'];
-    const arr=lancs.filter(l=>noFiltro(l)&&realizado(l)).sort((a,b)=>(a.data||'').localeCompare(b.data||''));
+    const arr=lancs.filter(l=>noFiltro(l)&&realizado(l)&&fBanco(l)&&fCat(l)&&fTipo(l)).sort((a,b)=>(a.data||'').localeCompare(b.data||''));
     linhas=arr.map(l=>[fmtDataRel(l.data),l.descricao||'-',l.cliente||'-',l.categoria||'-',l.banco||'-',l.tipo==='receita'?'Receita':'Despesa',moeda(+l.valor||0)]);
   }else if(tipo==='contas-pagar'){
     colunas=['Vencimento','Descrição','Categoria','Valor'];
-    const arr=lancs.filter(l=>noFiltro(l)&&previsto(l)&&l.tipo==='despesa').sort((a,b)=>(a.data||'').localeCompare(b.data||''));
+    const arr=lancs.filter(l=>noFiltro(l)&&previsto(l)&&l.tipo==='despesa'&&fCat(l)).sort((a,b)=>(a.data||'').localeCompare(b.data||''));
     linhas=arr.map(l=>[fmtDataRel(l.data),l.descricao||'-',l.categoria||'-',moeda(+l.valor||0)]);
   }else if(tipo==='contas-pagas'){
-    colunas=['Data','Descrição','Categoria','Valor'];
-    const arr=lancs.filter(l=>noFiltro(l)&&realizado(l)&&l.tipo==='despesa').sort((a,b)=>(a.data||'').localeCompare(b.data||''));
-    linhas=arr.map(l=>[fmtDataRel(l.data),l.descricao||'-',l.categoria||'-',moeda(+l.valor||0)]);
+    colunas=['Data','Descrição','Categoria','Banco','Valor'];
+    const arr=lancs.filter(l=>noFiltro(l)&&realizado(l)&&l.tipo==='despesa'&&fBanco(l)&&fCat(l)).sort((a,b)=>(a.data||'').localeCompare(b.data||''));
+    linhas=arr.map(l=>[fmtDataRel(l.data),l.descricao||'-',l.categoria||'-',l.banco||'-',moeda(+l.valor||0)]);
   }else if(tipo==='contas-receber'){
     colunas=['Vencimento','Descrição','Categoria','Valor'];
-    const arr=lancs.filter(l=>noFiltro(l)&&previsto(l)&&l.tipo==='receita').sort((a,b)=>(a.data||'').localeCompare(b.data||''));
+    const arr=lancs.filter(l=>noFiltro(l)&&previsto(l)&&l.tipo==='receita'&&fCat(l)).sort((a,b)=>(a.data||'').localeCompare(b.data||''));
     linhas=arr.map(l=>[fmtDataRel(l.data),l.descricao||'-',l.categoria||'-',moeda(+l.valor||0)]);
   }else if(tipo==='contas-recebidas'){
-    colunas=['Data','Descrição','Categoria','Valor'];
-    const arr=lancs.filter(l=>noFiltro(l)&&realizado(l)&&l.tipo==='receita').sort((a,b)=>(a.data||'').localeCompare(b.data||''));
-    linhas=arr.map(l=>[fmtDataRel(l.data),l.descricao||'-',l.categoria||'-',moeda(+l.valor||0)]);
+    colunas=['Data','Descrição','Categoria','Banco','Valor'];
+    const arr=lancs.filter(l=>noFiltro(l)&&realizado(l)&&l.tipo==='receita'&&fBanco(l)&&fCat(l)).sort((a,b)=>(a.data||'').localeCompare(b.data||''));
+    linhas=arr.map(l=>[fmtDataRel(l.data),l.descricao||'-',l.categoria||'-',l.banco||'-',moeda(+l.valor||0)]);
   }else if(tipo==='receitas-cat'||tipo==='despesas-cat'){
     const _tp=tipo==='receitas-cat'?'receita':'despesa';
     colunas=['Categoria','% do total','Valor'];
     const arr=lancs.filter(l=>noFiltro(l)&&realizado(l)&&l.tipo===_tp);
     const porC={};let tot=0;arr.forEach(l=>{const k=l.categoria||'(sem categoria)';porC[k]=(porC[k]||0)+(+l.valor||0);tot+=(+l.valor||0);});
-    linhas=Object.entries(porC).sort((a,b)=>b[1]-a[1]).map(([k,v])=>[k,tot>0?pct(v/tot):'-',moeda(v)]);
+    let ents=Object.entries(porC);if(RC.size)ents=ents.filter(([k])=>RC.has(k));
+    linhas=ents.sort((a,b)=>String(a[0]).localeCompare(String(b[0]),'pt-BR')).map(([k,v])=>[k,tot>0?pct(v/tot):'-',moeda(v)]);
   }else if(tipo==='por-categoria'){
     colunas=['Categoria','Entradas','Saídas','Saldo'];
     const arr=lancs.filter(l=>noFiltro(l)&&realizado(l));
     const porCat={};arr.forEach(l=>{const k=l.categoria||'(sem categoria)';if(!porCat[k])porCat[k]={ent:0,sai:0};if(l.tipo==='receita')porCat[k].ent+=(+l.valor||0);else porCat[k].sai+=(+l.valor||0);});
-    linhas=Object.entries(porCat).sort((a,b)=>(b[1].ent+b[1].sai)-(a[1].ent+a[1].sai)).map(([k,v])=>[k,moeda(v.ent),moeda(v.sai),moeda(v.ent-v.sai)]);
+    linhas=Object.entries(porCat).sort((a,b)=>String(a[0]).localeCompare(String(b[0]),'pt-BR')).map(([k,v])=>[k,moeda(v.ent),moeda(v.sai),moeda(v.ent-v.sai)]);
   }else if(tipo==='por-cliente'){
     colunas=['Cliente/Fornecedor','Entradas','Saídas','Saldo'];
-    const arr=lancs.filter(l=>noFiltro(l)&&realizado(l));
+    const arr=lancs.filter(l=>noFiltro(l)&&realizado(l)&&fBanco(l));
     const porCli={};arr.forEach(l=>{const k=l.cliente||'(sem cliente/fornecedor)';if(!porCli[k])porCli[k]={ent:0,sai:0};if(l.tipo==='receita')porCli[k].ent+=(+l.valor||0);else porCli[k].sai+=(+l.valor||0);});
     linhas=Object.entries(porCli).sort((a,b)=>(b[1].ent+b[1].sai)-(a[1].ent+a[1].sai)).map(([k,v])=>[k,moeda(v.ent),moeda(v.sai),moeda(v.ent-v.sai)]);
   }else if(tipo==='por-unidade'){
@@ -1891,7 +1903,7 @@ function gerarRelatorio(tipo){
     const porUni={};arr.forEach(l=>{const k=unidadeDe(l);if(!porUni[k])porUni[k]={ent:0,sai:0};if(l.tipo==='receita')porUni[k].ent+=(+l.valor||0);else porUni[k].sai+=(+l.valor||0);});
     linhas=Object.entries(porUni).sort((a,b)=>(b[1].ent+b[1].sai)-(a[1].ent+a[1].sai)).map(([k,v])=>[k,moeda(v.ent),moeda(v.sai),moeda(v.ent-v.sai)]);
   }
-  window._relAtual={tipo,titulo:def.titulo,desc:def.desc,colunas,linhas,demo};
+  window._relAtual={tipo,titulo:def.titulo,desc:def.desc,colunas,linhas,demo,mostrar:true};
   renderRelatorioOut();
 }
 const REL_COLS_DIR={'Valor':1,'Entradas':1,'Saídas':1,'Saldo':1,'Resultado':1,'Saldo acumulado':1,'%':1,'% do total':1};
@@ -1902,10 +1914,17 @@ function renderRelatorioOut(){
   document.getElementById('relOutTitulo').textContent=r.titulo;
   document.getElementById('relOutDesc').textContent=r.desc||'';
   try{montarFiltrosRel();}catch(e){}
-  const demoCtrls=document.getElementById('relDemoCtrls');const wrapPer=document.getElementById('wrapPerRel');
+  const cfg=_relFiltrosCfg(r.tipo);
+  const _sh=(id,on)=>{var e=document.getElementById(id);if(e)e.style.display=on?'':'none';};
+  const demoCtrls=document.getElementById('relDemoCtrls');
   if(demoCtrls)demoCtrls.style.display=r.demo?'flex':'none';
-  if(wrapPer)wrapPer.style.display=r.demo?'none':'';
+  _sh('wrapPerRel',!r.demo);
+  _sh('wrapBancoRel',!!cfg.banco);_sh('wrapTipoRel',!!cfg.tipo);_sh('wrapCatRel',!!cfg.cat);
   const out=document.getElementById('relatorioOut');
+  if(!r.mostrar){
+    out.innerHTML='<div style="text-align:center;padding:26px 18px;color:var(--suave)"><div style="font-size:26px;margin-bottom:6px">🔎</div><div style="margin-bottom:14px">Escolha os filtros acima (empresa, período'+(cfg.banco?', banco':'')+(cfg.cat?', categoria':'')+') e gere o relatório.</div><button class="btn ouro" onclick="gerarRelAtual()">▶ Gerar relatório</button></div>';
+    card.scrollIntoView({behavior:'smooth',block:'nearest'});return;
+  }
   if(r.demo){
     const st=window._relDemoStatus||'realizado';const ss=document.getElementById('demoStatusRel');if(ss&&ss.value!==st)ss.value=st;
     renderDemonstrativo({box:'relatorioOut',iniSel:'demoIniRel',fimSel:'demoFimRel',status:st});
@@ -1930,17 +1949,32 @@ function montarFiltrosRel(){
   if(pbox){pbox.style.display='';var ps=window._flt.per;
     var pit=_perTreeHtml(ps,'rel');
     pbox.innerHTML='<button class="msel-btn" onclick="abrirMsel(\'msPerRel\',event)">'+labelFiltro('per','Todos os períodos')+' <span style="opacity:.5">▾</span></button><div class="msel-pop">'+pit+'</div>';}
+  var r=window._relAtual||{};var cfg=_relFiltrosCfg(r.tipo);
+  var bbox=document.getElementById('msBancoRel');
+  if(bbox&&cfg.banco){var bs=(typeof bancosParaConf==='function')?bancosParaConf():[];var sb=window._relBanco=window._relBanco||new Set();
+    var bit='<label class="msel-item" onclick="event.stopPropagation()"><input type="checkbox" '+(!sb.size?'checked':'')+' onchange="_rClearBanco()"> <b>Todos os bancos</b></label>'+bs.slice().sort(function(a,b){return (a.nome||'').localeCompare(b.nome||'');}).map(function(b){return '<label class="msel-item" onclick="event.stopPropagation()"><input type="checkbox" '+(sb.has(b.nome)?'checked':'')+' data-v="'+String(b.nome).replace(/"/g,'&quot;')+'" onchange="_rToggleBanco(this.dataset.v)"> 🏦 '+esc(b.nome)+'</label>';}).join('');
+    bbox.innerHTML='<button class="msel-btn" onclick="abrirMsel(\'msBancoRel\',event)">'+(sb.size?(sb.size===1?[...sb][0]:sb.size+' bancos'):'Todos os bancos')+' <span style="opacity:.5">▾</span></button><div class="msel-pop">'+bit+'</div>';}
+  var cbox=document.getElementById('msCatRel');
+  if(cbox&&cfg.cat){var cats=_relCatOpts(r.tipo);var sc=window._relCat=window._relCat||new Set();
+    var cit='<label class="msel-item" onclick="event.stopPropagation()"><input type="checkbox" '+(!sc.size?'checked':'')+' onchange="_rClearCat()"> <b>Todas as categorias</b></label>'+cats.map(function(c){return '<label class="msel-item" onclick="event.stopPropagation()"><input type="checkbox" '+(sc.has(c)?'checked':'')+' data-v="'+String(c).replace(/"/g,'&quot;')+'" onchange="_rToggleCat(this.dataset.v)"> '+esc(c)+'</label>';}).join('');
+    cbox.innerHTML='<button class="msel-btn" onclick="abrirMsel(\'msCatRel\',event)">'+(sc.size?(sc.size===1?[...sc][0]:sc.size+' categorias'):'Todas as categorias')+' <span style="opacity:.5">▾</span></button><div class="msel-pop">'+cit+'</div>';}
+  var ts=document.getElementById('tipoRel');if(ts)ts.value=window._relTipo||'';
 }
-function _relRefresh(){var openId=null;var op=document.querySelector('#msUniRel .msel-pop.open, #msPerRel .msel-pop.open');if(op&&op.parentElement)openId=op.parentElement.id;try{montarFiltros();}catch(e){}if(window._relAtual)gerarRelatorio(window._relAtual.tipo);if(openId){var p=document.querySelector('#'+openId+' .msel-pop');if(p)p.classList.add('open');}}
+function _relRefresh(){var openId=null;var op=document.querySelector('#msUniRel .msel-pop.open, #msPerRel .msel-pop.open, #msBancoRel .msel-pop.open, #msCatRel .msel-pop.open');if(op&&op.parentElement)openId=op.parentElement.id;try{montarFiltros();}catch(e){}if(window._relAtual)gerarRelatorio(window._relAtual.tipo);if(openId){var p=document.querySelector('#'+openId+' .msel-pop');if(p)p.classList.add('open');}}
 function _rToggleUni(v){var s=window._flt.uni;if(s.has(v))s.delete(v);else s.add(v);_relRefresh();}
 function _rClearUni(){window._flt.uni.clear();_relRefresh();}
 function _rToggleEmp(idx){var g=(window._empGrupos||[])[idx];if(!g)return;var s=window._flt.uni;var fu=g.filiais.map(function(f){return f.unidade;});var todas=fu.length&&fu.every(function(u){return s.has(u);});fu.forEach(function(u){if(todas)s.delete(u);else s.add(u);});_relRefresh();}
 function _rTogglePer(v){var s=window._flt.per;if(s.has(v))s.delete(v);else s.add(v);_relRefresh();}
 function _rClearPer(){window._flt.per.clear();_relRefresh();}
-function renderRelFluxo(){if(window._relAtual&&window._relAtual.demo)renderDemonstrativo({box:'relatorioOut',iniSel:'demoIniRel',fimSel:'demoFimRel',status:window._relDemoStatus||'realizado'});}
+function _rToggleBanco(v){window._relBanco=window._relBanco||new Set();var s=window._relBanco;if(s.has(v))s.delete(v);else s.add(v);_relRefresh();}
+function _rClearBanco(){window._relBanco=new Set();_relRefresh();}
+function _rToggleCat(v){window._relCat=window._relCat||new Set();var s=window._relCat;if(s.has(v))s.delete(v);else s.add(v);_relRefresh();}
+function _rClearCat(){window._relCat=new Set();_relRefresh();}
+function setRelTipo(v){window._relTipo=v;if(window._relAtual)gerarRelatorio(window._relAtual.tipo);}
+function renderRelFluxo(){if(window._relAtual&&window._relAtual.demo){window._relAtual.mostrar=true;renderDemonstrativo({box:'relatorioOut',iniSel:'demoIniRel',fimSel:'demoFimRel',status:window._relDemoStatus||'realizado'});}}
 function setRelDemoStatus(v){window._relDemoStatus=v;renderRelFluxo();}
-function imprimirRelatorioAtual(){if(window._relAtual&&window._relAtual.demo){imprimirDemonstrativo('relatorioOut');return;}imprimirRelatorio();}
-function exportarRelatorioAtual(){if(window._relAtual&&window._relAtual.demo){exportarDemonstrativo();return;}exportarRelatorio();}
+function imprimirRelatorioAtual(){if(!window._relAtual||!window._relAtual.mostrar){alert('Gere o relatório primeiro (clique em ▶ Gerar relatório).');return;}if(window._relAtual.demo){imprimirDemonstrativo('relatorioOut');return;}imprimirRelatorio();}
+function exportarRelatorioAtual(){if(!window._relAtual||!window._relAtual.mostrar){alert('Gere o relatório primeiro (clique em ▶ Gerar relatório).');return;}if(window._relAtual.demo){exportarDemonstrativo();return;}exportarRelatorio();}
 function imprimirRelatorio(){
   const r=window._relAtual;if(!r){alert('Gere um relatório primeiro, clicando em um dos cards.');return;}
   const w=window.open('','_blank');if(!w){alert('Permita pop-ups para imprimir.');return;}
