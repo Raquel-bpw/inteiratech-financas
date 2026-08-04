@@ -2046,11 +2046,16 @@ function _seRowHtml(b,i){
     '<td id="seSt_'+i+'" style="padding:8px 10px 8px 16px;border-left:1px solid #F0EBE0"><div style="display:flex;align-items:center;gap:9px;flex-wrap:wrap">'+_seStatusHtml(dd)+impo+(dd.nPend?'<button class="btn sec peq" onclick="conciliarBanco(\''+nesc+'\')" title="Abrir a conciliação deste banco">🏦 Conciliar '+dd.nPend+'</button>':'')+'</div></td>';
 }
 function _seFaixaHtml(){
-  var bancos=bancosParaConf();var nInform=0,nDif=0;
-  bancos.forEach(function(b){var dd=_seDadosBanco(b);if(dd.tem){nInform++;if(Math.abs(dd.dif)>=0.01)nDif++;}});
-  if(nInform===0)return '';
-  var ok=(nDif===0);
-  return '<div class="conf '+(ok?'ok':'bad')+'" style="margin:12px 0"><div class="conf-ico">'+(ok?'&#10003;':'!')+'</div><div><b>'+(ok?'Todos os bancos informados est&atilde;o fechados!':nDif+' banco(s) com diferen&ccedil;a para fechar')+'</b><br><span class="mini">'+(ok?'O saldo conciliado bate com o saldo do extrato.':'Trabalhe a concilia&ccedil;&atilde;o desses bancos at&eacute; a diferen&ccedil;a zerar.')+'</span></div></div>';
+  var ym=_seMesAtual();var mesLabel=_seMesLabel(ym);
+  var bancos=bancosParaConf();var nInform=0,nDif=0,nPend=0,nUnver=0;
+  bancos.forEach(function(b){var dd=_seDadosBanco(b,ym);if(dd.tem){nInform++;if(Math.abs(dd.dif)>=0.01)nDif++;}else if(Math.abs(dd.saldoC)>=0.01){nUnver++;}if(dd.nPend>0)nPend++;});
+  if(nDif>0){return '<div class="conf bad" style="margin:12px 0"><div class="conf-ico">!</div><div><b>'+nDif+' banco(s) com diferen&ccedil;a em '+esc(mesLabel)+'</b><br><span class="mini">Trabalhe a concilia&ccedil;&atilde;o desses bancos at&eacute; a diferen&ccedil;a zerar.</span></div></div>';}
+  if(nInform>0 && nPend===0 && nUnver===0){return '<div class="conf ok" style="margin:12px 0"><div class="conf-ico">&#10003;</div><div><b>Todos os bancos fechados em '+esc(mesLabel)+'!</b><br><span class="mini">Os saldos do extrato informados batem com o conciliado e n&atilde;o h&aacute; movimento pendente.</span></div></div>';}
+  var faltas=[];
+  if(nUnver>0)faltas.push(nUnver+' banco(s) com saldo conciliado, mas sem o saldo do extrato de '+mesLabel+' informado');
+  if(nPend>0)faltas.push(nPend+' banco(s) com movimento a conciliar');
+  var corpo=(nInform>0?('Os '+nInform+' banco(s) com saldo informado batem. '):'')+(faltas.length?('Falta: '+faltas.join(' &middot; ')+'.'):'Informe os saldos do extrato para conferir.');
+  return '<div style="margin:12px 0;display:flex;gap:12px;align-items:flex-start;background:#FBF7EC;border:1px solid #E9DDBF;border-left:4px solid var(--ouro);border-radius:12px;padding:12px 15px"><div style="font-size:18px;line-height:1">&#9888;&#65039;</div><div><b style="color:#8a6a1a">'+esc(mesLabel)+' ainda n&atilde;o est&aacute; fechado</b><br><span class="mini" style="color:#8a7f6f">'+corpo+'</span></div></div>';
 }
 function _seMesLabel(ym){var d=new Date(ym+'-01T00:00:00');var nm=d.toLocaleDateString('pt-BR',{month:'long',year:'numeric'});return nm.charAt(0).toUpperCase()+nm.slice(1);}
 function mudarConfMes(v){window._confMes=v;renderFluxoSaldoBanco();}
