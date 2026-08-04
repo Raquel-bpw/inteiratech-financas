@@ -582,8 +582,8 @@
     <div class="card" id="pendConcilCard">
       <h2>Pendências de conciliação</h2>
       <div class="cap">O que ainda não bateu entre o sistema e o banco. De um lado, o que está a receber e ainda não caiu ou não casou; do outro, o que caiu no banco e ainda não foi identificado.</div>
-      <div style="display:flex;gap:10px;align-items:center;margin:10px 0;flex-wrap:wrap"><button class="btn ouro" onclick="abrirConciliacaoBanco()" title="Amarrar os movimentos do banco aos títulos em aberto e dar baixa">🏦 Conciliação de bancos</button><button class="btn sec" onclick="reamarrarEtiquetados()" title="Depois de incluir os títulos que a empresa criou, roda esta rotina para amarrar os recebimentos etiquetados 'amarrar título' — sem duplicar">🔁 Amarrar títulos que chegaram</button><button class="btn sec" onclick="ajudaConciliacao()" title="Explicação rápida: conciliar, amarrar e baixa">❓ Como funciona</button><label style="font-size:13px;color:var(--tinta);font-weight:600">Mês:</label><select id="pendMes" onchange="renderPendenciasConcil()" style="padding:7px 11px;border:1px solid #e2ddd0;border-radius:9px;font-family:inherit"></select><span class="mini">Concilie um mês de cada vez, ou abra a tela para selecionar e vincular.</span></div>
-      <div class="pend-grid" style="display:grid;grid-template-columns:1fr 1fr;gap:18px">
+      <div style="display:flex;gap:10px;align-items:center;margin:10px 0;flex-wrap:wrap"><button class="btn ouro" onclick="abrirConciliacaoBanco()" title="Amarrar os movimentos do banco aos títulos em aberto e dar baixa">🏦 Conciliação de bancos</button><button class="btn sec" onclick="reamarrarEtiquetados()" title="Depois de incluir os títulos que a empresa criou, roda esta rotina para amarrar os recebimentos etiquetados 'amarrar título' — sem duplicar">🔁 Amarrar títulos que chegaram</button><button class="btn sec" onclick="ajudaConciliacao()" title="Explicação rápida: conciliar, amarrar e baixa">❓ Como funciona</button><button class="btn sec" id="btnVerPend" onclick="togglePendVer()" title="Mostrar ou ocultar as listas de pendências sem vínculo">👁 Ver pendências</button><label style="font-size:13px;color:var(--tinta);font-weight:600">Mês:</label><select id="pendMes" onchange="renderPendenciasConcil()" style="padding:7px 11px;border:1px solid #e2ddd0;border-radius:9px;font-family:inherit"></select><span class="mini">Concilie um mês de cada vez, ou abra a tela para selecionar e vincular.</span></div>
+      <div id="pendGridWrap" class="pend-grid" style="display:none;grid-template-columns:1fr 1fr;gap:18px">
         <div>
           <h3 style="font-size:14px;color:var(--vinho);margin:4px 0 8px">Atendimento sem vínculo <span id="pendRecTot" class="mini" style="color:var(--ouro)"></span></h3>
           <div style="overflow-x:auto"><table><thead><tr><th>Data</th><th>Cliente</th><th>Forma</th><th style="text-align:right">Valor</th></tr></thead><tbody id="tbodyPendReceber"></tbody></table></div>
@@ -1958,10 +1958,11 @@ function _seRowHtml(b,i){
   var nesc=b.nome.replace(/\\/g,'\\\\').replace(/'/g,"\\'");
   var impo=dd.importadoAte?'<div class="mini" style="color:var(--suave);margin-top:2px">&#128229; importado at&eacute; '+new Date(dd.importadoAte+'T00:00:00').toLocaleDateString('pt-BR')+'</div>':'';
   var infTxt=dd.tem?moeda(dd.inf):'<span class="mini" style="color:var(--suave)">&mdash;</span>';
-  return '<td style="padding:13px 8px"><b>'+esc(b.nome)+'</b>'+impo+'</td>'+
-    '<td style="text-align:right;padding:13px 8px;font-weight:600">'+infTxt+'</td>'+
-    '<td style="text-align:right;padding:13px 8px;font-weight:700;font-size:15px;color:'+(dd.saldoC>=0?'var(--vinho)':'var(--rubro)')+'">'+moeda(dd.saldoC)+'</td>'+
-    '<td id="seSt_'+i+'" style="padding:13px 8px">'+_seStatusHtml(dd)+(dd.nPend?'<div style="margin-top:6px"><button class="btn sec peq" onclick="conciliarBanco(\''+nesc+'\')" title="Abrir a conciliação deste banco">🏦 Conciliar '+dd.nPend+'</button></div>':'')+'</td>';
+  var aberto=(window._cadBankOpen===b.nome);
+  return '<td style="padding:9px 8px"><button class="btn-ico" onclick="toggleCadBank(\''+nesc+'\')" title="Cadastrar os saldos dos 12 meses deste banco" style="font-size:15px">'+(aberto?'📆':'📅')+'</button> <b>'+esc(b.nome)+'</b>'+impo+'</td>'+
+    '<td style="text-align:right;padding:9px 8px;font-weight:600">'+infTxt+'</td>'+
+    '<td style="text-align:right;padding:9px 8px;font-weight:700;font-size:14px;color:'+(dd.saldoC>=0?'var(--vinho)':'var(--rubro)')+'">'+moeda(dd.saldoC)+'</td>'+
+    '<td id="seSt_'+i+'" style="padding:9px 8px">'+_seStatusHtml(dd)+(dd.nPend?'<div style="margin-top:5px"><button class="btn sec peq" onclick="conciliarBanco(\''+nesc+'\')" title="Abrir a conciliação deste banco">🏦 Conciliar '+dd.nPend+'</button></div>':'')+'</td>';
 }
 function _seFaixaHtml(){
   var bancos=bancosParaFluxo();var nInform=0,nDif=0;
@@ -1973,6 +1974,9 @@ function _seFaixaHtml(){
 function _seMesLabel(ym){var d=new Date(ym+'-01T00:00:00');var nm=d.toLocaleDateString('pt-BR',{month:'long',year:'numeric'});return nm.charAt(0).toUpperCase()+nm.slice(1);}
 function mudarConfMes(v){window._confMes=v;renderFluxoSaldoBanco();}
 function toggleCadastroSaldos(){window._cadSaldoAberto=!window._cadSaldoAberto;renderFluxoSaldoBanco();}
+function _cadAnos(){var s={};_seMeses().forEach(function(m){s[m.slice(0,4)]=1;});var cur=_seMesAtual().slice(0,4);s[cur]=1;var arr=Object.keys(s).sort();var nx=(parseInt(arr[arr.length-1]||cur,10)+1).toString();s[nx]=1;return Object.keys(s).sort();}
+function _cadAnoAtual(){var y=(window._cadAno||'').toString();if(/^\d{4}$/.test(y))return y;y=_seMesAtual().slice(0,4);window._cadAno=y;return y;}
+function mudarCadAno(v){window._cadAno=v;renderFluxoSaldoBanco();}
 function renderFluxoSaldoBanco(boxId){
   var box=document.getElementById(boxId||'fluxoSaldoBanco');if(!box)return;
   _migrarSaldoMes();
@@ -1980,17 +1984,25 @@ function renderFluxoSaldoBanco(boxId){
   if(!bancos.length){box.innerHTML='<div class="card"><h2>Confer&ecirc;ncia de saldos</h2><div class="cap">Cadastre um banco na aba <b>Bancos</b> e registre lan&ccedil;amentos.</div></div>';return;}
   var ym=_seMesAtual();var mesLabel=_seMesLabel(ym);var meses=_seMeses();
   var mesOpts=meses.map(function(m){return '<option value="'+m+'" '+(m===ym?'selected':'')+'>'+_seMesLabel(m)+'</option>';}).join('')||('<option value="'+ym+'" selected>'+mesLabel+'</option>');
-  var rows=bancos.map(function(b,i){return '<tr id="seRow_'+i+'">'+_seRowHtml(b,i)+'</tr>';}).join('');
-  var aberto=!!window._cadSaldoAberto;
-  var cadRows=bancos.map(function(b){var inf=_seSaldoInf(b.nome,ym);var nesc=b.nome.replace(/\\/g,'\\\\').replace(/'/g,"\\'");return '<tr><td style="padding:8px"><b>'+esc(b.nome)+'</b></td><td style="padding:8px;text-align:right"><input type="text" inputmode="decimal" value="'+(inf!==null?_fmtValorBR(inf):'')+'" placeholder="saldo de '+esc(mesLabel)+'" onchange="setSaldoExtratoMes(\''+nesc+'\',this.value,\''+ym+'\')" style="width:150px;text-align:right;padding:7px 9px;border:1px solid #e2ddd0;border-radius:8px;font-size:14px"></td></tr>';}).join('');
-  var cadastro='<div style="border:1px solid #E4CE8F;border-radius:11px;margin:10px 0 14px;overflow:hidden">'+
-    '<div onclick="toggleCadastroSaldos()" style="cursor:pointer;background:#FBF3DE;padding:10px 14px;display:flex;justify-content:space-between;align-items:center"><b style="color:#7a6320">&#9881;&#65039; Cadastrar saldos do extrato</b><span class=mini style="color:#7a6320;font-weight:700">'+(aberto?'&#9650; recolher':'&#9660; abrir')+'</span></div>'+
-    (aberto?'<div style="padding:12px 14px"><div class=mini style="margin-bottom:8px">Informe o saldo final do extrato de cada banco no m&ecirc;s <b>'+esc(mesLabel)+'</b>. Cada m&ecirc;s fica salvo separado &mdash; um n&atilde;o apaga o outro.</div><div style="overflow-x:auto"><table><thead><tr><th>Conta</th><th style="text-align:right">Saldo do extrato &middot; '+esc(mesLabel)+'</th></tr></thead><tbody>'+cadRows+'</tbody></table></div></div>':'')+
-    '</div>';
+  var rows=bancos.map(function(b,i){
+    var tr='<tr id="seRow_'+i+'">'+_seRowHtml(b,i)+'</tr>';
+    if(window._cadBankOpen===b.nome)tr+='<tr><td colspan="4" style="padding:2px 8px 10px 8px;border:none"><div style="background:#FBF3DE;border:1px solid #E4CE8F;border-radius:10px;padding:10px 12px">'+_cadBancoGrid(b)+'</div></td></tr>';
+    return tr;
+  }).join('');
   box.innerHTML='<div class="card"><div style="display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap"><h2 style="margin:0">Confer&ecirc;ncia de saldos</h2><div style="display:flex;gap:8px;align-items:center"><label class=mini style="font-weight:700;color:#7A2E39">M&ecirc;s base</label><select onchange="mudarConfMes(this.value)" style="padding:7px 10px;border:1px solid #dcd4c4;border-radius:8px;font-family:inherit">'+mesOpts+'</select></div></div>'+
-    '<div class="cap">Compara o <b>saldo do extrato que voc&ecirc; cadastrou</b> para o m&ecirc;s com o que est&aacute; <b>conciliado</b> na base, e diz se fecha.</div>'+
-    cadastro+'<div id="seFaixa">'+_seFaixaHtml()+'</div>'+
+    '<div class="cap">Compara o saldo do extrato com o que est&aacute; <b>conciliado</b> na base. Para informar os saldos, clique no &#128197; de cada banco (12 meses por ano).</div>'+
+    '<div id="seFaixa">'+_seFaixaHtml()+'</div>'+
     '<div style="overflow-x:auto"><table><thead><tr><th>Conta</th><th style="text-align:right">Saldo do extrato ('+esc(mesLabel)+')</th><th style="text-align:right">Conciliado at&eacute; '+esc(mesLabel)+'</th><th>Situa&ccedil;&atilde;o</th></tr></thead><tbody>'+rows+'</tbody></table></div></div>';
+}
+function toggleCadBank(nome){window._cadBankOpen=(window._cadBankOpen===nome?null:nome);renderFluxoSaldoBanco();}
+function _cadBancoGrid(b){
+  var cadAno=_cadAnoAtual();var nesc=b.nome.replace(/\\/g,'\\\\').replace(/'/g,"\\'");
+  var anoOpts=_cadAnos().map(function(a){return '<option value="'+a+'" '+(a===cadAno?'selected':'')+'>'+a+'</option>';}).join('');
+  var mm=['01','02','03','04','05','06','07','08','09','10','11','12'];
+  var nomes=['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez'];
+  var cells=mm.map(function(m,k){var ymk=cadAno+'-'+m;var inf=_seSaldoInf(b.nome,ymk);return '<div style="display:flex;flex-direction:column;align-items:center;gap:2px"><span class=mini style="font-weight:700;color:#7a6320">'+nomes[k]+'</span><input type="text" inputmode="decimal" value="'+(inf!==null?_fmtValorBR(inf):'')+'" onchange="setSaldoExtratoMes(\''+nesc+'\',this.value,\''+ymk+'\')" style="width:88px;text-align:right;padding:5px 6px;border:1px solid #dcd4c4;border-radius:6px;font-size:12px"></div>';}).join('');
+  return '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;flex-wrap:wrap;gap:8px"><b style="color:#7a6320;font-size:13px">&#128197; Saldo do extrato de '+esc(b.nome)+' &middot; m&ecirc;s a m&ecirc;s</b><div style="display:flex;gap:6px;align-items:center"><label class=mini style="font-weight:700;color:#7a6320">Ano</label><select onchange="mudarCadAno(this.value)" style="padding:5px 8px;border:1px solid #dcd4c4;border-radius:7px;font-family:inherit">'+anoOpts+'</select></div></div>'+
+    '<div style="display:flex;flex-wrap:wrap;gap:8px">'+cells+'</div>';
 }
 function setSaldoExtratoMes(nome,val,ym){
   var d=dados();d.saldoExtratoMes=d.saldoExtratoMes||{};d.saldoExtratoMes[nome]=d.saldoExtratoMes[nome]||{};
@@ -2347,7 +2359,10 @@ function renderPendenciasConcil(){
   document.getElementById('tbodyPendExtrato').innerHTML=ext.map(function(l){return '<tr><td>'+(l.data?new Date(l.data+'T00:00:00').toLocaleDateString('pt-BR'):'-')+'</td><td class=mini>'+esc((l.descricao||'-').slice(0,34))+'</td><td class=mini>'+esc(l.banco||'-')+'</td><td style="text-align:right;font-weight:700;white-space:nowrap"><button class="btn-ico" onclick="conciliarMov(\''+l.id+'\')" title="Conciliar: amarrar a um título">🔗</button> '+moeda(+l.valor||0)+'</td></tr>';}).join('');
   document.getElementById('pendExtTot').textContent=ext.length?('· '+ext.length+' · '+moeda(tExt)):'';
   document.getElementById('pendExtVazio').style.display=ext.length?'none':'block';
+  var wrap=document.getElementById('pendGridWrap');if(wrap)wrap.style.display=window._pendVer?'grid':'none';
+  var btn=document.getElementById('btnVerPend');if(btn)btn.innerHTML=(window._pendVer?'🙈 Ocultar pendências':'👁 Ver pendências')+' <span class="mini" style="opacity:.8">('+rec.length+' + '+ext.length+')</span>';
 }
+function togglePendVer(){window._pendVer=!window._pendVer;renderPendenciasConcil();}
 function renderFluxo(){
   renderFluxoCaixa();
   renderPendenciasConcil();
