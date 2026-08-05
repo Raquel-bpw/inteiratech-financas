@@ -2033,11 +2033,7 @@ function bancosParaFluxo(){const reg=bancosVisiveis();const regNomes=reg.map(b=>
   const lista=reg.slice();
   nomesLanc.forEach(n=>{if(!regNomes.includes(n.toLowerCase()))lista.push({nome:n,saldoInicial:0,naoCadastrado:true});});
   return lista;}
-function bancosParaConf(){var reg=(dados().bancos||[]).slice();var regNomes=reg.map(function(b){return (b.nome||'').toLowerCase().trim();});
-  var nomesLanc=[...new Set((dados().lancamentos||[]).filter(function(l){return l.status!=='previsto'&&(l.banco||'').trim();}).map(function(l){return l.banco.trim();}))];
-  var lista=reg.slice();
-  nomesLanc.forEach(function(n){if(regNomes.indexOf(n.toLowerCase())<0)lista.push({nome:n,saldoInicial:0,naoCadastrado:true});});
-  return lista;}
+function bancosParaConf(){return (dados().bancos||[]).slice();}
 function _parseValorBR(val){
   var s=String(val==null?'':val).trim().replace(/[^0-9.,-]/g,'');
   if(s===''||s==='-')return null;
