@@ -1415,6 +1415,22 @@ function normalizarPerfis(){
     APP.perfis.forEach(p=>{const cats=p.dados.categorias||(p.dados.categorias=[]);ADIC.forEach(a=>{if(!cats.find(c=>c.nome===a.nome))cats.push({id:id(),...a});});});
     APP._migFinanceiroAplicV1=true;
   }
+  if(!APP._migCaixaFonoV1){
+    APP.perfis.forEach(function(p){
+      var bs=(p.dados.bancos||[]);
+      var cx=bs.find(function(b){return b.tipo==='Caixa'||b.tipo==='Dinheiro';})||bs.find(function(b){return /caixa/i.test(b.nome||'');});
+      if(!cx)return;
+      (p.dados.lancamentos||[]).forEach(function(l){
+        if((l.banco||'').toLowerCase().trim()==='caixa'&&l.banco!==cx.nome){l.banco=cx.nome;if(!l.unidade&&cx.unidade)l.unidade=cx.unidade;}
+      });
+    });
+    APP._migCaixaFonoV1=true;
+  }
+  if(!APP._migDifCatV1){
+    var DIF=[{nome:'Juros Recebidos',tipo:'receita',grupo:'OUTRAS RECEITAS'},{nome:'Desconto Obtido',tipo:'receita',grupo:'OUTRAS RECEITAS'},{nome:'Juros Pagos',tipo:'despesa',grupo:'FINANCEIRO'},{nome:'Desconto Concedido',tipo:'despesa',grupo:'FINANCEIRO'}];
+    APP.perfis.forEach(function(p){var cats=p.dados.categorias||(p.dados.categorias=[]);DIF.forEach(function(a){if(!cats.find(function(c){return semAc(c.nome||'')===semAc(a.nome);}))cats.push({id:id(),nome:a.nome,tipo:a.tipo,grupo:a.grupo,descricao:'Diferença de conciliação (juros/desconto)'});});});
+    APP._migDifCatV1=true;
+  }
   if(!APP.usuarias||!APP.usuarias.length)APP.usuarias=[{id:id(),nome:'Administrador'}];
   if(!APP.usuariaAtiva||!APP.usuarias.find(u=>u.id===APP.usuariaAtiva))APP.usuariaAtiva=APP.usuarias[0].id;
   if(!APP.autoBackup)APP.autoBackup={ativo:false,freq:'semana'};if(APP.ultimoBackup===undefined)APP.ultimoBackup='';
@@ -2873,6 +2889,7 @@ function editarLanc(lid){
     <div style="grid-column:span ${_optUni?2:3}"><label>Cartão de crédito (opcional)</label><select id="eCartao">${copts}</select></div>
     ${_optUni?`<div style="grid-column:span 2"><label>Unidade</label><select id="eUnidade"><option value="">— sem unidade —</option>${dados().unidades.map(u=>`<option ${l.unidade===u?'selected':''}>${u}</option>`).join('')}</select></div>`:''}
     </div>
+    <div class="fg-sec">Regra automática</div><div class="form-grid"><div style="grid-column:span 6"><label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-weight:600;color:var(--ouro)"><input type="checkbox" id="eCriarRegra" ${(l.categoria&&l.categoria!=='A classificar')?'checked':''} style="width:auto;margin:0"> 🏷️ Criar regra: classificar sozinho quando reconhecer o termo abaixo</label><input id="eRegraTermo" placeholder="termo para reconhecer (ex.: nome do cliente)" value="${esc(sugereTermoRegra(l))}" style="margin-top:7px"></div></div>
     <div class="fg-sec">Conciliação</div><div class="form-grid">
     <div style="grid-column:span 4"><label>Etiqueta de conciliação</label><select id="eTag"><option value="">— sem etiqueta —</option>${['a classificar','PIX a classificar','ZOOP a classificar','atendimento sem vínculo','recebimento sem vínculo','Link gerado (aguardando)','Link confirmado no sistema'].map(t=>`<option value="${t}" ${(l.tagConcil||'')===t?'selected':''}>${t}</option>`).join('')}</select></div>
     <div style="grid-column:span 6"><label>Conciliação com o extrato</label><br>${((l.status!=='previsto')||l.baixado||l.baixaRef)?`<button type="button" id="eConcBtn" data-on="${l.conciliado?'1':'0'}" class="btn-conc${l.conciliado?' on':''}" title="Marca como conciliado — bate com o extrato e entra no saldo" onclick="var o=this.dataset.on==='1';this.dataset.on=o?'0':'1';this.classList.toggle('on',!o);this.querySelector('.txt').textContent=o?'Marcar como conciliado':'Conciliado'"><span class="tk">✓✓</span> <span class="txt">${l.conciliado?'Conciliado':'Marcar como conciliado'}</span></button>`:`<div style="font-size:12.5px;color:#8a7f6f;background:#F3ECDD;border-radius:9px;padding:9px 11px;line-height:1.5">📌 Título em aberto (contas a receber/pagar). Ele é conciliado quando você <b>amarra o movimento do extrato</b> na tela de Conciliação — não dá para marcar conciliado na mão.</div>`}</div>
@@ -2977,7 +2994,7 @@ function confirmarEdicao(lid){const l=dados().lancamentos.find(x=>x.id===lid);if
   if(_realiz&&!_banco)falta.push('Banco');
   if(_receb&&_realiz&&!_baixa)falta.push('Data de baixa');
   if(falta.length){alert('Para salvar, preencha os campos obrigatórios:\n\n• '+falta.join('\n• '));return;}
-  l.data=_dataE;l.cliente=document.getElementById('eCliente').value.trim();l.servico=_desc;l.descricao=(l.cliente?l.cliente+' — ':'')+_desc;const _mapa=mapeiaTipoEstorno(document.getElementById('eTipo').value);l.tipo=_mapa.tipo;l.estorno=_mapa.estorno;l.valor=_val;l.categoria=_cat;if(!validaEstorno(document.getElementById('eTipo').value,l.categoria,l.valor,lid))return;const ef=document.getElementById('eForma');if(ef)l.formaPagto=ef.value;const eb=document.getElementById('eBanco');if(eb)l.banco=eb.value;const ec=document.getElementById('eCartao');if(ec)l.cartaoId=ec.value;l.status=_status;const eu=document.getElementById('eUnidade');if(eu)l.unidade=eu.value;l.dataEmissao=l.data;if(_receb){const eve=document.getElementById('eVencimento');if(eve){l.dataVencimento=eve.value;l.venc=eve.value;}const eba=document.getElementById('eBaixaData');if(eba){l.baixaData=eba.value;if(eba.value)l.dataBaixa=eba.value;}}else{l.dataVencimento=_dataE;l.venc=_dataE;if(_conc){l.dataBaixa=_dataE;l.baixaData=_dataE;}}const etg=document.getElementById('eTag');if(etg)l.tagConcil=etg.value;l.conciliado=_conc;if(_conc){if(l.tagConcil)l.tagConcilAnt=l.tagConcil;l.tagConcil='';}else if(l.tagConcilAnt&&!l.tagConcil){l.tagConcil=l.tagConcilAnt;delete l.tagConcilAnt;}if(_conc&&!l.conciliadoEm)l.conciliadoEm=new Date().toISOString().slice(0,10);if(!_conc){delete l.conciliadoEm;delete l.conciliadoPor;}if((l.banco||'').toLowerCase().trim()==='caixa'||(l.formaPagto||'').toUpperCase()==='DINHEIRO'){l.dataBaixa=l.data;l.baixaData=l.data;l.dataVencimento=l.data;l.venc=l.data;}try{aprenderRegra(l);}catch(e){}saveApp();fecharModal();render();}
+  l.data=_dataE;l.cliente=document.getElementById('eCliente').value.trim();l.servico=_desc;l.descricao=(l.cliente?l.cliente+' — ':'')+_desc;const _mapa=mapeiaTipoEstorno(document.getElementById('eTipo').value);l.tipo=_mapa.tipo;l.estorno=_mapa.estorno;l.valor=_val;l.categoria=_cat;if(!validaEstorno(document.getElementById('eTipo').value,l.categoria,l.valor,lid))return;const ef=document.getElementById('eForma');if(ef)l.formaPagto=ef.value;const eb=document.getElementById('eBanco');if(eb)l.banco=eb.value;const ec=document.getElementById('eCartao');if(ec)l.cartaoId=ec.value;l.status=_status;const eu=document.getElementById('eUnidade');if(eu)l.unidade=eu.value;l.dataEmissao=l.data;if(_receb){const eve=document.getElementById('eVencimento');if(eve){l.dataVencimento=eve.value;l.venc=eve.value;}const eba=document.getElementById('eBaixaData');if(eba){l.baixaData=eba.value;if(eba.value)l.dataBaixa=eba.value;}}else{l.dataVencimento=_dataE;l.venc=_dataE;if(_conc){l.dataBaixa=_dataE;l.baixaData=_dataE;}}const etg=document.getElementById('eTag');if(etg)l.tagConcil=etg.value;l.conciliado=_conc;if(_conc){if(l.tagConcil)l.tagConcilAnt=l.tagConcil;l.tagConcil='';}else if(l.tagConcilAnt&&!l.tagConcil){l.tagConcil=l.tagConcilAnt;delete l.tagConcilAnt;}if(_conc&&!l.conciliadoEm)l.conciliadoEm=new Date().toISOString().slice(0,10);if(!_conc){delete l.conciliadoEm;delete l.conciliadoPor;}if((l.banco||'').toLowerCase().trim()==='caixa'||(l.formaPagto||'').toUpperCase()==='DINHEIRO'){l.dataBaixa=l.data;l.baixaData=l.data;l.dataVencimento=l.data;l.venc=l.data;}try{var _crc=document.getElementById('eCriarRegra');var _crt=((document.getElementById('eRegraTermo')||{}).value||'').trim();if(_crc&&_crc.checked&&_crt&&l.categoria&&l.categoria!=='A classificar'){criarRegraDe(l,_crt);}}catch(e){}saveApp();fecharModal();render();}
 function excluirLanc(lid){const l=dados().lancamentos.find(x=>x.id===lid);if(l&&l.transfRef){if(!confirm('Este lançamento faz parte de uma transferência. Excluir apaga as DUAS pernas (origem e destino). Continuar?'))return;dados().lancamentos=dados().lancamentos.filter(x=>x.transfRef!==l.transfRef);saveApp();render();return;}if(!confirm('Excluir este lançamento?'))return;dados().lancamentos=dados().lancamentos.filter(x=>x.id!==lid);saveApp();render();}
 function copiarLanc(lid){const l=dados().lancamentos.find(x=>x.id===lid);if(!l)return;if(l.transfRef){const legs=dados().lancamentos.filter(x=>x.transfRef===l.transfRef);const novoRef=id();legs.forEach(function(leg){const nv=Object.assign({},leg,{id:id(),transfRef:novoRef});delete nv.baixado;delete nv.baixaRef;delete nv.baixaData;delete nv.vencId;dados().lancamentos.push(nv);});saveApp();render();editarTransferencia(novoRef);return;}const novo=Object.assign({},l,{id:id()});delete novo.baixado;delete novo.baixaRef;delete novo.baixaData;delete novo.vencId;dados().lancamentos.push(novo);saveApp();render();editarLanc(novo.id);}
 function fecharModal(){document.getElementById('modalBg').classList.remove('show');var _mc=document.getElementById('modalConteudo');if(_mc){var _mm=_mc.closest('.modal');if(_mm)_mm.style.maxWidth='';}}
@@ -3147,6 +3164,8 @@ function renderRegras(){const tb=document.getElementById('tbodyRegras');if(!tb)r
 function semAc(s){return String(s||'').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,'');}
 function regraMatch(l){const d=semAc(l.descricao);for(const r of dados().regras){if(!r.contem)continue;if(r.tipo&&r.tipo!=='transfer'&&r.tipo!==l.tipo)continue;if(r.banco&&!(semAc(l.banco).includes(semAc(r.banco))))continue;const termos=[r.contem].concat((r.alt||'').split(',')).map(t=>semAc(String(t).trim())).filter(Boolean);if(termos.some(t=>d.includes(t)))return r.categoria;}return null;}
 function aprenderRegra(l){if(!l||!l.categoria||l.categoria==='A classificar')return;var base=(l.cliente||l.descricao||'');var d=base.normalize('NFD').replace(/[̀-ͯ]/g,'').toUpperCase().replace(/[^A-Z0-9 ]/g,' ').replace(/\s+/g,' ').trim();var toks=d.split(' ').filter(function(w){return w.length>=4;});if(!toks.length)return;var chave=toks.slice(0,2).join(' ');if(chave.length<4)return;dados().regras=dados().regras||[];var ja=dados().regras.some(function(r){return semAc(r.contem||'')===semAc(chave);});if(ja)return;dados().regras.push({id:id(),contem:chave,categoria:l.categoria,tipo:l.tipo,auto:true});}
+function sugereTermoRegra(l){var base=(l&&(l.cliente||l.descricao))||'';var d=base.normalize('NFD').replace(/[\u0300-\u036f]/g,'').toUpperCase().replace(/[^A-Z0-9 ]/g,' ').replace(/\s+/g,' ').trim();var toks=d.split(' ').filter(function(w){return w.length>=4;});return toks.slice(0,2).join(' ');}
+function criarRegraDe(l,termo){dados().regras=dados().regras||[];var ex=dados().regras.find(function(r){return semAc(r.contem||'')===semAc(termo);});if(ex){ex.categoria=l.categoria;ex.tipo=l.tipo;ex.auto=false;}else{dados().regras.push({id:id(),contem:termo,banco:'',tipo:l.tipo,categoria:l.categoria,auto:false});}aplicarRegrasNum(dados().lancamentos);}
 function aplicarRegrasNum(arr){let n=0;arr.forEach(l=>{const c=regraMatch(l);if(c&&c!==l.categoria){l.categoria=c;n++;}});return n;}
 function aplicarRegrasTodos(){if(!dados().regras.length){alert('Crie pelo menos uma regra primeiro.');return;}const n=aplicarRegrasNum(dados().lancamentos);saveApp();render();alert(n+' lançamento(s) recategorizado(s) pelas regras.');}
 
@@ -3215,6 +3234,7 @@ function corrigirAcentos(){let n=0;const fx=(o,ks)=>{if(!o)return;ks.forEach(k=>
   (dados().empresas||[]).forEach(e=>fx(e,['razaoSocial','responsavel','logradouro','bairro','municipio','unidade']));
   saveApp();render();alert(n+' campo(s) corrigido(s). Se ainda restar algo, reimporte o arquivo — agora ele lê os acentos certos.');}
 function lerCSVsimples(txt){const sep=(txt.split(';').length>txt.split(',').length)?';':',';const linhas=txt.split(/\r?\n/).filter(l=>l.trim());const header=linhas[0].split(sep).map(h=>h.trim().replace(/^"|"$/g,'').toLowerCase());return {header,rows:linhas.slice(1).map(l=>l.split(sep).map(c=>c.trim().replace(/^"|"$/g,'')))};}
+function contaCaixa(){var bs=(dados().bancos||[]);var c=bs.find(function(b){return (b.tipo==='Caixa'||b.tipo==='Dinheiro')&&b.ativo!==false;})||bs.find(function(b){return /caixa/i.test(b.nome||'')&&b.ativo!==false;});return c?c.nome:'CAIXA FONO CARE';}
 function importarRecebimentos(ev){const f=ev.target.files[0];if(!f)return;const r=new FileReader();r.onload=e=>{const o=lerCSVsimples(decodeArq(e.target.result));const header=o.header,rows=o.rows;const idx=n=>header.findIndex(h=>h.includes(n));
   const iData=idx('data'),iVal=idx('valor'),iForma=(idx('forma')>=0?idx('forma'):idx('pagto')),iServ=idx('servi'),iPac=(idx('paciente')>=0?idx('paciente'):idx('descri'));
   if(iData<0||iVal<0){alert('O CSV precisa ter pelo menos as colunas Data e Valor.');return;}
@@ -3224,7 +3244,7 @@ function importarRecebimentos(ev){const f=ev.target.files[0];if(!f)return;const 
     const paciente=iPac>=0?(row[iPac]||''):'';const servico=iServ>=0?(row[iServ]||''):'';
     const sc=servico?normServMatch(servico):null;const categoria=sc?sc.categoria:'A classificar';if(!sc)nClass++;
     const previsto=!/DINHEIRO/.test(forma);
-    var _lr={id:id(),data,cliente:paciente,descricao:(paciente+(servico?' — '+servico:'')).slice(0,120),banco:(previsto?'':'Caixa'),categoria,tipo:'receita',valor:Math.abs(valor),status:previsto?'previsto':'realizado',formaPagto:forma,servico:servico,unidade:'',usuario:usuariaAtivaNome()};
+    var _bkCx=previsto?'':contaCaixa();var _lr={id:id(),data,cliente:paciente,descricao:(paciente+(servico?' — '+servico:'')).slice(0,120),banco:_bkCx,categoria,tipo:'receita',valor:Math.abs(valor),status:previsto?'previsto':'realizado',formaPagto:forma,servico:servico,unidade:(_bkCx?(bancoUnidade(_bkCx)||''):''),usuario:usuariaAtivaNome()};
     if(!previsto){_lr.dataEmissao=data;_lr.dataBaixa=data;_lr.dataVencimento=data;_lr.venc=data;}/* dinheiro: titulo ja baixado pelo caixa, emissao = baixa = vencimento */
     dados().lancamentos.push(_lr);
     if(previsto)nPrev++;else nReal++;});
@@ -3748,7 +3768,7 @@ function desamarrar(movId){
   if(!confirm('Desamarrar este movimento? O título volta para em aberto.'))return;
   var p=dados().lancamentos.find(function(x){return x.id===m.baixaDe;});
   if(p){p.baixado=false;delete p.baixaData;delete p.baixaRef;delete p.baixaAuto;if(p.tagConcilAnt){p.tagConcil=p.tagConcilAnt;delete p.tagConcilAnt;}}
-  delete m.baixaDe;m.conciliado=false;if(m.tagConcilAnt){m.tagConcil=m.tagConcilAnt;delete m.tagConcilAnt;}
+  _removerDiferenca(m);delete m.baixaDe;m.conciliado=false;if(m.tagConcilAnt){m.tagConcil=m.tagConcilAnt;delete m.tagConcilAnt;}
   saveApp();render();
 }
 // ===================== TELA DE CONCILIAÇÃO (estilo Meu Dinheiro) =====================
@@ -3835,12 +3855,25 @@ function cbMovs(){
 }
 function cbSelMov(id){window._cbSel=id;window._cbMarc=new Set();var L=dados().lancamentos||[];var m=L.find(function(x){return x.id===id;});if(m&&!m.conciliado){var ex=L.find(function(p){return p.status==='previsto'&&!p.baixado&&p.tipo===m.tipo&&Math.abs((+p.valor)-(+m.valor))<0.005;});if(ex)window._cbMarc.add(ex.id);}renderCBTela();}
 function cbTogTit(id){if(!window._cbMarc)window._cbMarc=new Set();if(window._cbMarc.has(id))window._cbMarc.delete(id);else window._cbMarc.add(id);renderCBTela();}
+function difCatDiferenca(mtipo,dif){
+  if(mtipo==='receita')return dif>0?{cat:'Juros Recebidos',tipo:'receita'}:{cat:'Desconto Concedido',tipo:'despesa'};
+  return dif>0?{cat:'Juros Pagos',tipo:'despesa'}:{cat:'Desconto Obtido',tipo:'receita'};
+}
+function _removerDiferenca(m){if(!m)return;var L=dados().lancamentos||[];for(var i=L.length-1;i>=0;i--){if(L[i].difDe===m.id)L.splice(i,1);}if(m.valorOrig!=null){m.valor=m.valorOrig;delete m.valorOrig;}delete m.difLanc;}
 function cbVincular(){
   var L=dados().lancamentos||[];var m=L.find(function(x){return x.id===window._cbSel;});if(!m)return;
   if(!window._cbMarc.size){alert('Selecione ao menos um título.');return;}
   var soma=0;window._cbMarc.forEach(function(tid){var p=L.find(function(x){return x.id===tid;});if(p)soma+=(+p.valor||0);});
   var dif=Math.round(((+m.valor)-soma)*100)/100;
-  if(Math.abs(dif)>=0.005){alert('A soma dos títulos não bate com o movimento.\n\nMovimento: '+moeda(m.valor)+'\nSelecionado: '+moeda(soma)+'\nDiferença: '+moeda(dif)+'\n\nRevise a seleção — sem tolerância, a soma tem que ser exata.');return;}
+  if(Math.abs(dif)>=0.005){
+    if(soma>0&&Math.abs(dif)>soma){alert('A diferença ('+moeda(Math.abs(dif))+') é maior que a soma dos títulos ('+moeda(soma)+').\n\nIsso costuma ser seleção errada. Revise os títulos marcados.');return;}
+    var dd=difCatDiferenca(m.tipo,dif);var sinal=dif>0?'a mais':'a menos';var dtxt=m.data?new Date(m.data+'T00:00:00').toLocaleDateString('pt-BR'):'-';
+    if(!confirm('O título baixa pelo valor original ('+moeda(soma)+').\n\nHá diferença de '+moeda(Math.abs(dif))+' ('+sinal+') — vou lançar como "'+dd.cat+'" na data da baixa ('+dtxt+'), no banco '+(m.banco||'-')+'.\n\nConfirma?'))return;
+    _removerDiferenca(m);
+    if(m.valorOrig==null)m.valorOrig=+m.valor;
+    var novo={id:id(),data:m.data,dataEmissao:m.data,dataVencimento:m.data,venc:m.data,dataBaixa:m.data,baixaData:m.data,cliente:(m.cliente||''),descricao:'Diferença de conciliação — '+dd.cat,servico:dd.cat,banco:m.banco,unidade:(m.unidade||bancoUnidade(m.banco)||''),categoria:dd.cat,tipo:dd.tipo,valor:Math.abs(dif),status:'realizado',conciliado:true,conciliadoEm:m.data,origem:'Diferença de conciliação',difDe:m.id,usuario:usuariaAtivaNome()};
+    dados().lancamentos.push(novo);m.difLanc=novo.id;m.valor=soma;
+  }
   var ids=Array.from(window._cbMarc);
   ids.forEach(function(tid){var p=L.find(function(x){return x.id===tid;});if(p){p.baixado=true;p.baixaData=m.data;p.baixaRef=m.id;p.baixaAuto='manual';if(p.tagConcil)p.tagConcilAnt=p.tagConcil;p.tagConcil='';}});
   m.baixaDe=ids[0];m.conciliado=true;if(m.tagConcil)m.tagConcilAnt=m.tagConcil;m.tagConcil='';
@@ -3857,7 +3890,7 @@ function cbDesamarrar(id){
   var L=dados().lancamentos||[];var m=L.find(function(x){return x.id===id;});if(!m)return;
   if(!confirm('Desamarrar este movimento? Ele volta para pendente e os títulos voltam para em aberto.'))return;
   L.forEach(function(p){if(p.status==='previsto'&&p.baixaRef===m.id){p.baixado=false;delete p.baixaData;delete p.baixaRef;delete p.baixaAuto;if(p.tagConcilAnt){p.tagConcil=p.tagConcilAnt;delete p.tagConcilAnt;}}});
-  delete m.baixaDe;m.conciliado=false;if(m.tagConcilAnt){m.tagConcil=m.tagConcilAnt;delete m.tagConcilAnt;}
+  _removerDiferenca(m);delete m.baixaDe;m.conciliado=false;if(m.tagConcilAnt){m.tagConcil=m.tagConcilAnt;delete m.tagConcilAnt;}
   saveApp();window._cbSel=id;renderCBTela();
 }
 function renderCBTela(){
