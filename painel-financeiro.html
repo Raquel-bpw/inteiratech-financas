@@ -2107,7 +2107,7 @@ function _seDadosBanco(b,ym){
   var dif=tem?Math.round((inf-saldoC)*100)/100:0;
   var pend=dados().lancamentos.filter(function(l){return (l.banco||'').toLowerCase().trim()===bn&&!l.conciliado&&_ehExtratoMov(l)&&(l.data||'').slice(0,7)<=ym;});
   var somaPend=Math.round(pend.reduce(function(s,l){return s+(l.tipo==='receita'?+l.valor:-+l.valor);},0)*100)/100;
-  var maxExt='';dados().lancamentos.forEach(function(l){if((l.banco||'').toLowerCase().trim()===bn&&_ehExtratoMov(l)&&l.data&&l.data>maxExt)maxExt=l.data;});
+  var maxExt='';dados().lancamentos.forEach(function(l){if((l.banco||'').toLowerCase().trim()===bn&&l.data&&l.data.slice(0,7)<=ym&&(ehCaixa?(l.status!=='previsto'):_ehExtratoMov(l))&&l.data>maxExt)maxExt=l.data;});
   return {saldoC:saldoC,inf:inf,tem:tem,dif:dif,nPend:ehCaixa?0:pend.length,somaPend:ehCaixa?0:somaPend,ym:ym,importadoAte:maxExt,ehCaixa:ehCaixa};
 }
 function _sePill(bg,bd,fg,ico,txt){return '<span style="display:inline-flex;align-items:center;gap:6px;background:'+bg+';border:1px solid '+bd+';color:'+fg+';font-weight:600;font-size:12px;padding:4px 10px;border-radius:999px;white-space:nowrap">'+ico+txt+'</span>';}
@@ -2122,7 +2122,7 @@ function _seStatusHtml(dd){
 function _seRowHtml(b,i){
   var dd=_seDadosBanco(b);
   var nesc=b.nome.replace(/\\/g,'\\\\').replace(/'/g,"\\'");
-  var impo=dd.ehCaixa?'':(dd.importadoAte?'<span class="mini" style="color:var(--suave)">&#128229; importado at&eacute; '+new Date(dd.importadoAte+'T00:00:00').toLocaleDateString('pt-BR')+'</span>':'<span class="mini" style="color:#c3b8a6">sem extrato importado</span>');
+  var impo=dd.importadoAte?'<span class="mini" style="color:var(--suave)">&#128229; importado at&eacute; '+new Date(dd.importadoAte+'T00:00:00').toLocaleDateString('pt-BR')+'</span>':(dd.ehCaixa?'':'<span class="mini" style="color:#c3b8a6">sem extrato importado</span>');
   var infTxt=dd.tem?moeda(dd.inf):'<span class="mini" style="color:var(--suave)">&mdash;</span>';
   return '<td style="padding:8px 10px"><b style="color:var(--vinho);font-size:13.5px">'+esc(b.nome)+'</b></td>'+
     '<td style="text-align:right;padding:8px 10px;font-variant-numeric:tabular-nums">'+infTxt+'</td>'+
