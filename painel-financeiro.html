@@ -3284,6 +3284,7 @@ function corrigirAcentos(){let n=0;const fx=(o,ks)=>{if(!o)return;ks.forEach(k=>
   saveApp();render();alert(n+' campo(s) corrigido(s). Se ainda restar algo, reimporte o arquivo — agora ele lê os acentos certos.');}
 function lerCSVsimples(txt){const sep=(txt.split(';').length>txt.split(',').length)?';':',';const linhas=txt.split(/\r?\n/).filter(l=>l.trim());const header=linhas[0].split(sep).map(h=>h.trim().replace(/^"|"$/g,'').toLowerCase());return {header,rows:linhas.slice(1).map(l=>l.split(sep).map(c=>c.trim().replace(/^"|"$/g,'')))};}
 function contaCaixa(){var bs=(dados().bancos||[]);var c=bs.find(function(b){return (b.tipo==='Caixa'||b.tipo==='Dinheiro')&&b.ativo!==false;})||bs.find(function(b){return /caixa/i.test(b.nome||'')&&b.ativo!==false;});return c?c.nome:'CAIXA FONO CARE';}
+function _tituloJaNaBase(cli,valor,venc,L){L=L||(dados().lancamentos||[]);if(!venc||!(cli||'').trim())return false;var n=function(s){return (s||'').normalize('NFD').replace(/[̀-ͯ]/g,'').toUpperCase().replace(/[^A-Z0-9]/g,'');};var c=n(cli),v=Math.round((+valor||0)*100);return L.some(function(l){return l.tipo==='receita'&&n(l.cliente)===c&&Math.round((+l.valor||0)*100)===v&&((l.dataVencimento||l.venc||l.data||'')===venc);});}
 function importarRecebimentos(ev){const f=ev.target.files[0];if(!f)return;const r=new FileReader();r.onload=e=>{const o=lerCSVsimples(decodeArq(e.target.result));const header=o.header,rows=o.rows;const idx=n=>header.findIndex(h=>h.includes(n));
   const iData=idx('data'),iVal=idx('valor'),iForma=(idx('forma')>=0?idx('forma'):idx('pagto')),iServ=idx('servi'),iPac=(idx('paciente')>=0?idx('paciente'):idx('descri'));
   if(iData<0||iVal<0){alert('O CSV precisa ter pelo menos as colunas Data e Valor.');return;}
@@ -3296,6 +3297,7 @@ function importarRecebimentos(ev){const f=ev.target.files[0];if(!f)return;const 
     const _k=_rkey(data,paciente,Math.abs(valor),forma);if(_jaImp[_k]){nDup++;return;}_jaImp[_k]=true;
     const sc=servico?normServMatch(servico):null;const categoria=sc?sc.categoria:'A classificar';if(!sc)nClass++;
     const previsto=!/DINHEIRO/.test(forma);
+    if(previsto&&_tituloJaNaBase(paciente,Math.abs(valor),data)){nDup++;return;}
     var _bkCx=previsto?'':contaCaixa();var _lr={id:id(),data,cliente:paciente,descricao:(paciente+(servico?' — '+servico:'')).slice(0,120),banco:_bkCx,categoria,tipo:'receita',valor:Math.abs(valor),status:previsto?'previsto':'realizado',origem:'Relatório do sistema',formaPagto:forma,servico:servico,unidade:(_bkCx?(bancoUnidade(_bkCx)||''):''),usuario:usuariaAtivaNome()};
     if(!previsto){_lr.dataEmissao=data;_lr.dataBaixa=data;_lr.dataVencimento=data;_lr.venc=data;if(sc){_lr.conciliado=true;_lr.conciliadoEm=data;}}/* dinheiro: sem extrato; so nasce conciliado com categoria reconhecida (regra: nada conciliado sem categoria) */
     dados().lancamentos.push(_lr);
@@ -3366,7 +3368,7 @@ function importarAReceber(ev){var f=ev.target.files[0];if(!f)return;var r=new Fi
       var vparc=(iVParc>=0&&num(rw[iVParc])>0)?num(rw[iVParc]):(nparc>0?Math.round((totalRec/nparc)*100)/100:totalRec);
       var desc=iDesc>=0?String(rw[iDesc]||'').trim():'';
       if(!venc1||!(vparc>0))continue;
-      for(var p=0;p<nparc;p++){var venc=addMes(venc1,p);var key=chave(nome,venc,vparc);if(existentes[key]){pulados++;continue;}existentes[key]=true;
+      for(var p=0;p<nparc;p++){var venc=addMes(venc1,p);var key=chave(nome,venc,vparc);if(existentes[key]||_tituloJaNaBase(nome,vparc,venc)){pulados++;continue;}existentes[key]=true;
         novos.push({id:id(),data:venc,vencimento:venc,cliente:nome,descricao:(ehLink?'Link':'Boleto')+' — '+nome+(desc?' ('+desc+')':'')+' — parcela '+(p+1)+'/'+nparc,servico:'',categoria:cat,tipo:'receita',valor:vparc,status:'previsto',banco:'',unidade:'',formaPagto:ehLink?'LINK':'BOLETO',usuario:(typeof usuariaAtivaNome==='function'?usuariaAtivaNome():'')});
       }
     }
