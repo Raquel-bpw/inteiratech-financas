@@ -654,7 +654,6 @@
     <div style="display:flex;align-items:center;gap:14px;flex-wrap:wrap;margin-bottom:18px">
       <button class="btn ouro" onclick="incluirConta()">➕ Incluir conta a pagar/receber</button>
       <button class="btn sec" onclick="abrirParcIncompletos()">🧩 Parcelamentos incompletos</button>
-      <button class="btn sec" onclick="limparDuplicadosBase()" style="border-color:#C79A3B;color:#7a6320">🧹 Limpar duplicados (uso único)</button>
       <label class="switch"><input type="checkbox" id="autoConcChk" onchange="setAutoConciliar()"><span class="sl"></span></label>
       <span class="mini"><b>Baixa automática</b> — quando o lançamento real entra, a conta é considerada paga</span>
     </div>
@@ -4049,35 +4048,6 @@ function autoConciliar(){if(!dados().autoConciliar)return 0;let n=0;const usados
   dados().lancamentos.filter(l=>l.status==='previsto'&&!l.baixado).forEach(p=>{const m=acharMatch(p,usados);if(m){usados.add(m.id);p.baixado=true;p.baixaData=(m.data||new Date().toISOString().slice(0,10));p.baixaRef=m.id;p.baixaAuto=true;m.baixaDe=p.id;m.conciliado=true;if(m.tagConcil)m.tagConcilAnt=m.tagConcil;m.tagConcil='';if(p.tagConcil)p.tagConcilAnt=p.tagConcil;p.tagConcil='';_herdaDoTitulo(m,p);if(!m.formaPagto&&p.formaPagto)m.formaPagto=p.formaPagto;n++;}});
   if(n)saveApp();return n;}
 function setAutoConciliar(){dados().autoConciliar=document.getElementById('autoConcChk').checked;saveApp();if(dados().autoConciliar){const n=autoConciliar();if(n){render();alert(n+' conta(s) prevista(s) baixada(s) automaticamente por já terem o lançamento real.');}}}
-function limparDuplicadosBase(){
-  try{
-    var d=dados();var L=d.lancamentos||[];
-    var norm=function(s){return (s||'').normalize('NFD').replace(/[̀-ͯ]/g,'').toUpperCase().replace(/[^A-Z0-9]/g,'');};
-    var venc=function(l){return (l.dataVencimento||l.venc||l.data||'');};
-    var protegido=function(l){return l.baixado||l.conciliado||l.baixaRef||l.baixaDe;};
-    var ar=L.filter(function(l){return l.tipo==='receita'&&l.status==='previsto'&&!l.baixado&&(l.cliente||'').trim();});
-    var g={};ar.forEach(function(l){var k=norm(l.cliente)+'|'+Math.round((+l.valor||0)*100)+'|'+venc(l);(g[k]=g[k]||[]).push(l);});
-    var remover=new Set();
-    Object.keys(g).forEach(function(k){var arr=g[k];if(arr.length>1){arr.sort(function(a,b){return String(a.id).localeCompare(String(b.id));});arr.slice(1).forEach(function(c){if(!protegido(c))remover.add(c.id);});}});
-    var mapaNome={'85000':'Janete Vanin','75555':'Wilmar Ziliotto','135900':'Maria Dalbelo Pauletti'};
-    var nomear=[];
-    L.filter(function(l){return (!l.cliente||!String(l.cliente).trim())&&l.tipo==='receita'&&l.status==='previsto'&&!l.baixado;}).forEach(function(l){
-      var temGemeo=L.some(function(x){return x.id!==l.id&&!remover.has(x.id)&&(x.cliente||'').trim()&&Math.abs((+x.valor)-(+l.valor))<0.01&&venc(x)===venc(l)&&x.status==='previsto'&&!x.baixado;});
-      if(temGemeo){if(!protegido(l))remover.add(l.id);}
-      else{var k=Math.round((+l.valor||0)*100)+'';if(mapaNome[k]&&!protegido(l))nomear.push({l:l,nome:mapaNome[k]});}
-    });
-    if(!remover.size&&!nomear.length){alert('Nada a limpar — não há duplicados nem títulos sem nome para ajustar.');return;}
-    var valRem=L.filter(function(l){return remover.has(l.id);}).reduce(function(s,l){return s+(+l.valor||0);},0);
-    var msg='Limpeza de duplicados (uso único):\n\n• Remover '+remover.size+' título(s) duplicado(s) — R$ '+valRem.toFixed(2)+' que estavam contados em dobro no a receber\n• Nomear '+nomear.length+' boleto(s) sem nome\n\nO saldo do banco NÃO muda (nada conciliado sai). Um backup é baixado antes. Confirmar?';
-    if(!confirm(msg))return;
-    try{ if(typeof exportarBackup==='function') exportarBackup(); }catch(e){}
-    window.__bkpAuriumPre=JSON.parse(JSON.stringify(L));
-    nomear.forEach(function(o){o.l.cliente=o.nome;});
-    d.lancamentos=L.filter(function(l){return !remover.has(l.id);});
-    saveApp();render();
-    alert('Pronto! '+remover.size+' duplicado(s) removido(s) e '+nomear.length+' nomeado(s). O a receber reduziu R$ '+valRem.toFixed(2)+'. Backup baixado nos Downloads.');
-  }catch(e){alert('Erro na limpeza: '+((e&&e.message)||e));}
-}
 function renderContas(){
   if(!document.getElementById('tbodyRec'))return;
   const _ac=document.getElementById('autoConcChk');if(_ac)_ac.checked=dados().autoConciliar!==false;
