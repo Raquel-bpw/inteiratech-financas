@@ -654,6 +654,7 @@
     <div style="display:flex;align-items:center;gap:14px;flex-wrap:wrap;margin-bottom:18px">
       <button class="btn ouro" onclick="incluirConta()">➕ Incluir conta a pagar/receber</button>
       <button class="btn sec" onclick="abrirParcIncompletos()">🧩 Parcelamentos incompletos</button>
+      <button class="btn sec" onclick="limparParcelasPagas()" style="border-color:#C79A3B;color:#7a6320">🧹 Limpar parcelas já pagas (uso único)</button>
       <label class="switch"><input type="checkbox" id="autoConcChk" onchange="setAutoConciliar()"><span class="sl"></span></label>
       <span class="mini"><b>Baixa automática</b> — quando o lançamento real entra, a conta é considerada paga</span>
     </div>
@@ -4048,6 +4049,27 @@ function autoConciliar(){if(!dados().autoConciliar)return 0;let n=0;const usados
   dados().lancamentos.filter(l=>l.status==='previsto'&&!l.baixado).forEach(p=>{const m=acharMatch(p,usados);if(m){usados.add(m.id);p.baixado=true;p.baixaData=(m.data||new Date().toISOString().slice(0,10));p.baixaRef=m.id;p.baixaAuto=true;m.baixaDe=p.id;m.conciliado=true;if(m.tagConcil)m.tagConcilAnt=m.tagConcil;m.tagConcil='';if(p.tagConcil)p.tagConcilAnt=p.tagConcil;p.tagConcil='';_herdaDoTitulo(m,p);if(!m.formaPagto&&p.formaPagto)m.formaPagto=p.formaPagto;n++;}});
   if(n)saveApp();return n;}
 function setAutoConciliar(){dados().autoConciliar=document.getElementById('autoConcChk').checked;saveApp();if(dados().autoConciliar){const n=autoConciliar();if(n){render();alert(n+' conta(s) prevista(s) baixada(s) automaticamente por já terem o lançamento real.');}}}
+function limparParcelasPagas(){
+  try{
+    var d=dados();var L=d.lancamentos||[];
+    var norm=function(s){return (s||'').normalize('NFD').replace(/[̀-ͯ]/g,'').toUpperCase().replace(/[^A-Z0-9]/g,'');};
+    var venc=function(l){return (l.dataVencimento||l.venc||l.data||'');};
+    var chave=function(l){return norm(l.cliente)+'|'+Math.round((+l.valor||0)*100)+'|'+venc(l);};
+    var protegido=function(l){return l.baixado||l.conciliado||l.baixaRef||l.baixaDe;};
+    var pagos={};
+    L.forEach(function(l){if(((l.status==='previsto'&&l.baixado)||(l.status!=='previsto'&&l.conciliado))&&(l.cliente||'').trim())pagos[chave(l)]=true;});
+    var fant=L.filter(function(l){return l.tipo==='receita'&&l.status==='previsto'&&!l.baixado&&(l.cliente||'').trim()&&!protegido(l)&&pagos[chave(l)];});
+    if(!fant.length){alert('Nada a limpar — não há parcela em aberto que já esteja paga por outro título.');return;}
+    var val=fant.reduce(function(s,l){return s+(+l.valor||0);},0);
+    if(!confirm('Encontrei '+fant.length+' parcela(s) em aberto que JÁ FORAM PAGAS por outro título (mesmo cliente, valor e vencimento) — R$ '+val.toFixed(2)+' que estavam sendo cobrados em dobro no a receber.\n\nRemover essas cópias em aberto? A parcela paga permanece e o saldo do banco NÃO muda. Um backup é baixado antes. Confirmar?'))return;
+    try{ if(typeof exportarBackup==='function') exportarBackup(); }catch(e){}
+    window.__bkpAuriumPre=JSON.parse(JSON.stringify(L));
+    var ids={};fant.forEach(function(l){ids[l.id]=true;});
+    d.lancamentos=L.filter(function(l){return !ids[l.id];});
+    saveApp();render();
+    alert('Pronto! '+fant.length+' parcela(s) já paga(s) removida(s) do a receber. O a receber reduziu R$ '+val.toFixed(2)+'. Backup baixado nos Downloads.');
+  }catch(e){alert('Erro na limpeza: '+((e&&e.message)||e));}
+}
 function renderContas(){
   if(!document.getElementById('tbodyRec'))return;
   const _ac=document.getElementById('autoConcChk');if(_ac)_ac.checked=dados().autoConciliar!==false;
