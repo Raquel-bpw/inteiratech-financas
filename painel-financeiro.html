@@ -4238,7 +4238,8 @@ function renderContas(){
   const _ac=document.getElementById('autoConcChk');if(_ac)_ac.checked=dados().autoConciliar!==false;
   const _gv=id=>{var e=document.getElementById(id);return e?e.value:'';};
   const _fc={ini:_gv('fcDataIni'),fim:_gv('fcDataFim'),cli:(_gv('fcCliente')||'').toLowerCase(),vmin:_gv('fcValMin'),vmax:_gv('fcValMax')};
-  const _passaC=l=>{var d=l.data||'';if(_fc.ini&&d<_fc.ini)return false;if(_fc.fim&&d>_fc.fim)return false;if(_fc.cli&&!(((l.cliente||'')+' '+(l.descricao||'')+' '+(l.servico||'')).toLowerCase().includes(_fc.cli)))return false;var v=+l.valor||0;if(_fc.vmin!==''&&!isNaN(+_fc.vmin)&&v<+_fc.vmin)return false;if(_fc.vmax!==''&&!isNaN(+_fc.vmax)&&v>+_fc.vmax)return false;return true;};
+  /* os campos da tela dizem DE/ATE (VENCIMENTO) — entao filtram pelo vencimento, nao pela emissao */
+  const _passaC=l=>{var d=dataRef(l)||l.data||'';if(_fc.ini&&d<_fc.ini)return false;if(_fc.fim&&d>_fc.fim)return false;if(_fc.cli&&!(((l.cliente||'')+' '+(l.descricao||'')+' '+(l.servico||'')).toLowerCase().includes(_fc.cli)))return false;var v=+l.valor||0;if(_fc.vmin!==''&&!isNaN(+_fc.vmin)&&v<+_fc.vmin)return false;if(_fc.vmax!==''&&!isNaN(+_fc.vmax)&&v>+_fc.vmax)return false;return true;};
   const abertos=dados().lancamentos.filter(l=>l.status==='previsto'&&!l.baixado&&noUnidade(l)&&_passaC(l));
   const _vc=l=>l.dataVencimento||l.venc||l.data||'';
   const rec=abertos.filter(l=>l.tipo==='receita').sort((a,b)=>_vc(a).localeCompare(_vc(b)));
