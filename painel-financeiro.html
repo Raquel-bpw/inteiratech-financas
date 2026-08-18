@@ -1594,14 +1594,32 @@ function renderBannerVinculos(){var box=document.getElementById('bannerVinculos'
 /* Titulos gravados sem data de vencimento. Regra da casa: a vista (PIX, cartao, convenio, boleto ja datado)
    o vencimento e a propria data do titulo. So preenche campo VAZIO \u2014 nunca sobrescreve vencimento existente. */
 function _titulosSemVenc(){var L=(dados().lancamentos||[]);return L.filter(function(l){return l.status==='previsto'&&!l.baixado&&!(l.dataVencimento||l.venc)&&(l.data||'');});}
-function preencherVencimentosVazios(){try{var alvo=_titulosSemVenc();if(!alvo.length){alert('Nada a preencher \u2014 todos os t\u00edtulos em aberto j\u00e1 t\u00eam data de vencimento.');return;}
-var tot=alvo.reduce(function(s,l){return s+(+l.valor||0);},0);var porForma={};alvo.forEach(function(l){var k=(l.formaPagto||'sem forma');porForma[k]=(porForma[k]||0)+1;});
-var det=Object.keys(porForma).sort().map(function(k){return '\u2022 '+porForma[k]+' \u2014 '+k;}).join('\n');
-if(!confirm('Preencher a data de vencimento de '+alvo.length+' t\u00edtulo(s) em aberto, usando a pr\u00f3pria data do t\u00edtulo:\n\n'+det+'\n\nTotal envolvido: '+moeda(tot)+'\n\nS\u00f3 preenche o que est\u00e1 EM BRANCO. Nenhum vencimento j\u00e1 existente \u00e9 alterado, nada \u00e9 apagado e o saldo n\u00e3o muda. Confirma?'))return;
+function preencherVencimentosVazios(){try{var alvo=_titulosSemVenc();if(!alvo.length){alert('Nada a preencher — todos os títulos em aberto já têm data de vencimento.');return;}
+var _d=function(x){return x?new Date(x+'T00:00:00').toLocaleDateString('pt-BR'):'-';};
+var tot=alvo.reduce(function(s,l){return s+(+l.valor||0);},0);
+var rows=alvo.slice().sort(function(a,b){return (a.data||'').localeCompare(b.data||'')||String(a.cliente||'').localeCompare(String(b.cliente||''),'pt-BR');}).map(function(l){
+  return '<tr><td style="text-align:center"><input type="checkbox" class="pvChk" value="'+l.id+'" checked></td>'
+   +'<td class=mini>'+esc(String(l.cliente||'-').slice(0,26))+'</td>'
+   +'<td class=mini>'+esc(String(l.servico||l.descricao||'-').slice(0,32))+'</td>'
+   +'<td class=mini>'+esc(l.formaPagto||'-')+'</td>'
+   +'<td class=mini>'+esc(l.origem||'—')+'</td>'
+   +'<td class=mini><b>'+_d(l.data)+'</b></td>'
+   +'<td style="text-align:right;font-weight:700;white-space:nowrap">'+moeda(+l.valor||0)+'</td></tr>';}).join('');
+document.getElementById('modalConteudo').innerHTML='<h3>Conferir antes de preencher o vencimento</h3>'
+ +'<div class=mini style="margin:-4px 0 8px">'+alvo.length+' título(s) em aberto · '+moeda(tot)+' · estão gravados <b>sem data de vencimento</b>. A data proposta é a própria data do título (à vista). Desmarque o que não quiser alterar. Nada é apagado e o saldo não muda.</div>'
+ +'<div style="margin:0 0 8px"><button class="btn sec peq" onclick="document.querySelectorAll(\'.pvChk\').forEach(function(c){c.checked=true;})">Marcar todos</button> <button class="btn sec peq" onclick="document.querySelectorAll(\'.pvChk\').forEach(function(c){c.checked=false;})">Desmarcar todos</button></div>'
+ +'<div style="overflow:auto;max-height:52vh"><table style="width:100%;border-collapse:collapse;font-size:12.5px"><thead><tr><th></th><th style="text-align:left">Cliente</th><th style="text-align:left">Serviço</th><th style="text-align:left">Forma</th><th style="text-align:left">Origem</th><th style="text-align:left">Vencimento proposto</th><th style="text-align:right">Valor</th></tr></thead><tbody>'+rows+'</tbody></table></div>'
+ +'<div class="modal-acoes"><button class="btn sec" onclick="fecharModal()">Cancelar</button> <button class="btn ouro" onclick="aplicarPreencherVencimentos()">Aplicar aos marcados</button></div>';
+var _mb=document.getElementById('modalConteudo').closest('.modal');if(_mb)_mb.style.maxWidth='940px';
+document.getElementById('modalBg').classList.add('show');}catch(e){alert('Erro: '+e.message);}}
+function aplicarPreencherVencimentos(){try{
+var ids={};Array.prototype.slice.call(document.querySelectorAll('.pvChk')).forEach(function(c){if(c.checked)ids[c.value]=1;});
+var alvo=_titulosSemVenc().filter(function(l){return ids[l.id];});
+if(!alvo.length){alert('Nenhum título marcado.');return;}
 window.__bkpVencVazio=alvo.map(function(l){return JSON.parse(JSON.stringify(l));});
 alvo.forEach(function(l){l.dataVencimento=l.data;l.venc=l.data;});
-saveApp();render();
-alert('Pronto! '+alvo.length+' t\u00edtulo(s) agora t\u00eam data de vencimento. Eles passam a aparecer no m\u00eas de compet\u00eancia correto.');}catch(e){alert('Erro: '+e.message);}}
+saveApp();render();fecharModal();
+alert('Pronto! '+alvo.length+' título(s) agora têm data de vencimento e passam a aparecer no mês de competência correto.');}catch(e){alert('Erro: '+e.message);}}
 function renderBannerVencVazio(){var box=document.getElementById('bannerVencVazio');if(!box)return;var alvo=_titulosSemVenc();if(!alvo.length){box.innerHTML='';return;}var tot=alvo.reduce(function(s,l){return s+(+l.valor||0);},0);box.innerHTML='<div style="background:#FBF3DE;border:1px solid #E4CE8F;border-radius:12px;padding:14px 16px;margin:0 0 14px;display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap"><div style="font-size:13.5px;color:#7a6320;line-height:1.5"><b>\ud83d\udcc5 '+alvo.length+' t\u00edtulo(s) em aberto sem data de vencimento \u00b7 '+moeda(tot)+'</b><br><span style="font-size:12.5px">Sem vencimento o t\u00edtulo cai no m\u00eas errado. Preencher usa a pr\u00f3pria data do t\u00edtulo (\u00e0 vista). Nada \u00e9 apagado.</span></div><button class="btn" onclick="preencherVencimentosVazios()">Preencher vencimentos</button></div>';}
 function render(){
   try{normalizarTextos();}catch(e){}
@@ -2568,8 +2586,11 @@ function renderPendenciasConcil(){
   /* meses = competencia: vencimento dos titulos em aberto + data do extrato */
   var meses=Array.from(new Set(L.filter(function(l){return l.tipo==='receita'&&(l.status!=='previsto'||!l.baixado)&&dataRef(l);}).map(function(l){return dataRef(l).slice(0,7);}))).sort().reverse();
   if(sel){
-    var atual=(window._pendMes!==undefined)?window._pendMes:(meses[0]||'');
-    if(atual&&!meses.includes(atual))atual=meses[0]||'';
+    /* padrao = mes corrente (ou o mais recente ja iniciado). Sem isso a lista abria no vencimento mais FUTURO (2027). */
+    var _hj=new Date().toISOString().slice(0,7);
+    var _pad=meses.includes(_hj)?_hj:(meses.filter(function(m){return m<=_hj;})[0]||meses[0]||'');
+    var atual=(window._pendMes!==undefined)?window._pendMes:_pad;
+    if(atual&&!meses.includes(atual))atual=_pad;
     sel.innerHTML='<option value="">Todos os meses</option>'+meses.map(function(m){var d=new Date(m+'-01T00:00:00');var nome=d.toLocaleDateString('pt-BR',{month:'long',year:'numeric'});return '<option value="'+m+'" '+(m===atual?'selected':'')+'>'+nome.charAt(0).toUpperCase()+nome.slice(1)+'</option>';}).join('');
     sel.value=atual;window._pendMes=atual;
   }
