@@ -473,6 +473,7 @@
     <div id="bannerCompletarMaio"></div>
     <div id="bannerVinculos"></div>
     <div id="bannerVencVazio"></div>
+    <div id="bannerCaixaSemTitulo"></div>
         <div id="primeirosPassos"></div>
     <div class="grid-kpi stagger">
       <div class="kpi l" title="Receita conciliada menos as despesas conciliadas do período. Só entra o que já foi conciliado."><div class="rotulo">Lucro da empresa</div><div class="valor" id="kLucro">R$ 0,00</div><div class="nota" id="kLucroNota">o que ficou para a empresa</div></div>
@@ -655,7 +656,7 @@
     <div style="display:flex;align-items:center;gap:14px;flex-wrap:wrap;margin-bottom:18px">
       <button class="btn ouro" onclick="incluirConta()">➕ Incluir conta a pagar/receber</button>
       <button class="btn sec" onclick="abrirParcIncompletos()">🧩 Parcelamentos incompletos</button>
-      <button class="btn sec" onclick="limparParcelasPagas()" style="border-color:#C79A3B;color:#7a6320">🧹 Limpar parcelas já pagas (uso único)</button>
+      <button class="btn sec" onclick="corrigirAcentos()" title="Corrige acentos quebrados vindos de importações antigas">🔤 Corrigir acentos</button>
       <label class="switch"><input type="checkbox" id="autoConcChk" onchange="setAutoConciliar()"><span class="sl"></span></label>
       <span class="mini"><b>Baixa automática</b> — quando o lançamento real entra, a conta é considerada paga</span>
     </div>
@@ -1493,7 +1494,7 @@ function abrirAba(pg){const b=[...document.querySelectorAll('.menu-item')].find(
 /* REGRA CONTABIL: titulo (previsto) = data de VENCIMENTO (competencia) · movimento do extrato = data do extrato (caixa).
    Usar dataRef(l) em TODO filtro, agrupamento, ordenacao e comparacao com hoje. Emissao nunca e criterio de periodo. */
 /* ===== VERSAO DO PAINEL — para saber, sem adivinhar, se a tela esta atualizada ===== */
-const APP_VERSAO='2026-08-18.4';
+const APP_VERSAO='2026-08-18.5';
 function _marcaVersao(){try{var d=document.getElementById('appVersaoTag');if(!d){d=document.createElement('div');d.id='appVersaoTag';d.style.cssText='position:fixed;right:8px;bottom:6px;font-size:10px;color:#9b8f7d;background:rgba(255,255,255,.75);padding:2px 7px;border-radius:6px;z-index:50;font-family:inherit';document.body.appendChild(d);}d.textContent='versao '+APP_VERSAO;}catch(e){}}
 function _avisarVersaoNova(v){try{if(document.getElementById('barraVersaoNova'))return;var d=document.createElement('div');d.id='barraVersaoNova';d.style.cssText='position:fixed;left:0;right:0;top:0;background:#7A2E39;color:#fff;padding:11px 14px;z-index:99999;display:flex;gap:12px;align-items:center;justify-content:center;font-size:13.5px;font-family:inherit';d.innerHTML='<b>Existe uma versao nova do painel ('+v+').</b> Recarregue para trabalhar na versao certa. <button onclick="location.reload(true)" style="background:#fff;color:#7A2E39;border:none;padding:6px 12px;border-radius:8px;font-weight:700;cursor:pointer;font-family:inherit">Recarregar agora</button>';document.body.appendChild(d);}catch(e){}}
 async function _checarVersaoNova(){try{var r=await fetch(location.pathname+'?v='+Date.now(),{cache:'no-store'});if(!r.ok)return;var t=await r.text();var m=t.match(/APP_VERSAO\s*=\s*'([^']+)'/);if(m&&m[1]&&m[1]!==APP_VERSAO)_avisarVersaoNova(m[1]);}catch(e){}}
@@ -1612,9 +1613,9 @@ var rows=alvo.slice().sort(function(a,b){return (a.data||'').localeCompare(b.dat
    +'<td class=mini><b>'+_d(l.data)+'</b></td>'
    +'<td style="text-align:right;font-weight:700;white-space:nowrap">'+moeda(+l.valor||0)+'</td></tr>';}).join('');
 document.getElementById('modalConteudo').innerHTML='<h3>Conferir antes de preencher o vencimento</h3>'
- +'<div class=mini style="margin:-4px 0 8px">'+alvo.length+' título(s) em aberto · '+moeda(tot)+' · estão gravados <b>sem data de vencimento</b>. A data proposta é a própria data do título (à vista). Desmarque o que não quiser alterar. Nada é apagado e o saldo não muda.</div>'
+ +'<div class=mini style="margin:-4px 0 8px">'+alvo.length+' título(s) em aberto · '+moeda(tot)+' · estão gravados <b>sem data de vencimento</b>. O vencimento recebe a <b>data que já está gravada no título</b> (à vista). Não invento data. Desmarque o que não quiser alterar. Nada é apagado e o saldo não muda.</div>'
  +'<div style="margin:0 0 8px"><button class="btn sec peq" onclick="document.querySelectorAll(\'.pvChk\').forEach(function(c){c.checked=true;})">Marcar todos</button> <button class="btn sec peq" onclick="document.querySelectorAll(\'.pvChk\').forEach(function(c){c.checked=false;})">Desmarcar todos</button></div>'
- +'<div style="overflow:auto;max-height:52vh"><table style="width:100%;border-collapse:collapse;font-size:12.5px"><thead><tr><th></th><th style="text-align:left">Cliente</th><th style="text-align:left">Serviço</th><th style="text-align:left">Forma</th><th style="text-align:left">Origem</th><th style="text-align:left">Vencimento proposto</th><th style="text-align:right">Valor</th></tr></thead><tbody>'+rows+'</tbody></table></div>'
+ +'<div style="overflow:auto;max-height:52vh"><table style="width:100%;border-collapse:collapse;font-size:12.5px"><thead><tr><th></th><th style="text-align:left">Cliente</th><th style="text-align:left">Serviço</th><th style="text-align:left">Forma</th><th style="text-align:left">Origem</th><th style="text-align:left">Data gravada no título</th><th style="text-align:right">Valor</th></tr></thead><tbody>'+rows+'</tbody></table></div>'
  +'<div class="modal-acoes"><button class="btn sec" onclick="fecharModal()">Cancelar</button> <button class="btn ouro" onclick="aplicarPreencherVencimentos()">Aplicar aos marcados</button></div>';
 var _mb=document.getElementById('modalConteudo').closest('.modal');if(_mb)_mb.style.maxWidth='940px';
 document.getElementById('modalBg').classList.add('show');}catch(e){alert('Erro: '+e.message);}}
@@ -1626,6 +1627,45 @@ window.__bkpVencVazio=alvo.map(function(l){return JSON.parse(JSON.stringify(l));
 alvo.forEach(function(l){l.dataVencimento=l.data;l.venc=l.data;});
 saveApp();render();fecharModal();
 alert('Pronto! '+alvo.length+' título(s) agora têm data de vencimento e passam a aparecer no mês de competência correto.');}catch(e){alert('Erro: '+e.message);}}
+/* ===== Recebimentos em dinheiro (caixa) que entraram SEM título em contas a receber.
+   A partir de agora a importação já cria o par título+movimento; isto resolve o passivo antigo. ===== */
+function _caixaSemTitulo(){var L=(dados().lancamentos||[]);return L.filter(function(l){return l.status!=='previsto'&&l.tipo==='receita'&&/caixa/i.test(l.banco||'')&&!l.baixaDe&&(l.data||'')&&(+l.valor||0)>0;});}
+function abrirGerarTitulosCaixa(){try{var alvo=_caixaSemTitulo();if(!alvo.length){alert('Nada a gerar — todo recebimento do caixa já tem título.');return;}
+var _d=function(x){return x?new Date(x+'T00:00:00').toLocaleDateString('pt-BR'):'-';};
+var tot=alvo.reduce(function(s,l){return s+(+l.valor||0);},0);
+var porMes={};alvo.forEach(function(l){var k=(l.data||'').slice(0,7);porMes[k]=(porMes[k]||0)+1;});
+var resumo=Object.keys(porMes).sort().map(function(k){var p=k.split('-');return '• '+p[2-1]+'/'+p[0]+': '+porMes[k];}).join(' &nbsp; ');
+var rows=alvo.slice().sort(function(a,b){return (a.data||'').localeCompare(b.data||'');}).map(function(l){
+ return '<tr><td style="text-align:center"><input type="checkbox" class="gtChk" value="'+l.id+'" checked></td>'
+  +'<td class=mini>'+_d(l.data)+'</td>'
+  +'<td class=mini>'+esc(String(l.cliente||l.descricao||'-').slice(0,28))+'</td>'
+  +'<td class=mini>'+esc(String(l.categoria||'-').slice(0,26))+'</td>'
+  +'<td class=mini>'+esc(l.banco||'-')+'</td>'
+  +'<td style="text-align:right;font-weight:700">'+moeda(+l.valor||0)+'</td></tr>';}).join('');
+document.getElementById('modalConteudo').innerHTML='<h3>Gerar o título dos recebimentos em dinheiro</h3>'
+ +'<div class=mini style="margin:-4px 0 8px">'+alvo.length+' recebimento(s) do caixa · '+moeda(tot)+' entraram sem título em contas a receber. Vou criar o título de cada um <b>já baixado na mesma data</b> e amarrar o movimento nele. O saldo não muda e nada é apagado — só passa a existir o título que faltava.</div>'
+ +'<div class=mini style="margin:0 0 8px">'+resumo+'</div>'
+ +'<div style="margin:0 0 8px"><button class="btn sec peq" onclick="document.querySelectorAll(\'.gtChk\').forEach(function(c){c.checked=true;})">Marcar todos</button> <button class="btn sec peq" onclick="document.querySelectorAll(\'.gtChk\').forEach(function(c){c.checked=false;})">Desmarcar todos</button></div>'
+ +'<div style="overflow:auto;max-height:52vh"><table style="width:100%;border-collapse:collapse;font-size:12.5px"><thead><tr><th></th><th style="text-align:left">Data</th><th style="text-align:left">Cliente</th><th style="text-align:left">Categoria</th><th style="text-align:left">Banco</th><th style="text-align:right">Valor</th></tr></thead><tbody>'+rows+'</tbody></table></div>'
+ +'<div class="modal-acoes"><button class="btn sec" onclick="fecharModal()">Cancelar</button> <button class="btn ouro" onclick="aplicarGerarTitulosCaixa()">Gerar títulos dos marcados</button></div>';
+var _mb=document.getElementById('modalConteudo').closest('.modal');if(_mb)_mb.style.maxWidth='940px';
+document.getElementById('modalBg').classList.add('show');}catch(e){alert('Erro: '+e.message);}}
+function aplicarGerarTitulosCaixa(){try{
+var ids={};Array.prototype.slice.call(document.querySelectorAll('.gtChk')).forEach(function(c){if(c.checked)ids[c.value]=1;});
+var alvo=_caixaSemTitulo().filter(function(l){return ids[l.id];});
+if(!alvo.length){alert('Nenhum recebimento marcado.');return;}
+window.__bkpTitCaixa=alvo.map(function(m){return JSON.parse(JSON.stringify(m));});
+var n=0;
+alvo.forEach(function(m){
+ var d=m.data;
+ var _tt={id:id(),data:d,dataEmissao:d,dataVencimento:d,venc:d,dataBaixa:d,baixaData:d,baixado:true,
+   cliente:m.cliente||'',descricao:m.descricao||'',servico:m.servico||'',categoria:m.categoria||'',
+   tipo:'receita',valor:+m.valor||0,status:'previsto',banco:'',formaPagto:m.formaPagto||'DINHEIRO',
+   origem:m.origem||'Recebimento em dinheiro',unidade:m.unidade||'',usuario:usuariaAtivaNome()};
+ dados().lancamentos.push(_tt);m.baixaDe=_tt.id;n++;});
+saveApp();render();fecharModal();
+alert('Pronto! '+n+' título(s) criado(s) e amarrado(s) ao recebimento do caixa. O saldo continua o mesmo.');}catch(e){alert('Erro: '+e.message);}}
+function renderBannerCaixaSemTitulo(){var box=document.getElementById('bannerCaixaSemTitulo');if(!box)return;var alvo=_caixaSemTitulo();if(!alvo.length){box.innerHTML='';return;}var tot=alvo.reduce(function(s,l){return s+(+l.valor||0);},0);box.innerHTML='<div style="background:#EEF3FB;border:1px solid #bcd0ea;border-radius:12px;padding:14px 16px;margin:0 0 14px;display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap"><div style="font-size:13.5px;color:#2b5580;line-height:1.5"><b>💵 '+alvo.length+' recebimento(s) em dinheiro sem título · '+moeda(tot)+'</b><br><span style="font-size:12.5px">Entraram direto no caixa, antes da regra nova. Gerar o título deixa o histórico do cliente completo. O saldo não muda.</span></div><button class="btn" onclick="abrirGerarTitulosCaixa()">Gerar títulos</button></div>';}
 function renderBannerVencVazio(){var box=document.getElementById('bannerVencVazio');if(!box)return;var alvo=_titulosSemVenc();if(!alvo.length){box.innerHTML='';return;}var tot=alvo.reduce(function(s,l){return s+(+l.valor||0);},0);box.innerHTML='<div style="background:#FBF3DE;border:1px solid #E4CE8F;border-radius:12px;padding:14px 16px;margin:0 0 14px;display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap"><div style="font-size:13.5px;color:#7a6320;line-height:1.5"><b>\ud83d\udcc5 '+alvo.length+' t\u00edtulo(s) em aberto sem data de vencimento \u00b7 '+moeda(tot)+'</b><br><span style="font-size:12.5px">Sem vencimento o t\u00edtulo cai no m\u00eas errado. Preencher usa a pr\u00f3pria data do t\u00edtulo (\u00e0 vista). Nada \u00e9 apagado.</span></div><button class="btn" onclick="preencherVencimentosVazios()">Preencher vencimentos</button></div>';}
 function render(){
   try{normalizarTextos();}catch(e){}
@@ -1633,6 +1673,7 @@ function render(){
   try{renderBannerCompletarMaio();}catch(e){}
   try{renderBannerVinculos();}catch(e){}
   try{renderBannerVencVazio();}catch(e){}
+  try{renderBannerCaixaSemTitulo();}catch(e){}
   // topo perfil
   const p=perfil();
   const _ea=empresaAtiva();const nomeMarca=(_ea&&_ea.razaoSocial)||p.nome;
@@ -1864,16 +1905,16 @@ function renderFluxoDiario(){
   if(!document.getElementById('chartFluxoDiario'))return;montarFxMes();
   const mes=document.getElementById('fxMes').value;const[ano,mm]=mes.split('-').map(Number);const diasNoMes=new Date(ano,mm,0).getDate();
   const CORES_BANCO=['#16447a','#c8911b','#1c4d61','#6b4a7a','#2aa39a','#b23b3b','#3a5a8c'];
-  const movs=dados().lancamentos.filter(l=>noUnidade(l)&&l.data&&!(l.status==='previsto'&&l.baixado));
+  const movs=dados().lancamentos.filter(l=>noUnidade(l)&&dataRef(l)&&!(l.status==='previsto'&&l.baixado));
   const labels=[];for(let d=1;d<=diasNoMes;d++)labels.push(String(d).padStart(2,'0'));
   const bv=bancosVisiveis();const contas=bv.length?bv:[{nome:'Caixa',saldoInicial:0,_all:true}];
   const datasets=[],saldosFinais=[],totalSerie=new Array(diasNoMes).fill(0);
   contas.forEach((b,idx)=>{const bn=(b.nome||'').toLowerCase().trim();
     const mb=b._all?movs:movs.filter(l=>(l.banco||'').toLowerCase().trim()===bn);
-    const antes=mb.filter(l=>l.data.slice(0,7)<mes).reduce((s,l)=>s+(l.tipo==='receita'?+l.valor:-+l.valor),0);
+    const antes=mb.filter(l=>dataRef(l).slice(0,7)<mes).reduce((s,l)=>s+(l.tipo==='receita'?+l.valor:-+l.valor),0);
     let acc=(b.saldoInicial||0)+antes;const serie=[];
     for(let d=1;d<=diasNoMes;d++){const ds=`${ano}-${String(mm).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
-      acc+=mb.filter(l=>l.data===ds).reduce((s,l)=>s+(l.tipo==='receita'?+l.valor:-+l.valor),0);serie.push(acc);totalSerie[d-1]+=acc;}
+      acc+=mb.filter(l=>dataRef(l)===ds).reduce((s,l)=>s+(l.tipo==='receita'?+l.valor:-+l.valor),0);serie.push(acc);totalSerie[d-1]+=acc;}
     const cor=CORES_BANCO[idx%CORES_BANCO.length];
     datasets.push({label:b.nome,data:serie,borderColor:cor,backgroundColor:'transparent',fill:false,tension:.2,pointRadius:0,borderWidth:2});
     saldosFinais.push({nome:b.nome,cor,saldo:serie[diasNoMes-1]});});
@@ -2111,16 +2152,16 @@ function renderCalendario(){
   const ano=calRef.getFullYear(),mes=calRef.getMonth();
   document.getElementById('calMes').textContent=calRef.toLocaleDateString('pt-BR',{month:'long',year:'numeric'}).replace(/^./,m=>m.toUpperCase());
   const primeiro=new Date(ano,mes,1).getDay(), diasNoMes=new Date(ano,mes+1,0).getDate();
-  const prev=dados().lancamentos.filter(l=>l.status==='previsto'&&!l.baixado&&noUnidade(l)&&l.data&&l.data.slice(0,7)===`${ano}-${String(mes+1).padStart(2,'0')}`);
+  const prev=dados().lancamentos.filter(l=>l.status==='previsto'&&!l.baixado&&noUnidade(l)&&dataRef(l)&&dataRef(l).slice(0,7)===`${ano}-${String(mes+1).padStart(2,'0')}`);
   let html='';['D','S','T','Q','Q','S','S'].forEach(d=>html+=`<div class="dw">${d}</div>`);
   for(let i=0;i<primeiro;i++)html+='<div class="dia"></div>';
-  for(let d=1;d<=diasNoMes;d++){const ds=`${ano}-${String(mes+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`;const doDia=prev.filter(l=>l.data===ds);
+  for(let d=1;d<=diasNoMes;d++){const ds=`${ano}-${String(mes+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`;const doDia=prev.filter(l=>dataRef(l)===ds);
     const temRec=doDia.some(l=>l.tipo==='receita'),temPag=doDia.some(l=>l.tipo==='despesa'),tem=doDia.length>0;
     html+=`<div class="dia ${tem?'tem':''}" ${tem?`onclick="verDia('${ds}')"`:''}>${d}<div class="dots">${temRec?'<i class="dot-rec"></i>':''}${temPag?'<i class="dot-pag"></i>':''}</div></div>`;}
   document.getElementById('cal').innerHTML=html;
 }
 function verDia(ds){
-  const itens=dados().lancamentos.filter(l=>l.data===ds&&l.status==='previsto');const box=document.getElementById('diaDetalhe');
+  const itens=dados().lancamentos.filter(l=>l.status==='previsto'&&!l.baixado&&dataRef(l)===ds);const box=document.getElementById('diaDetalhe');
   let html=`<b>${new Date(ds+'T00:00:00').toLocaleDateString('pt-BR')}</b>`;
   itens.forEach(l=>{const cor=l.tipo==='receita'?'var(--verde)':'var(--rubro)';html+=`<div class="l"><span>${esc(l.descricao||l.categoria)}</span><span style="color:${cor};font-weight:700">${l.tipo==='receita'?'+':'-'}${moeda(l.valor)}</span></div>`;});
   box.innerHTML=html;box.classList.add('show');
@@ -2240,8 +2281,8 @@ function limparMetaLinha(key){if(!confirm('Limpar as metas desta linha no ano se
 function gerarResumoSemana(){var L=dados().lancamentos||[];var hojeS=new Date().toISOString().slice(0,10);var fimD=new Date(new Date().getTime()+7*86400000);var fim=fimD.getFullYear()+'-'+String(fimD.getMonth()+1).padStart(2,'0')+'-'+String(fimD.getDate()).padStart(2,'0');
   var bancos=bancosVisiveis();var saldoTot=0;var linhasBanco='';
   bancos.forEach(function(b){var bn=(b.nome||'').toLowerCase().trim();var s=(b.saldoInicial||0)+L.filter(function(l){return (l.banco||'').toLowerCase().trim()===bn&&l.status!=='previsto'&&l.conciliado;}).reduce(function(a,l){return a+(l.tipo==='receita'?+l.valor:-+l.valor);},0);saldoTot+=s;linhasBanco+='• '+b.nome+': '+moeda(s)+'\n';});
-  var aReceber=L.filter(function(l){return l.status==='previsto'&&!l.baixado&&l.tipo==='receita'&&l.data&&l.data>=hojeS&&l.data<=fim;});
-  var aPagar=L.filter(function(l){return l.status==='previsto'&&!l.baixado&&l.tipo==='despesa'&&l.data&&l.data>=hojeS&&l.data<=fim;});
+  var aReceber=L.filter(function(l){return l.status==='previsto'&&!l.baixado&&l.tipo==='receita'&&dataRef(l)&&dataRef(l)>=hojeS&&dataRef(l)<=fim;});
+  var aPagar=L.filter(function(l){return l.status==='previsto'&&!l.baixado&&l.tipo==='despesa'&&dataRef(l)&&dataRef(l)>=hojeS&&dataRef(l)<=fim;});
   var tR=aReceber.reduce(function(s,l){return s+(+l.valor||0);},0);var tP=aPagar.reduce(function(s,l){return s+(+l.valor||0);},0);
   var mes=hojeS.slice(0,7);var realizadoCat={};L.filter(function(l){return l.tipo==='despesa'&&l.status!=='previsto'&&l.conciliado&&l.data&&l.data.slice(0,7)===mes;}).forEach(function(l){realizadoCat[l.categoria]=(realizadoCat[l.categoria]||0)+(+l.valor||0);});
   var alertasMeta=(dados().orcamentos||[]).filter(function(o){var r=realizadoCat[o.categoria]||0;return o.valor>0&&r/o.valor>0.8;}).map(function(o){var r=realizadoCat[o.categoria]||0;return '• '+o.categoria+': '+pct(r/o.valor)+' do orçamento'+(r/o.valor>1?' — ESTOUROU':'');});
@@ -2394,8 +2435,8 @@ function ehForaDoLucro(c){return (c&&c.grupo)==='OUTRAS ENTRADAS';}
 function catForaDoLucro(catNome){const c=(dados().categorias||[]).find(x=>x.nome===catNome);return !!c&&c.grupo==='OUTRAS ENTRADAS';}
 function demoLancs(stOv){const st=stOv||window._demoStatus||'realizado';return dados().lancamentos.filter(l=>{if(!l.data||!noUnidade(l))return false;if(st==='realizado')return l.status!=='previsto'&&l.conciliado;if(st==='previsto')return l.status==='previsto'&&!l.baixado;return (l.status!=='previsto'&&l.conciliado)||(l.status==='previsto'&&!l.baixado);});}
 function setDemoStatus(v){window._demoStatus=v;renderDemonstrativo();}
-function demoMeses(){const s=new Set();demoLancs().forEach(l=>s.add(l.data.slice(0,7)));return [...s].sort();}
-function somaCatDemo(cat,ym,st){const ct=catTipo(cat)||'receita';return demoLancs(st).filter(l=>l.categoria===cat&&l.data.slice(0,7)===ym).reduce((s,l)=>s+((l.tipo===ct?1:-1)*(+l.valor||0)),0);}
+function demoMeses(){const s=new Set();demoLancs().forEach(l=>{const _d=dataRef(l);if(_d)s.add(_d.slice(0,7));});return [...s].sort();}
+function somaCatDemo(cat,ym,st){const ct=catTipo(cat)||'receita';return demoLancs(st).filter(l=>l.categoria===cat&&dataRef(l).slice(0,7)===ym).reduce((s,l)=>s+((l.tipo===ct?1:-1)*(+l.valor||0)),0);}
 function totEntradaDemo(ym,st){return catsDemo().filter(c=>isEntradaCat(c)&&!ehMovimento(c.nome)&&c.grupo!=='OUTRAS ENTRADAS').reduce((s,c)=>s+somaCatDemo(c.nome,ym,st),0);}
 function totOutrasEntradasDemo(ym){return catsDemo().filter(c=>c.grupo==='OUTRAS ENTRADAS'&&!ehMovimento(c.nome)).reduce((s,c)=>s+somaCatDemo(c.nome,ym),0);}
 function totDespesaDemo(ym,st){return catsDemo().filter(c=>!isEntradaCat(c)&&!ehMovimento(c.nome)).reduce((s,c)=>s+somaCatDemo(c.nome,ym,st),0);}
@@ -2555,8 +2596,8 @@ function renderDemonstrativo(cfg){
 function verLancsDemo(nEnc,ym,st){
   var n;try{n=decodeURIComponent(nEnc);}catch(e){n=nEnc;}
   var ct=(typeof catTipo==='function'&&catTipo(n))||'receita';
-  var ls=demoLancs(st).filter(function(l){return l.categoria===n&&(l.data||'').slice(0,7)===ym;});
-  ls.sort(function(a,b){return (a.data||'').localeCompare(b.data||'');});
+  var ls=demoLancs(st).filter(function(l){return l.categoria===n&&dataRef(l).slice(0,7)===ym;});
+  ls.sort(function(a,b){return dataRef(a).localeCompare(dataRef(b));});
   var val=function(l){return (l.tipo===ct?1:-1)*(+l.valor||0);};
   var total=ls.reduce(function(s,l){return s+val(l);},0);
   var mesTxt=(typeof mesLabelD==='function')?mesLabelD(ym):ym;
@@ -2623,9 +2664,9 @@ function renderFluxo(){
   renderFluxoCaixa();
   renderPendenciasConcil();
   const mostrarPrev=document.getElementById('incluirPrev').checked;
-  const base=dados().lancamentos.filter(l=>visivel(l)&&l.data);
+  const base=dados().lancamentos.filter(l=>visivel(l)&&dataRef(l));
   const R={},P={};
-  base.forEach(l=>{const m=l.data.slice(0,7);const v=+l.valor||0;
+  base.forEach(l=>{const m=dataRef(l).slice(0,7);const v=+l.valor||0;
     if(l.status==='previsto'){if(l.baixado)return;if(!P[m])P[m]={ent:0,sai:0};if(l.tipo==='receita')P[m].ent+=v;else P[m].sai+=v;}
     else{if(!R[m])R[m]={ent:0,sai:0};if(l.tipo==='receita')R[m].ent+=v;else R[m].sai+=v;}});
   const ordem=[...new Set([].concat(Object.keys(R),mostrarPrev?Object.keys(P):[]))].sort();
@@ -3922,17 +3963,17 @@ function renderConciliacao(){
   const bn=banco.nome.toLowerCase().trim();
   const todos=dados().lancamentos.filter(l=>((l.banco||'').toLowerCase().trim()===bn)&&l.data&&!(l.status==='previsto'&&l.baixado));
   const antesR=todos.filter(l=>l.status!=='previsto'&&l.data.slice(0,7)<mes).reduce((s,l)=>s+(l.tipo==='receita'?+l.valor:-+l.valor),0);
-  const antesP=todos.filter(l=>l.status==='previsto'&&l.data.slice(0,7)<mes).reduce((s,l)=>s+(l.tipo==='receita'?+l.valor:-+l.valor),0);
+  const antesP=todos.filter(l=>l.status==='previsto'&&dataRef(l).slice(0,7)<mes).reduce((s,l)=>s+(l.tipo==='receita'?+l.valor:-+l.valor),0);
   const saldoAntR=(banco.saldoInicial||0)+antesR,saldoAntP=saldoAntR+antesP;
   const doMesR=todos.filter(l=>l.status!=='previsto'&&l.data.slice(0,7)===mes);
-  const doMesP=todos.filter(l=>l.status==='previsto'&&l.data.slice(0,7)===mes);
+  const doMesP=todos.filter(l=>l.status==='previsto'&&dataRef(l).slice(0,7)===mes);
   const recR=doMesR.filter(l=>l.tipo==='receita').reduce((s,l)=>s+(+l.valor||0),0),despR=doMesR.filter(l=>l.tipo==='despesa').reduce((s,l)=>s+(+l.valor||0),0);
   const recP=recR+doMesP.filter(l=>l.tipo==='receita').reduce((s,l)=>s+(+l.valor||0),0),despP=despR+doMesP.filter(l=>l.tipo==='despesa').reduce((s,l)=>s+(+l.valor||0),0);
   const resR=recR-despR,resP=recP-despP,fimR=saldoAntR+resR,fimP=saldoAntP+resP;
   if(sumBox){const lin=(rot,a,b,cor)=>`<tr><td>${rot}</td><td style="text-align:right;${cor||''}">${moeda(a)}</td><td style="text-align:right;${cor||''}">${moeda(b)}</td></tr>`;
     sumBox.innerHTML=`<table><thead><tr><th>Situação (R$)</th><th style="text-align:right">Confirmado</th><th style="text-align:right">Projetado</th></tr></thead><tbody>`+lin('Saldo anterior',saldoAntR,saldoAntP)+lin('Receitas',recR,recP,'color:var(--verde)')+lin('Despesas',-despR,-despP,'color:var(--rubro)')+lin('Resultado',resR,resP)+`<tr style="font-weight:800"><td>Saldo final</td><td style="text-align:right;color:${fimR>=0?'var(--verde)':'var(--rubro)'}">${moeda(fimR)}</td><td style="text-align:right;color:${fimP>=0?'var(--verde)':'var(--rubro)'}">${moeda(fimP)}</td></tr></tbody></table>`;}
   const filtro=window._exFiltro||{pendente:true,agendado:true,confirmado:true,conciliado:true};
-  const lista=(incPrev?todos:todos.filter(l=>l.status!=='previsto')).filter(l=>l.data.slice(0,7)===mes).sort((a,b)=>(a.data||'').localeCompare(b.data||''));
+  const lista=(incPrev?todos:todos.filter(l=>l.status!=='previsto')).filter(l=>dataRef(l).slice(0,7)===mes).sort((a,b)=>dataRef(a).localeCompare(dataRef(b)));
   let acc=incPrev?saldoAntP:saldoAntR;
   let html=`<tr style="background:var(--creme2)"><td></td><td colspan=2><b>Saldo anterior</b></td><td></td><td style="text-align:right;font-weight:700">${moeda(acc)}</td></tr>`;
   lista.forEach(l=>{const v=l.tipo==='receita'?+l.valor:-+l.valor;acc+=v;const st=statusExtrato(l);if(!filtro[st])return;const info=EX_ST[st];const realiz=l.status!=='previsto';
