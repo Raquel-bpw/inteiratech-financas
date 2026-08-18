@@ -587,7 +587,7 @@
     <div class="card" id="pendConcilCard">
       <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap">
         <h2 style="margin:0">Pendências de conciliação</h2>
-        <div style="display:flex;gap:8px;align-items:center"><label class=mini style="font-weight:700;color:var(--vinho)">Mês</label><select id="pendMes" onchange="renderPendenciasConcil()" style="padding:7px 10px;border:1px solid #dcd4c4;border-radius:8px;font-family:inherit"></select></div>
+        <div style="display:flex;gap:8px;align-items:center"><label class=mini style="font-weight:700;color:var(--vinho)">Mês</label><select id="pendMes" onchange="mudarPendMes(this.value)" style="padding:7px 10px;border:1px solid #dcd4c4;border-radius:8px;font-family:inherit"></select></div>
       </div>
       <div class="cap">O que ainda não bateu entre o sistema e o banco. As listas aparecem só quando você clica em <b>Ver pendências</b> — no dia a dia, use a rotina de conciliação.</div>
       <div style="display:flex;gap:10px;align-items:center;margin:10px 0 6px;flex-wrap:wrap"><button class="btn ouro" onclick="abrirConciliacaoBanco()" title="Abrir a tela para amarrar recebimentos aos títulos">🏦 Conciliação de bancos</button><button class="btn sec" onclick="reamarrarEtiquetados()" title="Casa automaticamente os recebimentos etiquetados aos títulos que chegaram, sem duplicar">🔁 Amarrar títulos que chegaram</button><button class="btn sec" id="btnVerPend" onclick="togglePendVer()" title="Mostrar ou ocultar as duas listas de pendências">👁 Ver pendências</button><button class="btn sec" onclick="ajudaConciliacao()" title="Explicação rápida: conciliar, amarrar e baixa">❓ Como funciona</button></div>
@@ -2578,6 +2578,7 @@ function ajudaConciliacao(){
    '</div><div class="modal-acoes"><button class="btn" onclick="fecharModal()">Entendi</button></div>';
   document.getElementById('modalBg').classList.add('show');
 }
+function mudarPendMes(v){window._pendMes=v;renderPendenciasConcil();}
 function renderPendenciasConcil(){
   if(!document.getElementById('tbodyPendReceber'))return;
   var L=dados().lancamentos||[];
