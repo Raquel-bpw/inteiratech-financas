@@ -1001,8 +1001,8 @@
 
     <div class="card">
       <h2>Importação de Recebimentos</h2>
-      <div class="cap">Relatório de recebimentos do sistema, em CSV (colunas: Data, Paciente, Servico, Forma, Valor). <b>Dinheiro</b> entra como realizado; <b>PIX, boleto, convênio e outros</b> vão para <b>Contas a Receber</b> (previsto) e baixam quando caem no extrato (PIX = baixa pelo extrato do banco; boleto pago = baixa). <b>Cartão não entra aqui — vem da planilha de link / Zoop.</b> A categoria vem do serviço.</div>
-      <input type="file" id="arqReceb" accept=".csv,.txt" onchange="importarRecebimentos(event)">
+      <div class="cap">Relatório de recebimentos do sistema — <b>exporte em Excel (.xls/.xlsx)</b>, que é o formato oficial. Também aceita CSV; PDF só como último recurso (o nome do paciente vem cortado). <b>Dinheiro</b> entra como realizado; <b>PIX, boleto, convênio e outros</b> vão para <b>Contas a Receber</b> (previsto) e baixam quando caem no extrato (PIX = baixa pelo extrato do banco; boleto pago = baixa). <b>Cartão não entra aqui — vem da planilha de link / Zoop.</b> A categoria vem do serviço.</div>
+      <input type="file" id="arqReceb" accept=".xls,.xlsx,.csv,.txt,.pdf" onchange="importarRecebimentos(event)">
     </div>
 
     <div class="card">
@@ -1494,7 +1494,7 @@ function abrirAba(pg){const b=[...document.querySelectorAll('.menu-item')].find(
 /* REGRA CONTABIL: titulo (previsto) = data de VENCIMENTO (competencia) · movimento do extrato = data do extrato (caixa).
    Usar dataRef(l) em TODO filtro, agrupamento, ordenacao e comparacao com hoje. Emissao nunca e criterio de periodo. */
 /* ===== VERSAO DO PAINEL — para saber, sem adivinhar, se a tela esta atualizada ===== */
-const APP_VERSAO='2026-08-18.5';
+const APP_VERSAO='2026-08-19.1';
 function _marcaVersao(){try{var d=document.getElementById('appVersaoTag');if(!d){d=document.createElement('div');d.id='appVersaoTag';d.style.cssText='position:fixed;right:8px;bottom:6px;font-size:10px;color:#9b8f7d;background:rgba(255,255,255,.75);padding:2px 7px;border-radius:6px;z-index:50;font-family:inherit';document.body.appendChild(d);}d.textContent='versao '+APP_VERSAO;}catch(e){}}
 function _avisarVersaoNova(v){try{if(document.getElementById('barraVersaoNova'))return;var d=document.createElement('div');d.id='barraVersaoNova';d.style.cssText='position:fixed;left:0;right:0;top:0;background:#7A2E39;color:#fff;padding:11px 14px;z-index:99999;display:flex;gap:12px;align-items:center;justify-content:center;font-size:13.5px;font-family:inherit';d.innerHTML='<b>Existe uma versao nova do painel ('+v+').</b> Recarregue para trabalhar na versao certa. <button onclick="location.reload(true)" style="background:#fff;color:#7A2E39;border:none;padding:6px 12px;border-radius:8px;font-weight:700;cursor:pointer;font-family:inherit">Recarregar agora</button>';document.body.appendChild(d);}catch(e){}}
 async function _checarVersaoNova(){try{var r=await fetch(location.pathname+'?v='+Date.now(),{cache:'no-store'});if(!r.ok)return;var t=await r.text();var m=t.match(/APP_VERSAO\s*=\s*'([^']+)'/);if(m&&m[1]&&m[1]!==APP_VERSAO)_avisarVersaoNova(m[1]);}catch(e){}}
