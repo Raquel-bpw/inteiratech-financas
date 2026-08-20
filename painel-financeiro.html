@@ -1007,8 +1007,8 @@
 
     <div class="card">
       <h2>Importação do Zoop (link de pagamento)</h2>
-      <div class="cap">Controle de links do Zoop, em CSV (colunas: Data Pgto, Nome Cliente, Valor Total, Valor a Receber, Nº Parcelas). Cada venda no cartão entra em Contas a Receber pelo valor líquido, e a taxa (bruto − líquido) é lançada como despesa. Quando o depósito Zoop cai no extrato, baixa. O cartão não vem pelo Recebimentos — vem por aqui.</div>
-      <input type="file" id="arqZoop" accept=".csv,.txt" onchange="importarZoop(event)">
+      <div class="cap">Controle de links do Zoop — <b>Excel (.xls/.xlsx)</b> ou CSV (colunas: Data Pgto, Nome Cliente, Valor Total, Valor a Receber, Nº Parcelas). Cada venda no cartão entra em Contas a Receber pelo valor líquido, e a taxa (bruto − líquido) é lançada como despesa. Quando o depósito Zoop cai no extrato, baixa. O cartão não vem pelo Recebimentos — vem por aqui.</div>
+      <input type="file" id="arqZoop" accept=".xls,.xlsx,.csv,.txt" onchange="importarZoop(event)">
     </div>
 
     <div class="card"><h2>Importar Planilha a Receber (.xlsx)</h2><div class="cap">Planilha com as abas LINKS e BOLETOS. Cada linha vira contas a receber (parcelas por vencimento). O importador PULA o que já foi importado — pode reimportar a planilha do ano inteiro sem duplicar.</div><input type="file" id="arqAReceber" accept=".xlsx,.xls" onchange="importarAReceber(event)"></div>
@@ -1494,7 +1494,7 @@ function abrirAba(pg){const b=[...document.querySelectorAll('.menu-item')].find(
 /* REGRA CONTABIL: titulo (previsto) = data de VENCIMENTO (competencia) · movimento do extrato = data do extrato (caixa).
    Usar dataRef(l) em TODO filtro, agrupamento, ordenacao e comparacao com hoje. Emissao nunca e criterio de periodo. */
 /* ===== VERSAO DO PAINEL — para saber, sem adivinhar, se a tela esta atualizada ===== */
-const APP_VERSAO='2026-08-19.1';
+const APP_VERSAO='2026-08-20.1';
 function _marcaVersao(){try{var d=document.getElementById('appVersaoTag');if(!d){d=document.createElement('div');d.id='appVersaoTag';d.style.cssText='position:fixed;right:8px;bottom:6px;font-size:10px;color:#9b8f7d;background:rgba(255,255,255,.75);padding:2px 7px;border-radius:6px;z-index:50;font-family:inherit';document.body.appendChild(d);}d.textContent='versao '+APP_VERSAO;}catch(e){}}
 function _avisarVersaoNova(v){try{if(document.getElementById('barraVersaoNova'))return;var d=document.createElement('div');d.id='barraVersaoNova';d.style.cssText='position:fixed;left:0;right:0;top:0;background:#7A2E39;color:#fff;padding:11px 14px;z-index:99999;display:flex;gap:12px;align-items:center;justify-content:center;font-size:13.5px;font-family:inherit';d.innerHTML='<b>Existe uma versao nova do painel ('+v+').</b> Recarregue para trabalhar na versao certa. <button onclick="location.reload(true)" style="background:#fff;color:#7A2E39;border:none;padding:6px 12px;border-radius:8px;font-weight:700;cursor:pointer;font-family:inherit">Recarregar agora</button>';document.body.appendChild(d);}catch(e){}}
 async function _checarVersaoNova(){try{var r=await fetch(location.pathname+'?v='+Date.now(),{cache:'no-store'});if(!r.ok)return;var t=await r.text();var m=t.match(/APP_VERSAO\s*=\s*'([^']+)'/);if(m&&m[1]&&m[1]!==APP_VERSAO)_avisarVersaoNova(m[1]);}catch(e){}}
@@ -3531,15 +3531,25 @@ function importarLancamentos(ev){const f=ev.target.files[0];if(!f)return;const r
   saveApp();const _nb=autoConciliar()+autoBaixaCorrespondentes();saveApp();render();document.getElementById('arqLanc').value='';
   alert('Planilha importada!\nEntradas: '+nR+'\nSaídas: '+nD+(nDup?'\nJá existentes (ignorados p/ não duplicar): '+nDup:'')+(_nb?'\nConciliados automaticamente: '+_nb:''));
   if(dados().autoAbrirConcil!==false){abrirConciliacaoBanco();}};r.readAsArrayBuffer(f);}
-function importarZoop(ev){const f=ev.target.files[0];if(!f)return;const r=new FileReader();r.onload=e=>{const o=lerCSVsimples(decodeArq(e.target.result));const H=o.header,rows=o.rows;const ix=n=>H.findIndex(h=>h.includes(n));
-  const iData=(ix('data pgto')>=0?ix('data pgto'):ix('data')),iNome=ix('nome'),iBruto=(ix('valor total')>=0?ix('valor total'):ix('total')),iLiq=(ix('receber')>=0?ix('receber'):ix('liquido')),iParc=ix('parcela');
-  if(iData<0||iLiq<0){alert('CSV do Zoop precisa ter Data Pgto e Valor a Receber. Exporte o controle de links em CSV.');return;}
-  let nAR=0,taxaTot=0,liqTot=0;
-  rows.forEach(row=>{const liq=parseValor(row[iLiq]);if(!(liq>0))return;const bruto=iBruto>=0?parseValor(row[iBruto]):liq;const data=parseData(row[iData]);if(!data)return;const nome=iNome>=0?(row[iNome]||''):'';const taxa=Math.max(0,bruto-liq);
-    dados().lancamentos.push({id:id(),data,cliente:nome,descricao:(nome+' — Cartão (Zoop)'),servico:'Cartão (Zoop)',banco:'',categoria:'A classificar',tipo:'receita',valor:liq,status:'previsto',formaPagto:'CARTÃO (ZOOP)',unidade:'',usuario:usuariaAtivaNome()});nAR++;liqTot+=liq;
-    if(taxa>0){dados().lancamentos.push({id:id(),data,cliente:nome,descricao:(nome+' — Taxa cartão (Zoop)'),banco:'',categoria:'Taxas de Plataforma de Pagamento',tipo:'despesa',valor:taxa,status:'previsto',formaPagto:'CARTÃO (ZOOP)',unidade:'',usuario:usuariaAtivaNome()});taxaTot+=taxa;}});
-  saveApp();const nb=autoConciliar();render();document.getElementById('arqZoop').value='';
-  alert('Zoop importado!\nVendas no cartão (a receber, líquido): '+nAR+' — '+moeda(liqTot)+'\nTaxas lançadas (despesa): '+moeda(taxaTot)+(nb?'\nBaixados automaticamente: '+nb:''));};r.readAsArrayBuffer(f);}
+function importarZoop(ev){const f=ev.target.files[0];if(!f)return;const r=new FileReader();
+  r.onload=e=>{_recebLinhasDoArquivo(f.name,e.target.result,function(res){
+    var el=document.getElementById('arqZoop');if(el)el.value='';
+    if(!res.rows.length){alert(res.aviso||'Não encontrei linhas para importar neste arquivo.');return;}
+    const H=res.header,rows=res.rows;const ix=n=>H.findIndex(h=>String(h||'').indexOf(n)>=0);
+    const iData=(ix('data pgto')>=0?ix('data pgto'):ix('data')),iNome=(ix('nome')>=0?ix('nome'):ix('cliente')),
+          iBruto=(ix('valor total')>=0?ix('valor total'):ix('total')),iLiq=(ix('receber')>=0?ix('receber'):ix('liquido')),iParc=ix('parcela');
+    if(iData<0||iLiq<0){alert('A planilha do Zoop precisa ter as colunas Data Pgto e Valor a Receber.\n\nColunas encontradas: '+(H.filter(Boolean).join(', ')||'(nenhuma)'));return;}
+    let nAR=0,taxaTot=0,liqTot=0;
+    rows.forEach(row=>{const liq=parseValor(row[iLiq]);if(!(liq>0))return;const data=parseData(row[iData]);if(!data)return;
+      const bruto=iBruto>=0?parseValor(row[iBruto]):liq;const nome=String(iNome>=0?(row[iNome]||''):'').replace(//g,' ').replace(/\s+/g,' ').trim();
+      const taxa=Math.max(0,bruto-liq);
+      /* venc = data (a vista): titulo sem vencimento cai no mes errado */
+      dados().lancamentos.push({id:id(),data,dataEmissao:data,dataVencimento:data,venc:data,cliente:nome,descricao:(nome+' — Cartão (Zoop)'),servico:'Cartão (Zoop)',banco:'',categoria:'A classificar',tipo:'receita',valor:liq,status:'previsto',formaPagto:'CARTÃO (ZOOP)',origem:'Planilha de link',unidade:'',usuario:usuariaAtivaNome()});nAR++;liqTot+=liq;
+      if(taxa>0){dados().lancamentos.push({id:id(),data,dataEmissao:data,dataVencimento:data,venc:data,cliente:nome,descricao:(nome+' — Taxa cartão (Zoop)'),banco:'',categoria:'Taxas de Plataforma de Pagamento',tipo:'despesa',valor:taxa,status:'previsto',formaPagto:'CARTÃO (ZOOP)',origem:'Planilha de link',unidade:'',usuario:usuariaAtivaNome()});taxaTot+=taxa;}});
+    saveApp();const nb=autoConciliar();render();
+    alert('Zoop importado!\nVendas no cartão (a receber, líquido): '+nAR+' — '+moeda(liqTot)+'\nTaxas lançadas (despesa): '+moeda(taxaTot)+(nb?'\nBaixados automaticamente: '+nb:''));
+  });};
+  r.readAsArrayBuffer(f);}
 function confirmarImport(){const t=window._impTemp||[];dados().lancamentos.push(...t);saveApp();const _nb=autoConciliar();alert(t.length+' lançamento(s) importados!'+(_nb?' '+_nb+' conta(s) prevista(s) baixada(s) automaticamente.':''));document.getElementById('previewArea').innerHTML='';document.getElementById('mapeamento').style.display='none';['arqPers','arqPlan','arqExt'].forEach(i=>{const e=document.getElementById(i);if(e)e.value='';});const rc=document.getElementById('impResultadoCard');if(rc)rc.style.display='none';window._impRaw=null;window._impTx=null;autoBaixaCorrespondentes();saveApp();render();abrirAba('lancamentos');}
 
 // ===================== EXPORT / BACKUP =====================
