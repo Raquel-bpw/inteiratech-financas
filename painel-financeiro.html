@@ -1496,7 +1496,7 @@ function abrirAba(pg){const b=[...document.querySelectorAll('.menu-item')].find(
 /* REGRA CONTABIL: titulo (previsto) = data de VENCIMENTO (competencia) · movimento do extrato = data do extrato (caixa).
    Usar dataRef(l) em TODO filtro, agrupamento, ordenacao e comparacao com hoje. Emissao nunca e criterio de periodo. */
 /* ===== VERSAO DO PAINEL — para saber, sem adivinhar, se a tela esta atualizada ===== */
-const APP_VERSAO='2026-08-24.5';
+const APP_VERSAO='2026-08-24.6';
 function _marcaVersao(){try{
  /* versao no CABECALHO, ao lado do status da nuvem — fica visivel sem procurar */
  var bar=document.querySelector('.tb-acoes');var d=document.getElementById('appVersaoTag');
@@ -3619,7 +3619,24 @@ function corrigirAcentos(){let n=0;const fx=(o,ks)=>{if(!o)return;ks.forEach(k=>
   saveApp();render();alert(n+' campo(s) corrigido(s). Se ainda restar algo, reimporte o arquivo — agora ele lê os acentos certos.');}
 function lerCSVsimples(txt){const sep=(txt.split(';').length>txt.split(',').length)?';':',';const linhas=txt.split(/\r?\n/).filter(l=>l.trim());const header=linhas[0].split(sep).map(h=>h.trim().replace(/^"|"$/g,'').toLowerCase());return {header,rows:linhas.slice(1).map(l=>l.split(sep).map(c=>c.trim().replace(/^"|"$/g,'')))};}
 function contaCaixa(){var bs=(dados().bancos||[]);var c=bs.find(function(b){return (b.tipo==='Caixa'||b.tipo==='Dinheiro')&&b.ativo!==false;})||bs.find(function(b){return /caixa/i.test(b.nome||'')&&b.ativo!==false;});return c?c.nome:'CAIXA FONO CARE';}
-function _tituloJaNaBase(cli,valor,venc,L){L=L||(dados().lancamentos||[]);if(!venc||!(cli||'').trim())return false;var n=function(s){return (s||'').normalize('NFD').replace(/[̀-ͯ]/g,'').toUpperCase().replace(/[^A-Z0-9]/g,'');};var c=n(cli),v=Math.round((+valor||0)*100);return L.some(function(l){return l.tipo==='receita'&&n(l.cliente)===c&&Math.round((+l.valor||0)*100)===v&&((l.dataVencimento||l.venc||l.data||'')===venc);});}
+/* Dedup de título. Exato por padrão.
+   Para BOLETO / LINK / CARTÃO aceita folga de dias: a MESMA parcela chega por duas fontes com datas
+   diferentes (a planilha traz o vencimento do boleto; o relatório de recebimentos traz o dia do pagamento).
+   Sem essa folga, a mesma parcela entrava duas vezes — foi assim que nasceram as "duas séries".
+   Para PIX/dinheiro/convênio o dedup continua exato: são atendimentos do dia, podem repetir no mês. */
+function _formaParcelada(f){return /boleto|link|cart/i.test(String(f||''));}
+function _tituloJaNaBase(cli,valor,venc,L,forma){L=L||(dados().lancamentos||[]);if(!venc||!(cli||'').trim())return false;
+ var n=function(s){return (s||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toUpperCase().replace(/[^A-Z0-9]/g,'');};
+ var c=n(cli),v=Math.round((+valor||0)*100);
+ var tol=_formaParcelada(forma)?12:0;
+ var dd=function(a,b){try{return Math.abs(Math.round((new Date(a+'T00:00:00')-new Date(b+'T00:00:00'))/86400000));}catch(e){return 999;}};
+ return L.some(function(l){
+  if(l.tipo!=='receita')return false;if(n(l.cliente)!==c)return false;if(Math.round((+l.valor||0)*100)!==v)return false;
+  var lv=(l.dataVencimento||l.venc||l.data||'');var lb=(l.dataBaixa||l.baixaData||'');
+  if(lv===venc)return true;
+  if(tol&&lv&&dd(lv,venc)<=tol)return true;      /* mesma parcela, data diferente entre as fontes */
+  if(tol&&lb&&dd(lb,venc)<=tol)return true;      /* já existe e foi baixado perto dessa data */
+  return false;});}
 /* ===== IMPORTAÇÃO DE RECEBIMENTOS — lê CSV, Excel (.xls/.xlsx, inclusive o .xls que o sistema gera como HTML) e PDF.
    Sempre mostra a PRÉVIA antes de gravar: nada entra na base sem a conferência na tela. ===== */
 function _recebLinhasDoArquivo(nome,buf,cb){
@@ -3689,7 +3706,7 @@ function importarRecebimentos(ev){const f=ev.target.files[0];if(!f)return;const 
       _jaImp[_k]=true;
       const sc=servico?normServMatch(servico):null;const categoria=sc?sc.categoria:'A classificar';
       const dinheiro=/DINHEIRO/.test(forma);
-      if(!dinheiro&&_tituloJaNaBase(paciente,Math.abs(valor),data)){plano.push({acao:'duplicado',data,cliente:paciente,servico,valor:Math.abs(valor),forma,motivo:'já existe título igual na base'});return;}
+      if(!dinheiro&&_tituloJaNaBase(paciente,Math.abs(valor),data,null,forma)){plano.push({acao:'duplicado',data,cliente:paciente,servico,valor:Math.abs(valor),forma,motivo:'já existe este título na base (mesma parcela)'});return;}
       plano.push({acao:dinheiro?'dinheiro':'receber',data,cliente:paciente,servico,valor:Math.abs(valor),forma,categoria,semCategoria:!sc});
     });
     window._recebPlano=plano;_previewRecebimentos();
@@ -3821,7 +3838,7 @@ function importarAReceber(ev){var f=ev.target.files[0];if(!f)return;var r=new Fi
       var vparc=(iVParc>=0&&num(rw[iVParc])>0)?num(rw[iVParc]):(nparc>0?Math.round((totalRec/nparc)*100)/100:totalRec);
       var desc=iDesc>=0?String(rw[iDesc]||'').trim():'';
       if(!venc1||!(vparc>0))continue;
-      for(var p=0;p<nparc;p++){var venc=addMes(venc1,p);var key=chave(nome,venc,vparc);if(existentes[key]||_tituloJaNaBase(nome,vparc,venc)){pulados++;continue;}existentes[key]=true;
+      for(var p=0;p<nparc;p++){var venc=addMes(venc1,p);var key=chave(nome,venc,vparc);if(existentes[key]||_tituloJaNaBase(nome,vparc,venc,null,(ehLink?'LINK':'BOLETO'))){pulados++;continue;}existentes[key]=true;
         novos.push({id:id(),data:venc,vencimento:venc,cliente:nome,descricao:(ehLink?'Link':'Boleto')+' — '+nome+(desc?' ('+desc+')':'')+' — parcela '+(p+1)+'/'+nparc,servico:'',categoria:cat,tipo:'receita',valor:vparc,status:'previsto',banco:'',unidade:'',formaPagto:ehLink?'LINK':'BOLETO',usuario:(typeof usuariaAtivaNome==='function'?usuariaAtivaNome():'')});
       }
     }
