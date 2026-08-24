@@ -1496,7 +1496,7 @@ function abrirAba(pg){const b=[...document.querySelectorAll('.menu-item')].find(
 /* REGRA CONTABIL: titulo (previsto) = data de VENCIMENTO (competencia) · movimento do extrato = data do extrato (caixa).
    Usar dataRef(l) em TODO filtro, agrupamento, ordenacao e comparacao com hoje. Emissao nunca e criterio de periodo. */
 /* ===== VERSAO DO PAINEL — para saber, sem adivinhar, se a tela esta atualizada ===== */
-const APP_VERSAO='2026-08-24.1';
+const APP_VERSAO='2026-08-24.3';
 function _marcaVersao(){try{
  /* versao no CABECALHO, ao lado do status da nuvem — fica visivel sem procurar */
  var bar=document.querySelector('.tb-acoes');var d=document.getElementById('appVersaoTag');
@@ -1818,37 +1818,44 @@ function renderBannerBaixaDupla(){var box=document.getElementById('bannerBaixaDu
    Para cada título em aberto, procura no extrato (todos os bancos, o mês inteiro do vencimento
    e uma folga de 10 dias) alguma entrada que possa ser aquele recebimento:
    por VALOR exato e por NOME do cliente. Só é PENDÊNCIA CONFIRMADA quando não existe nem uma coisa nem outra. */
-function _semAcT(s){return String(s||'').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,'').replace(/[^a-z0-9 ]/g,' ').replace(/\s+/g,' ').trim();}
-function _nomeChaves(cli){var p=_semAcT(cli).split(' ').filter(function(x){return x.length>=4;});return p.slice(0,3);}
-function _validarPendencia(t,movs){
- var vt=(t.dataVencimento||t.venc||t.data||'');var mes=vt.slice(0,7);var val=Math.round((+t.valor||0)*100)/100;
- var dif=function(a,b){return Math.abs(Math.round((new Date(a+'T00:00:00')-new Date(b+'T00:00:00'))/86400000));};
+/* ===== VALIDAÇÃO DA PENDÊNCIA (regra estrita) =====
+   Candidato só pode ser movimento do extrato SEM VÍNCULO (solto), dentro de +-2 dias úteis do
+   vencimento, e que bata por NOME (nome ou sobrenome do cliente) ou por VALOR exato.
+   Fora disso é PENDÊNCIA CONFIRMADA — o dinheiro não entrou. */
+function _semAcT(s){return String(s||'').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[^a-z0-9 ]/g,' ').replace(/\s+/g,' ').trim();}
+var _STOP={de:1,da:1,do:1,dos:1,das:1,pagamento:1,recebido:1,recebida:1,transf:1,pix:1,deposito:1,cliente:1,ltda:1,me:1,eireli:1};
+function _nomeChaves(cli){return _semAcT(cli).split(' ').filter(function(x){return x.length>=4&&!_STOP[x];}).slice(0,4);}
+function _janelaOK(dMov,dVenc){try{if(!dMov||!dVenc)return false;
+ if(typeof _diasUteisEntre==='function')return _diasUteisEntre(dMov,dVenc)<=2;
+ return Math.abs(Math.round((new Date(dMov+'T00:00:00')-new Date(dVenc+'T00:00:00'))/86400000))<=2;}catch(e){return false;}}
+function _validarPendencia(t,movsLivres){
+ var vt=(t.dataVencimento||t.venc||t.data||'');var val=Math.round((+t.valor||0)*100)/100;
  var chaves=_nomeChaves(t.cliente||'');
- var porValor=[],porNome=[];
- movs.forEach(function(m){
-  var md=(m.data||'');if(!md)return;
-  var noMes=md.slice(0,7)===mes;var perto=vt&&dif(md,vt)<=10;
-  if(!noMes&&!perto)return;
-  var mv=Math.round((+m.valor||0)*100)/100;
+ var naJanela=movsLivres.filter(function(m){return _janelaOK(m.data,vt);});
+ var comNome=[],comValor=[],ambos=[];
+ naJanela.forEach(function(m){
   var txt=_semAcT((m.descricao||'')+' '+(m.cliente||''));
-  var nomeBate=chaves.length&&chaves.some(function(k){return txt.indexOf(k)>=0;});
-  if(Math.abs(mv-val)<0.02)porValor.push(m);
-  if(nomeBate)porNome.push(m);});
- var ambos=porValor.filter(function(m){return porNome.indexOf(m)>=0;});
- if(ambos.length)return {status:'ACHEI no extrato (valor e nome)',cor:'ok',cands:ambos};
- if(porNome.length)return {status:'Nome aparece no extrato, valor diferente',cor:'warn',cands:porNome};
- if(porValor.length)return {status:'Valor aparece no extrato, outro nome',cor:'warn',cands:porValor};
- return {status:'PENDÊNCIA CONFIRMADA — nada no extrato',cor:'bad',cands:[]};}
+  var nb=chaves.length>0&&chaves.some(function(k){return txt.indexOf(k)>=0;});
+  var vb=Math.abs(Math.round((+m.valor||0)*100)/100-val)<0.02;
+  if(nb&&vb)ambos.push(m);else if(nb)comNome.push(m);else if(vb)comValor.push(m);});
+ if(ambos.length)return {status:'Recebimento encontrado (nome e valor)',cands:ambos};
+ if(comNome.length)return {status:'Nome no extrato, valor diferente',cands:comNome};
+ if(comValor.length)return {status:'Valor no extrato, nome diferente',cands:comValor};
+ return {status:'PENDÊNCIA CONFIRMADA — não entrou no extrato',cands:[]};}
 function _dadosPendValidada(){
  var L=dados().lancamentos||[];
- /* o extrato inteiro entra na busca — a validacao nao se limita ao periodo filtrado */
- var movs=L.filter(function(l){return l.status!=='previsto'&&l.tipo==='receita'&&l.data&&!/transfer|aplica|resgate/i.test((l.categoria||'')+' '+(l.descricao||''));});
- /* os titulos conferidos respeitam o filtro de periodo e unidade do topo (periodo = vencimento) */
+ /* SÓ movimentos do extrato que estão soltos: sem vínculo com título nenhum */
+ var livres=L.filter(function(l){return l.status!=='previsto'&&l.tipo==='receita'&&l.data&&!l.baixaDe
+   &&!/transfer|aplica|resgate|diferenca de conciliacao/i.test(_semAcT((l.categoria||'')+' '+(l.descricao||'')+' '+(l.origem||'')));});
  var T=L.filter(function(l){return l.status==='previsto'&&!l.baixado&&l.tipo==='receita'&&noUnidade(l)&&noPeriodo(l);});
- T.sort(function(a,b){return (a.dataVencimento||a.venc||a.data||'').localeCompare(b.dataVencimento||b.venc||b.data||'');});
- return T.map(function(t){var r=_validarPendencia(t,movs);
-  var c=r.cands[0];
-  return {t:t,status:r.status,cor:r.cor,
+ T.sort(function(a,b){return dataRef(a).localeCompare(dataRef(b));});
+ var hoje=new Date().toISOString().slice(0,10);
+ return T.map(function(t){var vt=dataRef(t);
+  /* titulo que ainda nao venceu NAO e pendencia — nao ha por que procurar no extrato */
+  if(vt&&vt>hoje)return {t:t,status:'A vencer — ainda no prazo',atraso:0,confirmada:false,cand:'',nCand:0};
+  var r=_validarPendencia(t,livres);var c=r.cands[0];
+  var atraso=(vt&&vt<hoje)?Math.round((new Date(hoje)-new Date(vt+'T00:00:00'))/86400000):0;
+  return {t:t,status:r.status,atraso:atraso,confirmada:r.cands.length===0,
    cand:c?(new Date(c.data+'T00:00:00').toLocaleDateString('pt-BR')+' · '+(c.banco||'')+' · '+moeda(+c.valor||0)+' · '+String(c.descricao||'').slice(0,40)):'',
    nCand:r.cands.length};});}
 function renderBannerVencVazio(){var box=document.getElementById('bannerVencVazio');if(!box)return;var alvo=_titulosSemVenc();if(!alvo.length){box.innerHTML='';return;}var tot=alvo.reduce(function(s,l){return s+(+l.valor||0);},0);box.innerHTML='<div style="background:#FBF3DE;border:1px solid #E4CE8F;border-radius:12px;padding:14px 16px;margin:0 0 14px;display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap"><div style="font-size:13.5px;color:#7a6320;line-height:1.5"><b>\ud83d\udcc5 '+alvo.length+' t\u00edtulo(s) em aberto sem data de vencimento \u00b7 '+moeda(tot)+'</b><br><span style="font-size:12.5px">Sem vencimento o t\u00edtulo cai no m\u00eas errado. Preencher usa a pr\u00f3pria data do t\u00edtulo (\u00e0 vista). Nada \u00e9 apagado.</span></div><button class="btn" onclick="preencherVencimentosVazios()">Preencher vencimentos</button></div>';}
@@ -2157,7 +2164,8 @@ const RELATORIOS_DEF=[
   {tipo:'por-cliente',icone:'👤',cor:'var(--ouro-claro)',titulo:'Lançamentos por Cliente/Fornecedor',desc:'Lançamentos agrupados por cliente ou fornecedor.'},
   {tipo:'por-unidade',icone:'📍',cor:'var(--vinho-claro)',titulo:'Lançamentos por Unidade',desc:'Lançamentos agrupados por unidade.'},
   {tipo:'importacoes',icone:'📥',cor:'var(--ouro-claro)',titulo:'Importações',desc:'Tudo que entrou por importação, com data, cliente, forma, origem e situação.'},
-  {tipo:'pend-validada',icone:'🔎',cor:'var(--rubro-bg)',titulo:'Pendências de conciliação (validadas)',desc:'Títulos em aberto conferidos contra TODO o extrato do período: diz se existe ou não o recebimento.'}
+  {tipo:'pend-validada',icone:'🔎',cor:'var(--rubro-bg)',titulo:'Pendências de conciliação (validadas)',desc:'USO INTERNO: cada título em aberto conferido contra o extrato, mostrando o possível recebimento.'},
+  {tipo:'pend-cobranca',icone:'📣',cor:'var(--rubro-bg)',titulo:'Pendências para cobrança',desc:'Só o que foi confirmado: título em aberto sem nenhum recebimento no extrato. Para a equipe pesquisar.'}
 ];
 function renderCardsRelatorios(){
   const box=document.getElementById('relCards');if(!box)return;
@@ -2203,10 +2211,14 @@ function gerarRelatorio(tipo){
     colunas=['Data','Descrição','Categoria','Banco','Valor'];
     const arr=lancs.filter(l=>noFiltro(l)&&realizado(l)&&l.tipo==='receita'&&fBanco(l)&&fCat(l)).sort((a,b)=>(a.data||'').localeCompare(b.data||''));
     linhas=arr.map(l=>[fmtDataRel(l.data),l.descricao||'-',l.categoria||'-',l.banco||'-',moeda(+l.valor||0)]);
+  }else if(tipo==='pend-cobranca'){
+    colunas=['Vencimento','Dias em atraso','Cliente','Serviço / descrição','Forma','Valor'];
+    linhas=_dadosPendValidada().filter(function(x){return x.confirmada;})
+      .map(function(x){var l=x.t;return [fmtDataRel(dataRef(l)),(x.atraso>0?x.atraso:'—'),l.cliente||'-',l.servico||l.descricao||'-',l.formaPagto||'-',+(+l.valor||0).toFixed(2)];});
   }else if(tipo==='pend-validada'){
-    colunas=['Vencimento','Situação da validação','Cliente','Serviço / descrição','Forma','Origem','Valor','Possível recebimento no extrato','Quantos candidatos'];
+    colunas=['Vencimento','Situação da validação','Dias em atraso','Cliente','Serviço / descrição','Forma','Origem','Valor','Possível recebimento no extrato (uso interno)','Candidatos'];
     var _pv=_dadosPendValidada();
-    linhas=_pv.map(function(x){var l=x.t;return [fmtDataRel(dataRef(l)),x.status,l.cliente||'-',l.servico||l.descricao||'-',l.formaPagto||'-',l.origem||'-',+(+l.valor||0).toFixed(2),x.cand||'—',x.nCand];});
+    linhas=_pv.map(function(x){var l=x.t;return [fmtDataRel(dataRef(l)),x.status,(x.atraso>0?x.atraso:'—'),l.cliente||'-',l.servico||l.descricao||'-',l.formaPagto||'-',l.origem||'-',+(+l.valor||0).toFixed(2),x.cand||'—',x.nCand];});
   }else if(tipo==='importacoes'){
     colunas=['Data','Cliente','Descrição','Forma','Origem','Banco','Situação','Valor'];
     const _ehImp=l=>/relat[óo]rio do sistema|planilha|extrato|boleto|link|importa/i.test(String(l.origem||''));
