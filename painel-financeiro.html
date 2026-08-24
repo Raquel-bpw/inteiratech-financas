@@ -1496,7 +1496,7 @@ function abrirAba(pg){const b=[...document.querySelectorAll('.menu-item')].find(
 /* REGRA CONTABIL: titulo (previsto) = data de VENCIMENTO (competencia) · movimento do extrato = data do extrato (caixa).
    Usar dataRef(l) em TODO filtro, agrupamento, ordenacao e comparacao com hoje. Emissao nunca e criterio de periodo. */
 /* ===== VERSAO DO PAINEL — para saber, sem adivinhar, se a tela esta atualizada ===== */
-const APP_VERSAO='2026-08-24.4';
+const APP_VERSAO='2026-08-24.5';
 function _marcaVersao(){try{
  /* versao no CABECALHO, ao lado do status da nuvem — fica visivel sem procurar */
  var bar=document.querySelector('.tb-acoes');var d=document.getElementById('appVersaoTag');
@@ -2168,8 +2168,8 @@ const RELATORIOS_DEF=[
   {tipo:'por-unidade',icone:'📍',cor:'var(--vinho-claro)',titulo:'Lançamentos por Unidade',desc:'Lançamentos agrupados por unidade.'},
   {tipo:'importacoes',icone:'📥',cor:'var(--ouro-claro)',titulo:'Importações',desc:'Tudo que entrou por importação, com data, cliente, forma, origem e situação.'},
   {tipo:'pend-validada',icone:'🔎',cor:'var(--rubro-bg)',titulo:'Pendências de conciliação (validadas)',desc:'USO INTERNO: cada título em aberto conferido contra o extrato, mostrando o possível recebimento.'},
-  {tipo:'pend-cobranca',icone:'📣',cor:'var(--rubro-bg)',titulo:'Pendências para cobrança',desc:'Só o que foi confirmado no extrato já importado: venceu e o dinheiro não entrou.'},
-  {tipo:'receber-vencidos',icone:'⏰',cor:'var(--rubro-bg)',titulo:'Contas a receber vencidas',desc:'Todos os títulos vencidos e não baixados, com dias de atraso. Lista de cobrança, sem validação de extrato.'}
+  {tipo:'receber-vencidos',icone:'⏰',cor:'var(--rubro-bg)',titulo:'Contas a receber vencidas',desc:'Todo título vencido e não baixado, já rastreado no extrato. Boletos, links, parcelamentos e atendimentos.'},
+  {tipo:'atend-nao-recebidos',icone:'📣',cor:'var(--rubro-bg)',titulo:'Atendimentos não recebidos',desc:'Atendimentos do relatório da clínica (e manuais) que venceram e não entraram, já rastreados no extrato.'}
 ];
 function renderCardsRelatorios(){
   const box=document.getElementById('relCards');if(!box)return;
@@ -2215,17 +2215,13 @@ function gerarRelatorio(tipo){
     colunas=['Data','Descrição','Categoria','Banco','Valor'];
     const arr=lancs.filter(l=>noFiltro(l)&&realizado(l)&&l.tipo==='receita'&&fBanco(l)&&fCat(l)).sort((a,b)=>(a.data||'').localeCompare(b.data||''));
     linhas=arr.map(l=>[fmtDataRel(l.data),l.descricao||'-',l.categoria||'-',l.banco||'-',moeda(+l.valor||0)]);
-  }else if(tipo==='receber-vencidos'){
-    colunas=['Vencimento','Dias em atraso','Cliente','Serviço / descrição','Forma','Origem','Valor'];
-    var _hj=new Date().toISOString().slice(0,10);
-    var _vc=dados().lancamentos.filter(function(l){return l.status==='previsto'&&!l.baixado&&l.tipo==='receita'&&noFiltro(l)&&dataRef(l)&&dataRef(l)<_hj;})
-      .sort(function(a,b){return dataRef(a).localeCompare(dataRef(b));});
-    linhas=_vc.map(function(l){var d=Math.round((new Date(_hj)-new Date(dataRef(l)+'T00:00:00'))/86400000);
-      return [fmtDataRel(dataRef(l)),d,l.cliente||'-',l.servico||l.descricao||'-',l.formaPagto||'-',l.origem||'-',+(+l.valor||0).toFixed(2)];});
-  }else if(tipo==='pend-cobranca'){
-    colunas=['Vencimento','Dias em atraso','Cliente','Serviço / descrição','Forma','Valor'];
-    linhas=_dadosPendValidada().filter(function(x){return x.confirmada;})
-      .map(function(x){var l=x.t;return [fmtDataRel(dataRef(l)),(x.atraso>0?x.atraso:'—'),l.cliente||'-',l.servico||l.descricao||'-',l.formaPagto||'-',+(+l.valor||0).toFixed(2)];});
+  }else if(tipo==='receber-vencidos'||tipo==='atend-nao-recebidos'){
+    /* os dois trazem o rastreio no extrato: so vencidos, com a validacao ao lado */
+    colunas=['Vencimento','Dias em atraso','Cliente','Serviço / descrição','Forma','Origem','Valor','Rastreio no extrato','O que apareceu no extrato'];
+    var _base=_dadosPendValidada().filter(function(x){return x.atraso>0&&x.status.indexOf('A vencer')<0;});
+    if(tipo==='atend-nao-recebidos')_base=_base.filter(function(x){var o=String(x.t.origem||'').toLowerCase();return o.indexOf('relat')>=0||o.indexOf('manual')>=0;});
+    linhas=_base.map(function(x){var l=x.t;
+      return [fmtDataRel(dataRef(l)),x.atraso,l.cliente||'-',l.servico||l.descricao||'-',l.formaPagto||'-',l.origem||'—',+(+l.valor||0).toFixed(2),x.status,x.cand||'—'];});
   }else if(tipo==='pend-validada'){
     colunas=['Vencimento','Situação da validação','Dias em atraso','Cliente','Serviço / descrição','Forma','Origem','Valor','Possível recebimento no extrato (uso interno)','Candidatos'];
     var _pv=_dadosPendValidada();
