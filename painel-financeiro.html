@@ -474,6 +474,7 @@
     <div id="bannerVinculos"></div>
     <div id="bannerVencVazio"></div>
     <div id="bannerCaixaSemTitulo"></div>
+    <div id="bannerImportRuim"></div>
     <div id="bannerBaixaDupla"></div>
     <div id="bannerDuplicados"></div>
         <div id="primeirosPassos"></div>
@@ -1496,7 +1497,7 @@ function abrirAba(pg){const b=[...document.querySelectorAll('.menu-item')].find(
 /* REGRA CONTABIL: titulo (previsto) = data de VENCIMENTO (competencia) · movimento do extrato = data do extrato (caixa).
    Usar dataRef(l) em TODO filtro, agrupamento, ordenacao e comparacao com hoje. Emissao nunca e criterio de periodo. */
 /* ===== VERSAO DO PAINEL — para saber, sem adivinhar, se a tela esta atualizada ===== */
-const APP_VERSAO='2026-08-24.6';
+const APP_VERSAO='2026-08-25.1';
 function _marcaVersao(){try{
  /* versao no CABECALHO, ao lado do status da nuvem — fica visivel sem procurar */
  var bar=document.querySelector('.tb-acoes');var d=document.getElementById('appVersaoTag');
@@ -1861,6 +1862,47 @@ function _dadosPendValidada(){
   return {t:t,status:r.status,atraso:atraso,confirmada:r.cands.length===0,
    cand:c?(new Date(c.data+'T00:00:00').toLocaleDateString('pt-BR')+' · '+(c.banco||'')+' · '+moeda(+c.valor||0)+' · '+String(c.descricao||'').slice(0,40)):'',
    nCand:r.cands.length};});}
+/* ===== Lançamentos que entraram do extrato com o IDENTIFICADOR no lugar da descrição
+   (defeito do importador, corrigido em 25/08). Permite remover para reimportar limpo. ===== */
+function _lancDescInvalida(){var L=dados().lancamentos||[];
+ return L.filter(function(l){return l.status!=='previsto'&&/extrato/i.test(l.origem||'')&&_ehIdentificador(l.descricao);});}
+function abrirLimparImportacao(){try{var alvo=_lancDescInvalida();if(!alvo.length){alert('Nenhum lançamento com identificador no lugar da descrição.');return;}
+var _d=function(x){return x?new Date(x+'T00:00:00').toLocaleDateString('pt-BR'):'-';};
+var L=dados().lancamentos||[];
+var comVinculo=alvo.filter(function(l){return l.baixaDe||l.conciliado||L.some(function(x){return x.baixaRef===l.id;});});
+var livres=alvo.filter(function(l){return comVinculo.indexOf(l)<0;});
+var porBanco={};alvo.forEach(function(l){var k=(l.banco||'?')+' · '+(l.data||'').slice(0,7);porBanco[k]=(porBanco[k]||0)+1;});
+var rows=livres.slice().sort(function(a,b){return (a.data||'').localeCompare(b.data||'');}).map(function(l){
+ return '<tr><td style="text-align:center"><input type="checkbox" class="liChk" value="'+l.id+'" checked></td>'
+  +'<td class=mini>'+_d(l.data)+'</td><td class=mini>'+esc(l.banco||'-')+'</td>'
+  +'<td class=mini style="color:var(--suave)">'+esc(String(l.descricao||'').slice(0,42))+'</td>'
+  +'<td class=mini>'+esc(l.tipo==='receita'?'entrada':'saída')+'</td>'
+  +'<td style="text-align:right;font-weight:700">'+moeda(+l.valor||0)+'</td></tr>';}).join('');
+document.getElementById('modalConteudo').innerHTML='<h3>Importação sem descrição — limpar para reimportar</h3>'
+ +'<div class=mini style="margin:-4px 0 8px">'+alvo.length+' lançamento(s) entraram com o <b>identificador do banco</b> no lugar da descrição. O importador já foi corrigido: ao reimportar o mesmo arquivo, a descrição vem certa.</div>'
+ +'<div class=mini style="margin:0 0 8px">Por banco e mês: '+Object.keys(porBanco).sort().map(function(k){return esc(k)+' ('+porBanco[k]+')';}).join(' · ')+'</div>'
+ +(comVinculo.length?'<div class=mini style="background:#FBF3DE;border:1px solid #E4CE8F;border-radius:8px;padding:8px 10px;margin:0 0 10px">⚠️ '+comVinculo.length+' desses já estão conciliados ou amarrados a um título e <b>não entram nesta limpeza</b>. Depois de reimportar, ajuste esses na mão ou me chame.</div>':'')
+ +'<div style="margin:0 0 8px"><button class="btn sec peq" onclick="document.querySelectorAll(\'.liChk\').forEach(function(c){c.checked=true;})">Marcar todos</button> <button class="btn sec peq" onclick="document.querySelectorAll(\'.liChk\').forEach(function(c){c.checked=false;})">Desmarcar todos</button></div>'
+ +'<div style="overflow:auto;max-height:48vh"><table style="width:100%;border-collapse:collapse;font-size:12.5px"><thead><tr><th>Remover</th><th style="text-align:left">Data</th><th style="text-align:left">Banco</th><th style="text-align:left">Descrição que veio</th><th style="text-align:left">Tipo</th><th style="text-align:right">Valor</th></tr></thead><tbody>'+rows+'</tbody></table></div>'
+ +'<div class=mini style="margin-top:8px">O sistema baixa um backup antes de remover. Depois de limpar, reimporte o mesmo CSV nesse banco.</div>'
+ +'<div class="modal-acoes"><button class="btn sec" onclick="fecharModal()">Cancelar</button> <button class="btn ouro" onclick="aplicarLimparImportacao()">Remover os marcados</button></div>';
+var _mb=document.getElementById('modalConteudo').closest('.modal');if(_mb)_mb.style.maxWidth='940px';
+document.getElementById('modalBg').classList.add('show');}catch(e){alert('Erro: '+e.message);}}
+function aplicarLimparImportacao(){try{
+var ids={};Array.prototype.slice.call(document.querySelectorAll('.liChk')).forEach(function(c){if(c.checked)ids[c.value]=1;});
+var L=dados().lancamentos||[];
+var alvo=_lancDescInvalida().filter(function(l){return ids[l.id];});
+var risco=alvo.filter(function(l){return l.baixaDe||l.conciliado||L.some(function(x){return x.baixaRef===l.id;});});
+if(risco.length){alert('Parei por segurança: '+risco.length+' lançamento(s) marcados têm vínculo ou conciliação. Nada foi removido.');return;}
+if(!alvo.length){alert('Nenhum lançamento marcado.');return;}
+try{var a=document.createElement('a');a.href=URL.createObjectURL(new Blob([JSON.stringify(alvo,null,1)],{type:'application/json'}));
+ a.download='backup_importacao_sem_descricao.json';document.body.appendChild(a);a.click();a.remove();}catch(e){}
+window.__bkpImportRuim=JSON.parse(JSON.stringify(alvo));
+var fora={};alvo.forEach(function(l){fora[l.id]=1;});
+dados().lancamentos=L.filter(function(l){return !fora[l.id];});
+saveApp();render();fecharModal();
+alert('Pronto! '+alvo.length+' lançamento(s) removido(s).\n\nAgora reimporte o mesmo arquivo CSV nesse banco — a descrição vai vir correta.');}catch(e){alert('Erro: '+e.message);}}
+function renderBannerImportRuim(){var box=document.getElementById('bannerImportRuim');if(!box)return;var alvo=_lancDescInvalida();if(!alvo.length){box.innerHTML='';return;}box.innerHTML='<div style="background:#FBE3E0;border:1px solid #d99a92;border-radius:12px;padding:14px 16px;margin:0 0 14px;display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap"><div style="font-size:13.5px;color:#7A2E39;line-height:1.5"><b>🧾 '+alvo.length+' lançamento(s) do extrato sem descrição</b><br><span style="font-size:12.5px">Entraram com o identificador do banco no lugar do histórico. O importador já foi corrigido — limpe estes e reimporte o arquivo.</span></div><button class="btn" onclick="abrirLimparImportacao()">Conferir e limpar</button></div>';}
 function renderBannerVencVazio(){var box=document.getElementById('bannerVencVazio');if(!box)return;var alvo=_titulosSemVenc();if(!alvo.length){box.innerHTML='';return;}var tot=alvo.reduce(function(s,l){return s+(+l.valor||0);},0);box.innerHTML='<div style="background:#FBF3DE;border:1px solid #E4CE8F;border-radius:12px;padding:14px 16px;margin:0 0 14px;display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap"><div style="font-size:13.5px;color:#7a6320;line-height:1.5"><b>\ud83d\udcc5 '+alvo.length+' t\u00edtulo(s) em aberto sem data de vencimento \u00b7 '+moeda(tot)+'</b><br><span style="font-size:12.5px">Sem vencimento o t\u00edtulo cai no m\u00eas errado. Preencher usa a pr\u00f3pria data do t\u00edtulo (\u00e0 vista). Nada \u00e9 apagado.</span></div><button class="btn" onclick="preencherVencimentosVazios()">Preencher vencimentos</button></div>';}
 function render(){
   try{normalizarTextos();}catch(e){}
@@ -1869,6 +1911,7 @@ function render(){
   try{renderBannerVinculos();}catch(e){}
   try{renderBannerVencVazio();}catch(e){}
   try{renderBannerCaixaSemTitulo();}catch(e){}
+  try{renderBannerImportRuim();}catch(e){}
   try{renderBannerBaixaDupla();}catch(e){}
   try{renderBannerDuplicados();}catch(e){}
   // topo perfil
@@ -3765,10 +3808,25 @@ function confirmarImportRecebimentos(){try{
   alert('Importação concluída!\n\nDinheiro (movimento no caixa): '+nReal+'\n  → títulos criados já baixados pelo caixa: '+nTitCx+'\nA receber (PIX/boleto/convênio/outros): '+nPrev+'\nA classificar (serviço não reconhecido): '+nClass+(nb?'\nBaixados automaticamente: '+nb:''));
 }catch(e){alert('Erro ao importar: '+e.message);}}
 function _sigLanc(l){return [l.data||'',l.tipo||'',(+l.valor||0).toFixed(2),(l.banco||'').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,'').trim(),(l.descricao||'').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,'').replace(/[^a-z0-9 ]/g,' ').replace(/\s+/g,' ').trim().slice(0,50)].join('|');}
+/* identificador técnico do extrato: UUID, hash ou código longo sem sentido para o usuário */
+function _ehIdentificador(t){var x=String(t||'').trim();if(!x)return false;
+ if(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(x))return true;
+ var semSep=x.replace(/[-_.\s]/g,'');
+ if(semSep.length>=20&&/^[0-9a-fA-F]+$/.test(semSep))return true;
+ if(semSep.length>=24&&!/\s/.test(x)&&!/[aeiouAEIOU]{2}/.test(x)&&/[0-9]/.test(x)&&/[a-zA-Z]/.test(x))return true;
+ return false;}
 function importarExtrato(ev){const f=ev.target.files[0];if(!f)return;const banco=((document.getElementById('impBanco')||{}).value||'').trim();if(!banco){alert('Escolha primeiro o banco/conta no seletor acima.');ev.target.value='';return;}const num=s=>parseFloat(String(s||'').replace(/[^0-9.\-]/g,''))||0;const r=new FileReader();r.onload=e=>{const raw=decodeArq(e.target.result);let regs=[];let saldoFin=null;
   if(/<STMTTRN>/i.test(raw)){const trns=raw.match(/<STMTTRN>[\s\S]*?<\/STMTTRN>/gi)||[];trns.forEach(t=>{const g=tag=>{const m=t.match(new RegExp('<'+tag+'>([^<\\r\\n]*)'));return m?m[1].trim():'';};const dt=g('DTPOSTED').slice(0,8);const data=dt.length===8?dt.slice(0,4)+'-'+dt.slice(4,6)+'-'+dt.slice(6,8):'';const v=num(g('TRNAMT'));const desc=corrigeMoji((g('MEMO')||g('NAME')||'').split(' - ').slice(0,2).join(' — '));regs.push({data,v,desc});});var _mb=raw.match(/<LEDGERBAL>[\s\S]*?<BALAMT>([^<\r\n]+)/i);if(_mb)saldoFin=num(_mb[1]);}
   else{const o=lerCSVsimples(raw);const H=o.header,rows=o.rows;const ix=n=>H.findIndex(h=>h.indexOf(n)>=0);const iData=ix('data'),iVal=ix('valor'),iTrans=ix('transa'),iIdent=ix('identifica'),iDesc=ix('descri'),iSaldo=ix('saldo');
-    rows.forEach(row=>{const data=parseData(row[iData]);if(!data)return;const v=num(row[iVal]);let desc='';if(iTrans>=0||iIdent>=0)desc=[iTrans>=0?row[iTrans]:'',iIdent>=0?row[iIdent]:''].filter(Boolean).join(' — ');else if(iDesc>=0)desc=row[iDesc]||'';regs.push({data,v,desc:corrigeMoji(desc)});});if(iSaldo>=0){for(var _k=rows.length-1;_k>=0;_k--){var _sv=rows[_k][iSaldo];if(_sv!==undefined&&String(_sv).trim()!==''){saldoFin=num(_sv);break;}}}}
+    rows.forEach(row=>{const data=parseData(row[iData]);if(!data)return;const v=num(row[iVal]);
+      /* A DESCRIÇÃO vem primeiro. Transação/Identificador só complementam, e um identificador
+         técnico (UUID/hash, como o do Nubank) NUNCA vira descrição. */
+      var _partes=[];
+      if(iDesc>=0&&String(row[iDesc]||'').trim())_partes.push(String(row[iDesc]).trim());
+      if(iTrans>=0&&String(row[iTrans]||'').trim()&&!_ehIdentificador(row[iTrans]))_partes.push(String(row[iTrans]).trim());
+      if(iIdent>=0&&String(row[iIdent]||'').trim()&&!_ehIdentificador(row[iIdent]))_partes.push(String(row[iIdent]).trim());
+      var desc=_partes.join(' — ');
+      regs.push({data,v,desc:corrigeMoji(desc)});});if(iSaldo>=0){for(var _k=rows.length-1;_k>=0;_k--){var _sv=rows[_k][iSaldo];if(_sv!==undefined&&String(_sv).trim()!==''){saldoFin=num(_sv);break;}}}}
   let nR=0,nD=0,nDup=0;const _existe=new Set((dados().lancamentos||[]).map(_sigLanc));regs.forEach(x=>{if(!x.data||!x.v)return;const tipo=x.v<0?'despesa':'receita';const l={id:id(),data:x.data,descricao:x.desc||'-',servico:'',cliente:'',banco,categoria:'',tipo,valor:Math.abs(x.v),status:'realizado',origem:'Extrato bancário',unidade:(bancoUnidade(banco)||''),formaPagto:(/pix/i.test(x.desc||'')?'PIX':''),usuario:usuariaAtivaNome()};l.categoria=regraMatch(l)||'A classificar';const sg=_sigLanc(l);if(_existe.has(sg)){nDup++;return;}_existe.add(sg);dados().lancamentos.push(l);if(tipo==='receita')nR++;else nD++;});
   if(saldoFin!=null){dados().saldoExtrato=dados().saldoExtrato||{};dados().saldoExtratoData=dados().saldoExtratoData||{};var _maxd="";regs.forEach(function(x){if(x.data&&x.data>_maxd)_maxd=x.data;});var _prevD=dados().saldoExtratoData[banco]||"";if(!_prevD||(_maxd&&_maxd>=_prevD)){dados().saldoExtrato[banco]=saldoFin;if(_maxd)dados().saldoExtratoData[banco]=_maxd;}if(_maxd){dados().saldoExtratoMes=dados().saldoExtratoMes||{};dados().saldoExtratoMes[banco]=dados().saldoExtratoMes[banco]||{};dados().saldoExtratoMes[banco][_maxd.slice(0,7)]=saldoFin;}}saveApp();const nb=autoConciliar();autoBaixaCorrespondentes();saveApp();render();ev.target.value='';
   alert('Extrato importado em '+banco+'!\nEntradas: '+nR+'\nSaídas: '+nD+(saldoFin!=null?'\nSaldo final do extrato capturado: '+moeda(saldoFin)+' (confira em Conferência de bancos)':'')+(nDup?'\nJá existentes (ignorados p/ não duplicar): '+nDup:'')+(nb?'\nContas a receber baixadas e amarradas: '+nb:''));
