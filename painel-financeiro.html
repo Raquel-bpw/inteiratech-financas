@@ -984,7 +984,8 @@
   <section class="pagina" id="pg-importar">
     <div class="eyebrow">Financeiro</div>
     <div class="titulo-pg"><em>Importar</em></div>
-    <div class="sub-pg">Traga seus dados de fora. Formatos aceitos: CSV, OFX e Excel. As suas regras de categorização são aplicadas automaticamente.</div>
+    <div class="sub-pg">Traga seus dados de fora. Cada importação mostra a prévia antes de gravar e deixa um protocolo do que gerou.</div>
+    <div style="margin:0 0 14px"><button class="btn sec" onclick="abrirHistoricoImport()">📄 Histórico de importações</button></div>
 
 
     <div class="card">
@@ -996,23 +997,23 @@
     <div class="alerta" style="margin-bottom:6px"><span>📋</span><div><b>A ordem importa.</b> Faça um mês inteiro de cada vez, nesta sequência: o relatório <b>cria</b> os títulos, a planilha de links e boletos <b>confere</b> e traz o parcelamento, e o extrato <b>baixa</b> e amarra o dinheiro. Extrato é sempre por último — é a conciliação, não a criação.</div></div>
     <div class="mini" style="margin:18px 0 6px;font-weight:800;color:var(--vinho);letter-spacing:.04em;text-transform:uppercase">Passo 1 &middot; Relatório de recebimentos &mdash; cria os títulos</div>
     <div class="card">
-      <h2>Importação de Recebimentos</h2>
+      <h2>Importação de Recebimentos<span style="display:inline-block;background:#2f6b4f;color:#fff;border-radius:6px;padding:3px 9px;font-size:11px;font-weight:800;letter-spacing:.06em;vertical-align:middle;margin-left:8px">EXCEL</span></h2>
       <div class="cap">Relatório de recebimentos do sistema — <b>exporte em Excel (.xls/.xlsx)</b>, que é o formato oficial. Também aceita CSV; PDF só como último recurso (o nome do paciente vem cortado). <b>Dinheiro</b> entra como realizado; <b>PIX, boleto, convênio e outros</b> vão para <b>Contas a Receber</b> (previsto) e baixam quando caem no extrato (PIX = baixa pelo extrato do banco; boleto pago = baixa). <b>Cartão não entra aqui — vem da planilha de link / Zoop.</b> A categoria vem do serviço.</div>
-      <input type="file" id="arqReceb" accept=".xls,.xlsx,.csv,.txt,.pdf" onchange="importarRecebimentos(event)">
+      <input type="file" id="arqReceb" accept=".xls,.xlsx" onchange="importarRecebimentos(event)">
     </div>
 
     <div class="mini" style="margin:18px 0 6px;font-weight:800;color:var(--vinho);letter-spacing:.04em;text-transform:uppercase">Passo 2 &middot; Links e boletos &mdash; confere e parcela</div>
-    <div class="card"><h2>Importar Planilha a Receber (.xlsx)</h2><div class="cap">Planilha com as abas LINKS e BOLETOS. Cada linha vira contas a receber (parcelas por vencimento). O importador PULA o que já foi importado — pode reimportar a planilha do ano inteiro sem duplicar.</div><input type="file" id="arqAReceber" accept=".xlsx,.xls" onchange="importarAReceber(event)"></div>
+    <div class="card"><h2>Planilha a Receber — LINKS e BOLETOS<span style="display:inline-block;background:#2f6b4f;color:#fff;border-radius:6px;padding:3px 9px;font-size:11px;font-weight:800;letter-spacing:.06em;vertical-align:middle;margin-left:8px">EXCEL</span></h2><div class="cap">Planilha com as abas LINKS e BOLETOS. Cada linha vira contas a receber (parcelas por vencimento). O importador PULA o que já foi importado — pode reimportar a planilha do ano inteiro sem duplicar.</div><input type="file" id="arqAReceber" accept=".xlsx,.xls" onchange="importarAReceber(event)"></div>
 
     <div class="card">
-      <h2>Importação do Zoop (link de pagamento)</h2>
+      <h2>Importação do Zoop (link de pagamento)<span style="display:inline-block;background:#2f6b4f;color:#fff;border-radius:6px;padding:3px 9px;font-size:11px;font-weight:800;letter-spacing:.06em;vertical-align:middle;margin-left:8px">EXCEL</span></h2>
       <div class="cap">Controle de links do Zoop — <b>Excel (.xls/.xlsx)</b> ou CSV (colunas: Data Pgto, Nome Cliente, Valor Total, Valor a Receber, Nº Parcelas). Cada venda no cartão entra em Contas a Receber pelo valor líquido, e a taxa (bruto − líquido) é lançada como despesa. Quando o depósito Zoop cai no extrato, baixa. O cartão não vem pelo Recebimentos — vem por aqui.</div>
-      <input type="file" id="arqZoop" accept=".xls,.xlsx,.csv,.txt" onchange="importarZoop(event)">
+      <input type="file" id="arqZoop" accept=".xls,.xlsx" onchange="importarZoop(event)">
     </div>
 
     <div class="mini" style="margin:18px 0 6px;font-weight:800;color:var(--vinho);letter-spacing:.04em;text-transform:uppercase">Passo 3 &middot; Extrato bancário &mdash; baixa e amarra</div>
     <div class="card">
-      <h2>Extrato bancário</h2>
+      <h2>Extrato bancário<span style="display:inline-block;background:#2f6b4f;color:#fff;border-radius:6px;padding:3px 9px;font-size:11px;font-weight:800;letter-spacing:.06em;vertical-align:middle;margin-left:8px">OFX</span><span style="display:inline-block;background:#143b4d;color:#fff;border-radius:6px;padding:3px 9px;font-size:11px;font-weight:800;letter-spacing:.06em;vertical-align:middle;margin-left:8px">OU CSV</span></h2>
       <div class="cap"><b>Prefira OFX.</b> É formato padrão de banco: o painel lê igual em qualquer instituição, sem configuração. <b>CSV também funciona</b> — como cada banco monta as colunas do seu jeito, na primeira importação de CSV de um banco o painel mostra as colunas do arquivo e pergunta o que é o quê. Ele guarda essa configuração no banco e não pergunta mais. Toda importação mostra a prévia antes de gravar, com as linhas repetidas já marcadas como "já existe". <b>Nunca PDF.</b></div>
       <div class="form-grid" style="margin-bottom:10px">
         <div style="grid-column:span 3"><label>Banco / Conta (escolha antes de mandar o arquivo)</label><select id="impBanco"></select></div>
@@ -1502,7 +1503,7 @@ function abrirAba(pg){const b=[...document.querySelectorAll('.menu-item')].find(
 /* REGRA CONTABIL: titulo (previsto) = data de VENCIMENTO (competencia) · movimento do extrato = data do extrato (caixa).
    Usar dataRef(l) em TODO filtro, agrupamento, ordenacao e comparacao com hoje. Emissao nunca e criterio de periodo. */
 /* ===== VERSAO DO PAINEL — para saber, sem adivinhar, se a tela esta atualizada ===== */
-const APP_VERSAO='2026-08-25.2';
+const APP_VERSAO='2026-08-25.4';
 function _marcaVersao(){try{
  /* versao no CABECALHO, ao lado do status da nuvem — fica visivel sem procurar */
  var bar=document.querySelector('.tb-acoes');var d=document.getElementById('appVersaoTag');
@@ -3724,7 +3725,10 @@ function _recebLinhasDoArquivo(nome,buf,cb){
     var o=lerCSVsimples(decodeArq(buf));return fim(o.header,o.rows);
   }catch(e){fim([],[],'Erro ao ler o arquivo: '+((e&&e.message)||e));}
 }
-function importarRecebimentos(ev){const f=ev.target.files[0];if(!f)return;const r=new FileReader();
+function importarRecebimentos(ev){
+  if(!_exigirFormato(ev,['xls','xlsx'],'Excel (.xls ou .xlsx)',
+   'Exporte o relatório de recebimentos direto do sistema da clínica, em Excel, e mande esse arquivo sem converter.\n\nEm CSV o nome do paciente e o serviço vêm grudados na mesma coluna e a categoria não é reconhecida. Em PDF o nome vem cortado.'))return;
+  const f=ev.target.files[0];if(!f)return;const r=new FileReader();
   r.onload=e=>{_recebLinhasDoArquivo(f.name,e.target.result,function(res){
     var el=document.getElementById('arqReceb');if(el)el.value='';
     if(!res.rows.length){alert(res.aviso||'Não encontrei linhas para importar neste arquivo.');return;}
@@ -3737,7 +3741,16 @@ function importarRecebimentos(ev){const f=ev.target.files[0];if(!f)return;const 
     const _jaImp={};(dados().lancamentos||[]).forEach(l=>{if(l.origem==='Relatório do sistema')_jaImp[_rkey(l.data,l.cliente,l.valor,l.formaPagto)]=true;});
     const plano=[];
     rows.forEach(row=>{const valor=parseValor(row[iVal]);const data=parseData(row[iData]);
-      if(!data)return; /* linha de TOTAL, rodape ou vazia: nem aparece na previa */
+      const _txtBruto=String(iPac>=0?(row[iPac]||''):'').trim();
+      /* Linha de TOTAL / rodape do relatorio: fora, sempre. Reconhecida por nao ter data
+         e nao ter nome, ou por dizer TOTAL em qualquer celula da linha. */
+      var _ehRodape=(function(){
+        if(data)return false;
+        if(!_txtBruto)return true;
+        return /^(total|subtotal|soma|total\s+liquido|total\s+l[ií]quido)\b/i.test(_txtBruto)
+            || row.some(function(c){return /^\s*total(\s+l[ií]quido)?\s*$/i.test(String(c||''));});})();
+      if(_ehRodape)return;
+      if(!data&&!(valor>0))return;
       const forma=String((iForma>=0?row[iForma]:'')||'').toUpperCase().trim();
       /* o relatorio junta nome e servico na mesma coluna, separados por 2+ espacos */
       var _txt=String(iPac>=0?(row[iPac]||''):'').replace(/\s+$/,'').trim();
@@ -3747,7 +3760,9 @@ function importarRecebimentos(ev){const f=ev.target.files[0];if(!f)return;const 
       else{var _p=_txt.indexOf('\u0001')>=0?_txt.split('\u0001'):_txt.split(/\s{2,}/);
         if(_p.length>1){paciente=_p[0].trim();servico=_p.slice(1).join(' ').replace(/\s+/g,' ').trim();}else{paciente=_txt;servico='';}}
       paciente=paciente.replace(/\u0001/g,' ').replace(/^paciente\s*[-\u2013\u2014:]\s*/i,'').replace(/\s+/g,' ').trim();servico=servico.replace(/\u0001/g,' ').replace(/\s+/g,' ').trim();
+      if(!data){plano.push({acao:'invalido',data:'',cliente:paciente,servico:servico,valor:Math.abs(valor),forma:forma,categoria:'A classificar',semCategoria:true,motivo:'sem data no relatório'});return;}
       if(!(valor>0)){plano.push({acao:'semvalor',data:data,cliente:paciente,servico:servico,valor:0,forma:forma,motivo:'valor zero no relatório'});return;}
+      if(!paciente){plano.push({acao:'invalido',data:data,cliente:'',servico:servico,valor:Math.abs(valor),forma:forma,categoria:'A classificar',semCategoria:true,motivo:'sem nome do cliente'});return;}
       if(/CART/.test(forma)){plano.push({acao:'cartao',data,cliente:paciente,servico,valor:Math.abs(valor),forma,motivo:'cartão vem pela planilha de link/Zoop'});return;}
       const _k=_rkey(data,paciente,Math.abs(valor),forma);
       if(_jaImp[_k]){plano.push({acao:'duplicado',data,cliente:paciente,servico,valor:Math.abs(valor),forma,motivo:'já importado antes'});return;}
@@ -3757,7 +3772,9 @@ function importarRecebimentos(ev){const f=ev.target.files[0];if(!f)return;const 
       if(!dinheiro&&_tituloJaNaBase(paciente,Math.abs(valor),data,null,forma)){plano.push({acao:'duplicado',data,cliente:paciente,servico,valor:Math.abs(valor),forma,motivo:'já existe este título na base (mesma parcela)'});return;}
       plano.push({acao:dinheiro?'dinheiro':'receber',data,cliente:paciente,servico,valor:Math.abs(valor),forma,categoria,semCategoria:!sc});
     });
-    window._recebPlano=plano;_previewRecebimentos();
+    window._recebPlano=plano;window._recebArq=f.name;
+    window._recebTotalArq=plano.reduce(function(s2,p){return s2+(+p.valor||0);},0);
+    _previewRecebimentos();
   });};
   r.readAsArrayBuffer(f);}
 function _previewRecebimentos(){
@@ -3766,9 +3783,9 @@ function _previewRecebimentos(){
   var din=por('dinheiro'),rec=por('receber'),car=por('cartao'),dup=por('duplicado'),inv=por('invalido'),zer=por('semvalor');
   var soma=function(a){return a.reduce(function(s,p){return s+(+p.valor||0);},0);};
   var semCat=din.concat(rec).filter(function(p){return p.semCategoria;}).length;
-  var rot={dinheiro:'Dinheiro → caixa',receber:'A receber',cartao:'Cartão (ignorado)',duplicado:'Já existe',semvalor:'Sem valor (não entra)',invalido:'Não entendi'};
-  var cor={dinheiro:'var(--verde)',receber:'var(--vinho)',cartao:'var(--suave)',duplicado:'var(--suave)',semvalor:'var(--suave)',invalido:'var(--rubro)'};
-  var ordem={dinheiro:1,receber:2,cartao:3,duplicado:4,semvalor:5,invalido:6};
+  var rot={dinheiro:'Dinheiro → caixa',receber:'A receber',cartao:'Cartão (ignorado)',duplicado:'Já existe',semvalor:'Sem valor (não entra)',invalido:'Não entendi',descartado:'Descartada por você'};
+  var cor={dinheiro:'var(--verde)',receber:'var(--vinho)',cartao:'var(--suave)',duplicado:'var(--suave)',semvalor:'var(--suave)',invalido:'var(--rubro)',descartado:'var(--suave)'};
+  var ordem={dinheiro:1,receber:2,cartao:3,duplicado:4,semvalor:5,invalido:6,descartado:7};
   var lista=plano.slice().sort(function(a,b){return (ordem[a.acao]-ordem[b.acao])||String(a.data).localeCompare(String(b.data));});
   var MAX=400;var corte=lista.length>MAX;
   var linhas=lista.slice(0,MAX).map(function(p){return '<tr><td class=mini style="color:'+cor[p.acao]+';white-space:nowrap">'+rot[p.acao]+'</td><td class=mini>'+esc(p.data||'-')+'</td><td class=mini>'+esc(String(p.cliente||'-').slice(0,28))+'</td><td class=mini>'+esc(String(p.servico||p.motivo||'-').slice(0,34))+'</td><td class=mini>'+esc(p.forma||'-')+'</td><td style="text-align:right;font-weight:700;white-space:nowrap">'+moeda(+p.valor||0)+'</td></tr>';}).join('');
@@ -3779,39 +3796,440 @@ function _previewRecebimentos(){
     +'<span><b>'+dup.length+'</b> já existe(m)</span>'
     +(zer.length?'<span><b>'+zer.length+'</b> sem valor (R$ 0,00)</span>':'')
     +(inv.length?'<span style="color:var(--rubro)"><b>'+inv.length+'</b> ilegível(is)</span>':'')+'</div>';
-  var aviso=semCat?'<div class="mini" style="background:#FBF3DE;border:1px solid #E4CE8F;border-radius:8px;padding:8px 10px;margin:0 0 10px">'+semCat+' lançamento(s) sem serviço reconhecido entram como <b>A classificar</b> e NÃO ficam conciliados até você definir a categoria.</div>':'';
+
+  var pend=_recebPendencias();var bloq=pend.filter(function(x){return x.bloqueia;});
+  var blocoPend=pend.length?('<div style="background:'+(bloq.length?'#FBE3E0;border:1px solid #d99a92':'#FBF3DE;border:1px solid #E4CE8F')+';border-radius:10px;padding:11px 13px;margin:0 0 12px">'
+    +'<div style="font-weight:800;color:'+(bloq.length?'#7A2E39':'#8a6d1f')+';margin-bottom:6px">Resolva aqui, antes de importar</div>'
+    +'<div class=mini id="pendAviso" style="color:'+(bloq.length?'#7A2E39':'#8a6d1f')+';margin-bottom:8px"></div>'
+    +'<div style="overflow:auto;max-height:30vh;background:#fff;border-radius:8px"><table style="width:100%;border-collapse:collapse;font-size:12.5px"><thead><tr>'
+      +'<th style="text-align:left">Problema</th><th style="text-align:left">Data</th><th style="text-align:left">Cliente</th><th style="text-align:left">Serviço</th><th style="text-align:left">Valor</th><th style="text-align:left">Categoria</th><th>Regra</th></tr></thead><tbody>'
+    +pend.map(_linhaPendReceb).join('')+'</tbody></table></div>'
+    +(bloq.length?'<div style="margin-top:8px"><button class="btn sec peq" onclick="_descartarPendReceb()">Descartar as linhas bloqueadas</button></div>':'')
+    +'</div>'):'<div class=mini style="background:#F2F7F4;border:1px solid #cfe6d6;border-radius:8px;padding:8px 10px;margin:0 0 10px;color:#2f6b4f"><b>✔ Nenhuma linha com problema.</b> Tudo veio com data, cliente, valor e categoria.</div>';
   document.getElementById('modalConteudo').innerHTML='<h3>Conferência antes de importar</h3>'
     +'<div class=mini style="margin:-4px 0 8px">Nada foi gravado ainda. Confira e confirme.</div>'
-    +resumo+aviso
+    +resumo+blocoPend
     +'<div style="overflow:auto;max-height:52vh"><table style="width:100%;border-collapse:collapse;font-size:12.5px"><thead><tr><th style="text-align:left">O que vai acontecer</th><th style="text-align:left">Data</th><th style="text-align:left">Cliente</th><th style="text-align:left">Serviço / motivo</th><th style="text-align:left">Forma</th><th style="text-align:right">Valor</th></tr></thead><tbody>'+linhas+'</tbody></table></div>'
     +(corte?'<div class=mini style="margin-top:6px">Mostrando as primeiras '+MAX+' de '+lista.length+' linhas.</div>':'')
-    +'<div class="modal-acoes"><button class="btn sec" onclick="fecharModal()">Cancelar</button> <button class="btn ouro" onclick="confirmarImportRecebimentos()">Confirmar importação</button></div>';
-  var _mb=document.getElementById('modalConteudo').closest('.modal');if(_mb)_mb.style.maxWidth='980px';
+    +'<div class="modal-acoes"><button class="btn sec" onclick="fecharModal()">Cancelar</button> <button class="btn ouro" id="btnConfReceb" onclick="confirmarImportRecebimentos()">Confirmar importação</button></div>';
+  var _mb=document.getElementById('modalConteudo').closest('.modal');if(_mb)_mb.style.maxWidth='1040px';
   document.getElementById('modalBg').classList.add('show');
+  _atualizarBotaoReceb();
 }
 function confirmarImportRecebimentos(){try{
+  _lerPendReceb();
+  if(_recebTemBloqueio()){alert('Ainda há linha sem data, valor ou cliente. Resolva ali em cima — ou descarte a linha.');_previewRecebimentos();return;}
+  var _nReg=0;
+  (window._recebPlano||[]).forEach(function(p){
+   if(p.regraNova&&p.servico&&p.categoria&&p.categoria!=='A classificar'){if(_guardarServico(p.servico,p.categoria))_nReg++;}});
   var plano=(window._recebPlano||[]).filter(function(p){return p.acao==='dinheiro'||p.acao==='receber';});
   if(!plano.length){alert('Não há nada novo para importar.');fecharModal();return;}
-  var nPrev=0,nReal=0,nTitCx=0,nClass=0;
+  var nPrev=0,nReal=0,nTitCx=0,nClass=0;var _idsNovos=[];
   plano.forEach(function(p){
     var dinheiro=p.acao==='dinheiro';var _bkCx=dinheiro?contaCaixa():'';
     if(p.semCategoria)nClass++;
+    var _manual=(p.regraNova!==undefined||p.catEscolhida)&&p.categoria&&p.categoria!=='A classificar';
     var _lr={id:id(),data:p.data,cliente:p.cliente,descricao:(p.cliente+(p.servico?' — '+p.servico:'')).slice(0,120),banco:_bkCx,categoria:p.categoria,tipo:'receita',valor:p.valor,status:dinheiro?'realizado':'previsto',origem:'Relatório do sistema',formaPagto:p.forma,servico:p.servico,unidade:(_bkCx?(bancoUnidade(_bkCx)||''):''),usuario:usuariaAtivaNome()};
+    if(_manual)_lr.catManual=true;
     if(dinheiro){
       _lr.dataEmissao=p.data;_lr.dataBaixa=p.data;_lr.dataVencimento=p.data;_lr.venc=p.data;
       if(!p.semCategoria){_lr.conciliado=true;_lr.conciliadoEm=p.data;}
       /* REGRA CRAVADA: dinheiro gera o título em contas a receber JÁ BAIXADO pelo caixa, com o movimento amarrado nele */
       if(!_tituloJaNaBase(p.cliente,p.valor,p.data)){
         var _tt={id:id(),data:p.data,dataEmissao:p.data,dataVencimento:p.data,venc:p.data,dataBaixa:p.data,baixaData:p.data,baixado:true,cliente:p.cliente,descricao:_lr.descricao,servico:p.servico,categoria:p.categoria,tipo:'receita',valor:p.valor,status:'previsto',banco:'',formaPagto:p.forma,origem:'Relatório do sistema',unidade:_lr.unidade||'',usuario:usuariaAtivaNome()};
-        dados().lancamentos.push(_tt);_lr.baixaDe=_tt.id;nTitCx++;
+        dados().lancamentos.push(_tt);_idsNovos.push(_tt.id);_lr.baixaDe=_tt.id;nTitCx++;
       }
       nReal++;
     }else{_lr.dataEmissao=p.data;_lr.dataVencimento=p.data;_lr.venc=p.data;nPrev++;}
-    dados().lancamentos.push(_lr);
+    dados().lancamentos.push(_lr);_idsNovos.push(_lr.id);
   });
-  saveApp();var nb=autoConciliar();render();fecharModal();window._recebPlano=null;
-  alert('Importação concluída!\n\nDinheiro (movimento no caixa): '+nReal+'\n  → títulos criados já baixados pelo caixa: '+nTitCx+'\nA receber (PIX/boleto/convênio/outros): '+nPrev+'\nA classificar (serviço não reconhecido): '+nClass+(nb?'\nBaixados automaticamente: '+nb:''));
+  saveApp();var nb=0;try{nb=autoConciliar();}catch(e){}fecharModal();
+  /* protocolo: o que esta importacao gerou */
+  var _todo=window._recebPlano||[];
+  var _bal=function(ac){var f2=_todo.filter(function(p){return p.acao===ac;});
+   return {qtd:f2.length,valor:f2.reduce(function(s2,p){return s2+(+p.valor||0);},0)};};
+  var _din=_bal('dinheiro'),_rec=_bal('receber'),_car=_bal('cartao'),_dup=_bal('duplicado'),_sv=_bal('semvalor'),_dsc=_bal('descartado');
+  var _imp=_novaImportacao('Relatório de recebimentos',window._recebArq||'');
+  _imp.linhas=_todo.length;_imp.ids=_idsNovos;_imp.aClassificar=nClass;_imp.baixados=nb||0;
+  _imp.totalArquivo=(window._recebTotalArq!=null?window._recebTotalArq:null);
+  _imp.criados=[
+   {rotulo:'Dinheiro — movimento no caixa',qtd:_din.qtd,valor:_din.valor,motivo:'título criado já baixado pelo caixa ('+nTitCx+')'},
+   {rotulo:'A receber (PIX, boleto, convênio, outros)',qtd:_rec.qtd,valor:_rec.valor,motivo:'baixam quando caírem no extrato'}
+  ].filter(function(b){return b.qtd;});
+  _imp.pulados=[
+   {rotulo:'Cartão',qtd:_car.qtd,valor:_car.valor,motivo:'entra pela planilha de links e boletos, não por aqui'},
+   {rotulo:'Já estava na base',qtd:_dup.qtd,valor:_dup.valor,motivo:'mesma parcela já importada antes'},
+   {rotulo:'Linhas com R$ 0,00',qtd:_sv.qtd,valor:_sv.valor,motivo:'revisão dentro do contrato — não gera título'},
+   {rotulo:'Descartadas por você na conferência',qtd:_dsc.qtd,valor:_dsc.valor,motivo:'linhas que você marcou para não entrar'}
+  ].filter(function(b){return b.qtd;});
+  if(_nReg)_imp.servicosNovos=_nReg;
+  window._recebPlano=null;window._recebArq=null;window._recebTotalArq=null;
+  _registrarImportacao(_imp);
+  try{render();}catch(e){}
 }catch(e){alert('Erro ao importar: '+e.message);}}
+/* ======================================================================
+   PENDÊNCIAS DA IMPORTAÇÃO — resolver na hora, dentro da própria tela.
+   Nada de apontar problema e deixar para depois: a linha problemática
+   aparece com o campo aberto para corrigir, e o botão de importar só
+   libera quando não sobrar nada bloqueando.
+   ====================================================================== */
+
+function _optsCatReceita(sel){
+ var cs=(typeof _relCatOpts==='function')?_relCatOpts('receitas-cat'):[];
+ var o='<option value="A classificar"'+((!sel||sel==='A classificar')?' selected':'')+'>— escolher categoria —</option>';
+ cs.forEach(function(c){if(c==='A classificar')return;
+  o+='<option value="'+esc(c).replace(/"/g,'&quot;')+'"'+(c===sel?' selected':'')+'>'+esc(c)+'</option>';});
+ return o;}
+
+/* Guarda o serviço classificado à mão para que a PRÓXIMA importação já o reconheça.
+   A regra útil aqui é serviço → categoria. Nome de cliente não define categoria de receita. */
+function _guardarServico(servico,categoria){
+ var nome=String(servico||'').trim();if(!nome||!categoria||categoria==='A classificar')return false;
+ dados().servicos=dados().servicos||[];
+ var ja=(dados().servicos||[]).find(function(x){return normServ(x.nome||'')===normServ(nome);});
+ if(ja){ja.categoria=categoria;if(!ja.pai){var p0=_paiImportacao();ja.pai=p0;}return true;}
+ dados().servicos.push({id:id(),nome:nome,tipo:'Serviço',categoria:categoria,pai:_paiImportacao()});
+ return true;}
+function _paiImportacao(){
+ dados().servicos=dados().servicos||[];
+ var p=(dados().servicos||[]).find(function(x){return !x.pai&&/classificados na importa/i.test(x.nome||'');});
+ if(p)return p.id;
+ var novo={id:id(),nome:'Classificados na importação',tipo:'Serviço',categoria:'',pai:''};
+ dados().servicos.push(novo);return novo.id;}
+
+/* ---------- RECEBIMENTOS ---------- */
+function _recebPendencias(){
+ var plano=window._recebPlano||[];var out=[];
+ plano.forEach(function(p,i){
+  if(p.acao!=='dinheiro'&&p.acao!=='receber'&&p.acao!=='invalido')return;
+  var f=[];
+  if(!p.data)f.push('data');
+  if(!(+p.valor>0))f.push('valor');
+  if(!String(p.cliente||'').trim())f.push('cliente');
+  var cat=!p.categoria||p.categoria==='A classificar';
+  if(f.length||cat)out.push({i:i,p:p,falta:f,semCat:cat,bloqueia:f.length>0});});
+ return out;}
+
+function _recebTemBloqueio(){return _recebPendencias().some(function(x){return x.bloqueia;});}
+
+function _linhaPendReceb(x){
+ var p=x.p,i=x.i;
+ var falta=function(c){return x.falta.indexOf(c)>=0;};
+ var campo=function(tipo,id,val,ph,largura){
+  return '<input type="'+tipo+'" data-pi="'+i+'" id="'+id+i+'" value="'+esc(val||'').replace(/"/g,'&quot;')+'" placeholder="'+ph+'" '
+   +'oninput="_marcarPendEditada('+i+')" style="width:'+largura+';padding:6px 8px;border:1px solid '+((val&&String(val).trim())?'#e2ddd0':'#d99a92')+';border-radius:7px;font-family:inherit;font-size:12.5px">';};
+ return '<tr id="pendLinha'+i+'">'
+  +'<td class=mini style="white-space:nowrap;vertical-align:middle">'
+    +(x.bloqueia?'<b style="color:var(--rubro)">falta '+x.falta.join(' e ')+'</b>':'<b style="color:#8a6d1f">sem categoria</b>')+'</td>'
+  +'<td style="vertical-align:middle">'+(falta('data')?campo('date','pdData',p.data,'','130px'):'<span class=mini>'+_dbr(p.data)+'</span>')+'</td>'
+  +'<td style="vertical-align:middle">'+(falta('cliente')?campo('text','pdCli',p.cliente,'nome do cliente','100%'):'<span class=mini>'+esc(String(p.cliente||'').slice(0,26))+'</span>')+'</td>'
+  +'<td class=mini style="vertical-align:middle;color:var(--suave)">'+esc(String(p.servico||'').slice(0,26)||'—')+'</td>'
+  +'<td style="vertical-align:middle">'+(falta('valor')?campo('text','pdVal',(p.valor||''),'0,00','92px'):'<span class=mini style="font-weight:700">'+moeda(+p.valor||0)+'</span>')+'</td>'
+  +'<td style="vertical-align:middle"><select data-pi="'+i+'" id="pdCat'+i+'" onchange="_marcarPendEditada('+i+')" style="width:100%;padding:6px 8px;border:1px solid #e2ddd0;border-radius:7px;font-family:inherit;font-size:12.5px">'+_optsCatReceita(p.categoria)+'</select></td>'
+  +'<td style="vertical-align:middle;text-align:center"><label class=mini style="display:flex;gap:4px;align-items:center;justify-content:center;white-space:nowrap" title="Guarda a regra para o serviço «'+esc(String(p.servico||'').slice(0,30))+'» — na próxima importação já vem classificado"><input type="checkbox" id="pdReg'+i+'" '+(p.servico?'checked':'disabled')+' style="width:auto"> guardar</label></td>'
+  +'</tr>';}
+
+function _marcarPendEditada(i){try{
+ var l=document.getElementById('pendLinha'+i);if(!l)return;
+ ['pdData','pdCli','pdVal'].forEach(function(pre){var e=document.getElementById(pre+i);
+  if(e)e.style.borderColor=String(e.value||'').trim()?'#cfe6d6':'#d99a92';});
+ _atualizarBotaoReceb();}catch(e){}}
+
+function _lerPendReceb(){
+ var plano=window._recebPlano||[];
+ (_recebPendencias()||[]).forEach(function(x){var i=x.i,p=plano[i];if(!p)return;
+  var g=function(id){var e=document.getElementById(id+i);return e?e.value:null;};
+  var d=g('pdData');if(d!==null&&d)p.data=d;
+  var c=g('pdCli');if(c!==null&&String(c).trim())p.cliente=String(c).trim();
+  var v=g('pdVal');if(v!==null&&String(v).trim()){var n=parseValor(v);if(n>0)p.valor=Math.abs(n);}
+  var k=g('pdCat');if(k!==null&&k&&k!=='A classificar'){p.categoria=k;p.semCategoria=false;p.regraNova=!!(document.getElementById('pdReg'+i)||{}).checked;}
+  if(p.acao==='invalido'&&p.data&&+p.valor>0&&String(p.cliente||'').trim())p.acao=(/DINHEIRO/.test(p.forma||'')?'dinheiro':'receber');
+ });}
+
+function _atualizarBotaoReceb(){try{
+ _lerPendReceb();
+ var pend=_recebPendencias();var bloq=pend.filter(function(x){return x.bloqueia;});
+ var b=document.getElementById('btnConfReceb');if(!b)return;
+ var av=document.getElementById('pendAviso');
+ if(bloq.length){b.disabled=true;b.style.opacity='.45';b.style.cursor='not-allowed';
+  b.textContent='Resolva '+bloq.length+' linha(s) para importar';
+  if(av)av.innerHTML='<b>'+bloq.length+' linha(s) ainda sem data, valor ou cliente.</b> Preencha acima — ou use "Descartar" se a linha não deve entrar.';}
+ else{b.disabled=false;b.style.opacity='1';b.style.cursor='pointer';b.textContent='Confirmar importação';
+  var sc=pend.filter(function(x){return x.semCat;}).length;
+  if(av)av.innerHTML=sc?('<b>'+sc+' sem categoria.</b> Podem entrar como "A classificar" e você define depois — mas resolvendo agora elas já nascem conciliáveis.'):'<b style="color:#2f6b4f">✔ Tudo resolvido.</b> Pode confirmar a importação.';}
+}catch(e){}}
+
+function _descartarPendReceb(){try{
+ _lerPendReceb();
+ var plano=window._recebPlano||[];var n=0;
+ _recebPendencias().forEach(function(x){if(!x.bloqueia)return;plano[x.i].acao='descartado';plano[x.i].motivo='descartada por você na importação';n++;});
+ if(!n){alert('Não há linha bloqueada para descartar.');return;}
+ _previewRecebimentos();}catch(e){alert('Erro: '+e.message);}}
+
+/* ---------- EXTRATO ----------
+   Correções e descartes são guardados pelo índice da linha NO ARQUIVO (ri),
+   então sobrevivem a mudanças de mapeamento e a re-renderizações da prévia. */
+function _extCorr(){window._extCorrecoes=window._extCorrecoes||{};return window._extCorrecoes;}
+function _extDesc(){window._extDescartadas=window._extDescartadas||{};return window._extDescartadas;}
+function _limparEstadoExt(){window._extCorrecoes={};window._extDescartadas={};window._extRegsAtual=null;}
+
+function _aplicarCorrecoes(regs){
+ var C=_extCorr(),D=_extDesc();
+ return regs.filter(function(r){return !D[r.ri];}).map(function(r){
+  var c=C[r.ri];if(!c)return r;
+  var o={ri:r.ri,data:c.data||r.data,v:(c.v!=null?c.v:r.v),desc:(c.desc!=null&&String(c.desc).trim())?c.desc:r.desc};
+  return o;});}
+
+function _extratoPendencias(regs){
+ var out=[];(regs||[]).forEach(function(r,i){
+  var f=[];
+  if(!r.data)f.push('data');
+  if(!r.v)f.push('valor');
+  if(!String(r.desc||'').trim())f.push('descrição');
+  if(f.length)out.push({i:i,ri:r.ri,r:r,falta:f});});
+ return out;}
+
+function _linhaPendExt(x){
+ var r=x.r,ri=x.ri;
+ var falta=function(c){return x.falta.indexOf(c)>=0;};
+ var C=_extCorr()[ri]||{};
+ return '<tr><td class=mini style="white-space:nowrap;color:var(--rubro);vertical-align:middle"><b>falta '+x.falta.join(' e ')+'</b></td>'
+  +'<td style="vertical-align:middle">'+(falta('data')
+    ?'<input type="date" id="pxData'+ri+'" value="'+esc(C.data||'')+'" onchange="_salvarPendExt('+ri+')" style="padding:6px 8px;border:1px solid #d99a92;border-radius:7px;font-family:inherit;font-size:12.5px">'
+    :'<span class=mini>'+_dbr(r.data)+'</span>')+'</td>'
+  +'<td style="width:50%;vertical-align:middle">'+(falta('descrição')
+    ?'<input type="text" id="pxDesc'+ri+'" value="'+esc(C.desc||'').replace(/"/g,'&quot;')+'" placeholder="o que foi esse movimento?" onchange="_salvarPendExt('+ri+')" style="width:100%;padding:6px 8px;border:1px solid #d99a92;border-radius:7px;font-family:inherit;font-size:12.5px">'
+    :'<span class=mini>'+esc(String(r.desc||'').slice(0,52))+'</span>')+'</td>'
+  +'<td class=mini style="text-align:right;font-weight:700;vertical-align:middle">'+(falta('valor')
+    ?'<input type="text" id="pxVal'+ri+'" value="'+esc(C.vTexto||'')+'" placeholder="0,00 (− para saída)" onchange="_salvarPendExt('+ri+')" style="width:120px;padding:6px 8px;border:1px solid #d99a92;border-radius:7px;font-family:inherit;font-size:12.5px">'
+    :((r.v<0?'\u2212':'+')+moeda(Math.abs(r.v))))+'</td>'
+  +'<td style="vertical-align:middle;text-align:center"><button class="btn sec peq" onclick="_descartarLinhaExt('+ri+')" title="esta linha não deve entrar">descartar</button></td></tr>';}
+
+function _salvarPendExt(ri){try{
+ var C=_extCorr();C[ri]=C[ri]||{};
+ var d=document.getElementById('pxData'+ri);if(d)C[ri].data=d.value||'';
+ var s=document.getElementById('pxDesc'+ri);if(s)C[ri].desc=String(s.value||'').trim();
+ var v=document.getElementById('pxVal'+ri);
+ if(v){C[ri].vTexto=v.value;var n=_numBR(v.value);C[ri].v=n||null;}
+ _reRenderExt();}catch(e){}}
+
+function _descartarLinhaExt(ri){_extDesc()[ri]=1;_reRenderExt();}
+
+function _reRenderExt(){
+ if(window._prevOFX){var P=window._prevOFX;abrirPreviaOFX(P.banco,P.regsOrig||P.regs,P.saldoFin,P.arq);}
+ else if(window._mapExt)previewMapaExtrato();}
+
+function _blocoPendExt(regs){
+ var pend=_extratoPendencias(regs);
+ var nDesc=Object.keys(_extDesc()).length;
+ var rodape=nDesc?'<div class=mini style="margin-top:6px;color:var(--suave)">'+nDesc+' linha(s) descartada(s) nesta importação. <a href="#" onclick="window._extDescartadas={};_reRenderExt();return false;" style="color:var(--vinho)">trazer de volta</a></div>':'';
+ if(!pend.length)return '<div class=mini style="background:#F2F7F4;border:1px solid #cfe6d6;border-radius:8px;padding:8px 10px;margin:0 0 10px;color:#2f6b4f"><b id="pendAvisoExt">\u2714 Nenhuma linha com problema.</b>'+rodape+'</div>';
+ return '<div style="background:#FBE3E0;border:1px solid #d99a92;border-radius:10px;padding:11px 13px;margin:0 0 12px">'
+  +'<div style="font-weight:800;color:#7A2E39;margin-bottom:6px">Resolva antes de importar</div>'
+  +'<div class=mini id="pendAvisoExt" style="color:#7A2E39;margin-bottom:8px"><b>'+pend.length+' movimento(s) sem data, valor ou descrição.</b> Preencha aqui — ou descarte a linha.</div>'
+  +'<div style="overflow:auto;max-height:26vh;background:#fff;border-radius:8px"><table style="width:100%;border-collapse:collapse;font-size:12.5px"><tbody>'
+  +pend.map(_linhaPendExt).join('')+'</tbody></table></div>'+rodape+'</div>';}
+
+function _travarBotaoExt(regs,btnId){
+ var pend=_extratoPendencias(regs);var b=document.getElementById(btnId);if(!b)return;
+ if(!b.getAttribute('data-txt'))b.setAttribute('data-txt',b.textContent);
+ if(pend.length){b.disabled=true;b.style.opacity='.45';b.style.cursor='not-allowed';b.textContent='Resolva '+pend.length+' linha(s)';}
+ else{b.disabled=false;b.style.opacity='1';b.style.cursor='pointer';b.textContent=b.getAttribute('data-txt');}}
+
+/* ======================================================================
+   PROTOCOLO DE IMPORTAÇÃO
+   Toda importação deixa registro: o que entrou, o que foi pulado e por quê,
+   o período coberto e os lançamentos que ela gerou. Ao final abre uma tela
+   de conferência que fecha a conta contra o arquivo — se sobrar diferença,
+   tem linha que se perdeu.
+   ====================================================================== */
+
+/* ---------- bloqueio de formato ---------- */
+function _extArq(n){var m=String(n||'').toLowerCase().match(/\.([a-z0-9]+)\s*$/);return m?m[1]:'';}
+function _exigirFormato(ev,permitidos,rotulo,porque){
+ var f=ev&&ev.target&&ev.target.files&&ev.target.files[0];
+ if(!f)return false;
+ var e=_extArq(f.name);
+ if(permitidos.indexOf(e)>=0)return true;
+ ev.target.value='';
+ alert('Formato não aceito aqui.\n\nArquivo: '+f.name+'\nEsta importação aceita só: '+rotulo+'\n\n'+porque);
+ return false;}
+
+/* ---------- registro ---------- */
+function _importacoes(){var d=dados();d.importacoes=d.importacoes||[];return d.importacoes;}
+function _agoraISO(){var d=new Date();var p=function(n){return ('0'+n).slice(-2);};
+ return d.getFullYear()+'-'+p(d.getMonth()+1)+'-'+p(d.getDate())+' '+p(d.getHours())+':'+p(d.getMinutes());}
+function _novaImportacao(tipo,arquivo,extra){
+ var o={id:id(),quando:_agoraISO(),quem:(typeof usuariaAtivaNome==='function'?usuariaAtivaNome():''),
+  tipo:tipo,arquivo:arquivo||'',banco:'',linhas:0,periodo:{de:'',ate:''},
+  criados:[],pulados:[],ids:[],totalArquivo:null,aClassificar:0,baixados:0,saldo:null};
+ if(extra)for(var k in extra)o[k]=extra[k];
+ return o;}
+function _periodoDosIds(imp){
+ var byId={};(dados().lancamentos||[]).forEach(function(l){byId[l.id]=l;});
+ var de='',ate='';
+ (imp.ids||[]).forEach(function(i){var l=byId[i];if(!l)return;
+  var d=(l.status==='previsto')?(l.dataVencimento||l.venc||l.data||''):(l.data||'');
+  if(!d)return;if(!de||d<de)de=d;if(!ate||d>ate)ate=d;});
+ imp.periodo={de:de,ate:ate};return imp.periodo;}
+function _registrarImportacao(imp){
+ _periodoDosIds(imp);
+ _importacoes().unshift(imp);
+ if(_importacoes().length>300)_importacoes().length=300;
+ saveApp();
+ abrirResumoImport(imp.id);}
+
+/* ---------- tela de resumo (conferência) ---------- */
+function _dbr(x){return x?new Date(x+'T00:00:00').toLocaleDateString('pt-BR'):'—';}
+function _somaBloco(arr){return (arr||[]).reduce(function(s,b){return s+(+b.valor||0);},0);}
+
+function abrirResumoImport(impId){try{
+ var imp=_importacoes().filter(function(x){return x.id===impId;})[0];
+ if(!imp){alert('Não encontrei esse protocolo.');return;}
+ var entrou=_somaBloco(imp.criados),fora=_somaBloco(imp.pulados);
+ var conf=null;
+ if(imp.totalArquivo!=null)conf=Math.round((imp.totalArquivo-(entrou+fora))*100)/100;
+ var linhaB=function(b,cor){return '<tr><td class=mini>'+esc(b.rotulo)+(b.motivo?'<br><span style="color:var(--suave)">'+esc(b.motivo)+'</span>':'')+'</td>'
+  +'<td class=mini style="text-align:right">'+(b.qtd||0)+'</td>'
+  +'<td class=mini style="text-align:right;font-weight:700'+(cor?';color:'+cor:'')+'">'+moeda(+b.valor||0)+'</td></tr>';};
+ var html='<h3>Importação concluída — confira antes de seguir</h3>'
+  +'<div class=mini style="margin:-4px 0 12px">'+esc(imp.tipo)+(imp.banco?' · <b>'+esc(imp.banco)+'</b>':'')
+   +' · arquivo <b>'+esc(imp.arquivo||'—')+'</b> · '+esc(imp.quando)+(imp.quem?' · por '+esc(imp.quem):'')+'</div>'
+  +'<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:12px">'
+   +'<div style="background:#F2F7F4;border:1px solid #cfe6d6;border-radius:10px;padding:10px 12px"><div class=mini style="color:#3d5a4c">Entrou na base</div><div style="font-size:19px;font-weight:800;color:#2f6b4f">'+moeda(entrou)+'</div><div class=mini style="color:#3d5a4c">'+(imp.criados||[]).reduce(function(s,b){return s+(b.qtd||0);},0)+' lançamento(s)</div></div>'
+   +'<div style="background:#FAF7F0;border:1px solid #EDE6D8;border-radius:10px;padding:10px 12px"><div class=mini>Período coberto</div><div style="font-size:15px;font-weight:800;color:var(--vinho);margin-top:4px">'+_dbr(imp.periodo&&imp.periodo.de)+' a '+_dbr(imp.periodo&&imp.periodo.ate)+'</div></div>'
+   +'<div style="background:#FAF7F0;border:1px solid #EDE6D8;border-radius:10px;padding:10px 12px"><div class=mini>Não entrou</div><div style="font-size:19px;font-weight:800;color:var(--suave)">'+moeda(fora)+'</div><div class=mini>'+(imp.pulados||[]).reduce(function(s,b){return s+(b.qtd||0);},0)+' linha(s)</div></div>'
+  +'</div>';
+ if(conf!==null){
+  var ok=Math.abs(conf)<0.02;
+  html+='<div style="border-radius:10px;padding:11px 13px;margin-bottom:12px;'
+   +(ok?'background:#F2F7F4;border:1px solid #cfe6d6;color:#2f6b4f':'background:#FBE3E0;border:1px solid #d99a92;color:#7A2E39')+'">'
+   +'<b>'+(ok?'✔ Fecha com o arquivo.':'⚠️ Não fecha com o arquivo.')+'</b> '
+   +'<span class=mini>Total do arquivo '+moeda(imp.totalArquivo)+' = entrou '+moeda(entrou)+' + não entrou '+moeda(fora)
+   +(ok?'':' · <b>diferença de '+moeda(Math.abs(conf))+'</b> — tem linha do arquivo que não foi para lugar nenhum. Me chame antes de seguir.')+'</span></div>';}
+ html+='<table style="width:100%;border-collapse:collapse;font-size:12.5px;margin-bottom:6px"><thead><tr>'
+  +'<th style="text-align:left">O que aconteceu com cada linha</th><th style="text-align:right">Qtd</th><th style="text-align:right">Valor</th></tr></thead><tbody>'
+  +(imp.criados||[]).map(function(b){return linhaB(b,'#2f6b4f');}).join('')
+  +(imp.pulados||[]).map(function(b){return linhaB(b,'var(--suave)');}).join('')
+  +'</tbody></table>';
+ var obs=[];
+ if(imp.aClassificar)obs.push('<b>'+imp.aClassificar+'</b> ficaram em "A classificar" — precisam de categoria.');
+ if(imp.baixados)obs.push('<b>'+imp.baixados+'</b> conta(s) a receber baixada(s) e amarrada(s) automaticamente.');
+ if(imp.saldo!=null)obs.push('Saldo final do extrato capturado: <b>'+moeda(imp.saldo)+'</b> — confira em Conferência de bancos.');
+ if(imp.servicosNovos)obs.push('<b>'+imp.servicosNovos+'</b> serviço(s) que você classificou aqui foram guardados — na próxima importação já vêm com a categoria certa.');
+ if(obs.length)html+='<div class=mini style="background:#FAF7F0;border:1px solid #EDE6D8;border-radius:10px;padding:10px 12px;margin-bottom:8px;line-height:1.8">'+obs.join('<br>')+'</div>';
+ html+='<div class="modal-acoes" style="flex-wrap:wrap;gap:8px">'
+  +'<button class="btn sec" onclick="verLancsDaImport(\''+imp.id+'\')">Ver os '+((imp.ids||[]).length)+' lançamento(s)</button>'
+  +'<button class="btn sec" onclick="exportarProtocoloImport(\''+imp.id+'\')">Baixar o protocolo</button>'
+  +'<button class="btn sec" onclick="abrirHistoricoImport()">Histórico</button>'
+  +'<button class="btn ouro" onclick="fecharModal()">Fechar</button></div>';
+ document.getElementById('modalConteudo').innerHTML=html;
+ var mb=document.getElementById('modalConteudo').closest('.modal');if(mb)mb.style.maxWidth='860px';
+ document.getElementById('modalBg').classList.add('show');}catch(e){alert('Erro: '+e.message);}}
+
+/* ---------- ver os lançamentos gerados ---------- */
+function verLancsDaImport(impId){try{
+ var imp=_importacoes().filter(function(x){return x.id===impId;})[0];if(!imp)return;
+ var byId={};(dados().lancamentos||[]).forEach(function(l){byId[l.id]=l;});
+ var arr=(imp.ids||[]).map(function(i){return byId[i];}).filter(Boolean);
+ var sumiram=(imp.ids||[]).length-arr.length;
+ arr.sort(function(a,b){return String(a.data||'').localeCompare(String(b.data||''));});
+ var rows=arr.map(function(l){
+  var d=(l.status==='previsto')?(l.dataVencimento||l.venc||l.data||''):(l.data||'');
+  return '<tr><td class=mini>'+_dbr(d)+'</td><td class=mini>'+esc(String(l.cliente||l.descricao||'—').slice(0,42))+'</td>'
+   +'<td class=mini>'+esc(String(l.categoria||'').slice(0,26))+'</td>'
+   +'<td class=mini>'+(l.status==='previsto'?(l.baixado?'a receber (baixado)':'a receber'):'realizado')+'</td>'
+   +'<td class=mini style="text-align:right;font-weight:700">'+moeda(+l.valor||0)+'</td></tr>';}).join('');
+ document.getElementById('modalConteudo').innerHTML='<h3>Lançamentos gerados nesta importação</h3>'
+  +'<div class=mini style="margin:-4px 0 10px">'+esc(imp.tipo)+' · '+esc(imp.quando)+' · '+arr.length+' lançamento(s)'
+  +(sumiram?' · <b style="color:#8a6d1f">'+sumiram+' já não existe(m) mais na base</b>':'')+'</div>'
+  +'<div style="overflow:auto;max-height:56vh"><table style="width:100%;border-collapse:collapse;font-size:12.5px"><thead><tr><th style="text-align:left">Data</th><th style="text-align:left">Cliente / descrição</th><th style="text-align:left">Categoria</th><th style="text-align:left">Situação</th><th style="text-align:right">Valor</th></tr></thead><tbody>'+rows+'</tbody></table></div>'
+  +'<div class="modal-acoes"><button class="btn sec" onclick="abrirResumoImport(\''+imp.id+'\')">Voltar ao resumo</button> <button class="btn ouro" onclick="fecharModal()">Fechar</button></div>';
+ var mb=document.getElementById('modalConteudo').closest('.modal');if(mb)mb.style.maxWidth='900px';
+ document.getElementById('modalBg').classList.add('show');}catch(e){alert('Erro: '+e.message);}}
+
+/* ---------- exportar o protocolo ---------- */
+function exportarProtocoloImport(impId){try{
+ var imp=_importacoes().filter(function(x){return x.id===impId;})[0];if(!imp)return;
+ var byId={};(dados().lancamentos||[]).forEach(function(l){byId[l.id]=l;});
+ var q=function(s){return '"'+String(s==null?'':s).replace(/"/g,'""')+'"';};
+ var br=function(v){return Number(v||0).toFixed(2).replace('.',',');};
+ var L=[];
+ L.push(q(_relEmpresa()));L.push(q('Protocolo de importação'));
+ L.push(q(imp.tipo+(imp.banco?(' — '+imp.banco):'')));
+ L.push(q('Arquivo: '+(imp.arquivo||'')));
+ L.push(q('Importado em '+imp.quando+(imp.quem?(' por '+imp.quem):'')));
+ L.push(q('Período coberto: '+_dbr(imp.periodo&&imp.periodo.de)+' a '+_dbr(imp.periodo&&imp.periodo.ate)));
+ L.push('');
+ L.push([q('O que aconteceu'),q('Quantidade'),q('Valor'),q('Motivo')].join(';'));
+ (imp.criados||[]).forEach(function(b){L.push([q(b.rotulo),q(b.qtd||0),q(br(b.valor)),q(b.motivo||'')].join(';'));});
+ (imp.pulados||[]).forEach(function(b){L.push([q(b.rotulo),q(b.qtd||0),q(br(b.valor)),q(b.motivo||'')].join(';'));});
+ if(imp.totalArquivo!=null){L.push('');L.push([q('Total do arquivo'),q(''),q(br(imp.totalArquivo)),q('')].join(';'));}
+ L.push('');L.push(q('Lançamentos gerados'));
+ L.push([q('Data'),q('Cliente'),q('Descrição'),q('Categoria'),q('Situação'),q('Valor')].join(';'));
+ (imp.ids||[]).forEach(function(i){var l=byId[i];if(!l){L.push([q(''),q(''),q('(removido da base depois)'),q(''),q(''),q('')].join(';'));return;}
+  var d=(l.status==='previsto')?(l.dataVencimento||l.venc||l.data||''):(l.data||'');
+  L.push([q(d),q(l.cliente||''),q(l.descricao||''),q(l.categoria||''),q(l.status==='previsto'?(l.baixado?'a receber (baixado)':'a receber'):'realizado'),q(br(l.valor))].join(';'));});
+ baixar('﻿'+L.join('\r\n'),'Protocolo_'+String(imp.tipo).replace(/[^A-Za-z]/g,'')+'_'+String(imp.quando).replace(/[^0-9]/g,'')+'.csv','text/csv;charset=utf-8;');
+}catch(e){alert('Erro: '+e.message);}}
+
+/* ---------- histórico ---------- */
+function abrirHistoricoImport(){try{
+ var I=_importacoes();
+ var byId={};(dados().lancamentos||[]).forEach(function(l){byId[l.id]=l;});
+ var rows=I.map(function(imp){
+  var vivos=(imp.ids||[]).filter(function(i){return byId[i];}).length;
+  return '<tr><td class=mini>'+esc(imp.quando)+(imp.quem?'<br><span style="color:var(--suave)">'+esc(imp.quem)+'</span>':'')+'</td>'
+   +'<td class=mini><b>'+esc(imp.tipo)+'</b>'+(imp.banco?'<br><span style="color:var(--suave)">'+esc(imp.banco)+'</span>':'')+'</td>'
+   +'<td class=mini style="color:var(--suave)">'+esc(String(imp.arquivo||'—').slice(0,30))+'</td>'
+   +'<td class=mini>'+_dbr(imp.periodo&&imp.periodo.de)+'<br>a '+_dbr(imp.periodo&&imp.periodo.ate)+'</td>'
+   +'<td class=mini style="text-align:right">'+vivos+' de '+((imp.ids||[]).length)+'</td>'
+   +'<td class=mini style="text-align:right;font-weight:700">'+moeda(_somaBloco(imp.criados))+'</td>'
+   +'<td style="white-space:nowrap"><button class="btn sec peq" onclick="abrirResumoImport(\''+imp.id+'\')">Resumo</button> '
+     +'<button class="btn sec peq" onclick="abrirDesfazerImport(\''+imp.id+'\')">Desfazer</button></td></tr>';}).join('');
+ document.getElementById('modalConteudo').innerHTML='<h3>Histórico de importações</h3>'
+  +'<div class=mini style="margin:-4px 0 10px">Toda importação fica registrada aqui, com o que gerou. A coluna <b>na base</b> mostra quantos daqueles lançamentos ainda existem — se caiu, alguém removeu depois.</div>'
+  +(I.length?'<div style="overflow:auto;max-height:56vh"><table style="width:100%;border-collapse:collapse;font-size:12.5px"><thead><tr><th style="text-align:left">Quando</th><th style="text-align:left">O quê</th><th style="text-align:left">Arquivo</th><th style="text-align:left">Período</th><th style="text-align:right">Na base</th><th style="text-align:right">Valor</th><th></th></tr></thead><tbody>'+rows+'</tbody></table></div>'
+   :'<div class=mini style="padding:10px 0">Nenhuma importação registrada ainda. A partir de agora, toda importação entra nesta lista.</div>')
+  +'<div class="modal-acoes"><button class="btn ouro" onclick="fecharModal()">Fechar</button></div>';
+ var mb=document.getElementById('modalConteudo').closest('.modal');if(mb)mb.style.maxWidth='980px';
+ document.getElementById('modalBg').classList.add('show');}catch(e){alert('Erro: '+e.message);}}
+
+/* ---------- desfazer uma importação ---------- */
+function abrirDesfazerImport(impId){try{
+ var imp=_importacoes().filter(function(x){return x.id===impId;})[0];if(!imp)return;
+ var L=dados().lancamentos||[];var byId={};L.forEach(function(l){byId[l.id]=l;});
+ var vivos=(imp.ids||[]).map(function(i){return byId[i];}).filter(Boolean);
+ var presos=vivos.filter(function(l){return l.baixado||l.baixaDe||l.baixaRef||l.conciliado||L.some(function(x){return x.baixaRef===l.id||x.baixaDe===l.id;});});
+ var livres=vivos.filter(function(l){return presos.indexOf(l)<0;});
+ document.getElementById('modalConteudo').innerHTML='<h3>Desfazer importação</h3>'
+  +'<div class=mini style="margin:-4px 0 10px">'+esc(imp.tipo)+(imp.banco?' · '+esc(imp.banco):'')+' · '+esc(imp.quando)+' · arquivo '+esc(imp.arquivo||'—')+'</div>'
+  +'<div class=mini style="margin:0 0 10px;line-height:1.8">Isso remove <b>só</b> os lançamentos que esta importação criou, e <b>só</b> os que ainda não foram baixados, amarrados ou conciliados. Serve para reimportar um arquivo que entrou errado, sem duplicar.</div>'
+  +'<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px">'
+   +'<div style="background:#F2F7F4;border:1px solid #cfe6d6;border-radius:10px;padding:10px 12px"><div class=mini style="color:#3d5a4c">Serão removidos</div><div style="font-size:19px;font-weight:800;color:#2f6b4f">'+livres.length+'</div><div class=mini style="color:#3d5a4c">'+moeda(livres.reduce(function(s,l){return s+(+l.valor||0);},0))+'</div></div>'
+   +'<div style="background:#FBF3DE;border:1px solid #E4CE8F;border-radius:10px;padding:10px 12px"><div class=mini style="color:#8a6d1f">Ficam (já têm vínculo)</div><div style="font-size:19px;font-weight:800;color:#8a6d1f">'+presos.length+'</div><div class=mini style="color:#8a6d1f">'+moeda(presos.reduce(function(s,l){return s+(+l.valor||0);},0))+'</div></div>'
+  +'</div>'
+  +(presos.length?'<div class=mini style="background:#FBF3DE;border:1px solid #E4CE8F;border-radius:8px;padding:8px 10px;margin:0 0 10px">Os '+presos.length+' que ficam já estão amarrados ou conciliados. Desfazer isso bagunçaria a conciliação — se precisar mexer neles, me chame.</div>':'')
+  +'<div class=mini style="margin-bottom:8px">O sistema baixa um backup antes de remover.</div>'
+  +'<div class="modal-acoes"><button class="btn sec" onclick="abrirHistoricoImport()">Voltar</button> '
+   +(livres.length?'<button class="btn ouro" onclick="aplicarDesfazerImport(\''+imp.id+'\')">Remover os '+livres.length+'</button>':'<button class="btn sec" onclick="fecharModal()">Nada a remover</button>')+'</div>';
+ var mb=document.getElementById('modalConteudo').closest('.modal');if(mb)mb.style.maxWidth='720px';
+ document.getElementById('modalBg').classList.add('show');}catch(e){alert('Erro: '+e.message);}}
+
+function aplicarDesfazerImport(impId){try{
+ var imp=_importacoes().filter(function(x){return x.id===impId;})[0];if(!imp)return;
+ var L=dados().lancamentos||[];var byId={};L.forEach(function(l){byId[l.id]=l;});
+ var vivos=(imp.ids||[]).map(function(i){return byId[i];}).filter(Boolean);
+ var livres=vivos.filter(function(l){return !(l.baixado||l.baixaDe||l.baixaRef||l.conciliado||L.some(function(x){return x.baixaRef===l.id||x.baixaDe===l.id;}));});
+ if(!livres.length){alert('Não há nada que possa ser removido com segurança nesta importação.');return;}
+ try{var a=document.createElement('a');a.href=URL.createObjectURL(new Blob([JSON.stringify(livres,null,1)],{type:'application/json'}));
+  a.download='backup_desfazer_importacao.json';document.body.appendChild(a);a.click();a.remove();}catch(e){}
+ var fora={};livres.forEach(function(l){fora[l.id]=1;});
+ dados().lancamentos=L.filter(function(l){return !fora[l.id];});
+ imp.desfeitaEm=_agoraISO();imp.desfeitos=(imp.desfeitos||0)+livres.length;
+ saveApp();render();fecharModal();
+ alert('Pronto! '+livres.length+' lançamento(s) removido(s) desta importação.\n\nO backup foi baixado. Agora você pode reimportar o arquivo sem duplicar.');}catch(e){alert('Erro: '+e.message);}}
+
 /* ======================================================================
    LAYOUT DE EXTRATO POR BANCO
    Cada banco exporta o CSV do seu jeito. O painel guarda, no cadastro de
@@ -3917,20 +4335,21 @@ function _dataQualquer(s){
 /* aplica o layout e devolve os registros prontos */
 function _aplicarLayout(lay,H,rows){
  var regs=[],saldoFin=null;
- rows.forEach(function(row){
-  var data=_dataQualquer(row[lay.iData]);if(!data)return;
+ rows.forEach(function(row,ri){
+  var data=_dataQualquer(row[lay.iData]);
   var v=0;
   if(lay.iValor>=0)v=_numBR(row[lay.iValor]);
   else{var ent=lay.iEnt>=0?Math.abs(_numBR(row[lay.iEnt])):0;var sai=lay.iSai>=0?Math.abs(_numBR(row[lay.iSai])):0;
        v=ent>0?ent:(sai>0?-sai:0);}
   if(lay.inverter)v=-v;
-  if(!v)return;
+  /* linha sem data E sem valor e uma linha de rodape/total do arquivo: nao e pendencia */
+  if(!data&&!v)return;
   var partes=[];
   [lay.iDesc,lay.iDesc2,lay.iDesc3].forEach(function(ix){
    if(ix==null||ix<0)return;var t=String(row[ix]||'').trim();
    if(!t||_ehIdentificador(t))return;
    if(partes.indexOf(t)<0)partes.push(t);});
-  regs.push({data:data,v:v,desc:partes.join(' — ')});});
+  regs.push({ri:ri,data:data,v:v,desc:partes.join(' — ')});});
  if(lay.iSaldo>=0){for(var k=rows.length-1;k>=0;k--){var sv=rows[k][lay.iSaldo];
   if(sv!==undefined&&String(sv).trim()!==''){saldoFin=_numBR(sv);break;}}}
  return {regs:regs,saldoFin:saldoFin};}
@@ -3942,7 +4361,8 @@ function _optCol(H,sel,extra){
  return o;}
 
 function abrirMapaExtrato(banco,H,rows,arq,layInicial,jaSalvo){
- window._mapExt={banco:banco,H:H,rows:rows,arq:arq,jaSalvo:!!jaSalvo};
+ if(!window._mapExt||window._mapExt.arq!==arq||window._mapExt.banco!==banco)_limparEstadoExt();
+ window._mapExt={banco:banco,H:H,rows:rows,arq:arq,jaSalvo:!!jaSalvo};window._prevOFX=null;
  var lay=layInicial||_ajustarLayoutPelosDados(_sugerirLayout(H),H,rows);
  var sel=function(id,v){return '<select id="'+id+'" onchange="previewMapaExtrato()" style="width:100%;padding:7px 9px;border:1px solid #e2ddd0;border-radius:8px;font-family:inherit;font-size:12.5px">'+_optCol(H,v)+'</select>';};
  document.getElementById('modalConteudo').innerHTML=
@@ -3962,9 +4382,10 @@ function abrirMapaExtrato(banco,H,rows,arq,layInicial,jaSalvo){
    +'<div><label class=mini>Quem pagou / recebeu</label>'+sel('mxDesc2',lay.iDesc2)+'</div>'
    +'<div style="grid-column:span 3"><label class=mini>Complemento (opcional)</label>'+sel('mxDesc3',lay.iDesc3)+'</div>'
   +'</div>'
+  +'<div id="mxPend"></div>'
   +'<div class=mini style="margin:0 0 4px;font-weight:700;color:var(--vinho)">Prévia — é assim que vai entrar</div>'
-  +'<div id="mxPrev" style="overflow:auto;max-height:36vh;border:1px solid #EDE6D8;border-radius:10px"></div>'
-  +'<div class="modal-acoes"><button class="btn sec" onclick="fecharModal()">Cancelar</button> <button class="btn ouro" onclick="confirmarMapaExtrato()">Importar para '+esc(banco)+'</button></div>';
+  +'<div id="mxPrev" style="overflow:auto;max-height:32vh;border:1px solid #EDE6D8;border-radius:10px"></div>'
+  +'<div class="modal-acoes"><button class="btn sec" onclick="fecharModal()">Cancelar</button> <button class="btn ouro" id="btnConfMapa" onclick="confirmarMapaExtrato()">Importar para '+esc(banco)+'</button></div>';
  var mb=document.getElementById('modalConteudo').closest('.modal');if(mb)mb.style.maxWidth='980px';
  document.getElementById('modalBg').classList.add('show');
  previewMapaExtrato();}
@@ -3976,9 +4397,13 @@ function _lerMapaTela(){var g=function(id){var e=document.getElementById(id);ret
 
 function previewMapaExtrato(){try{var M=window._mapExt;if(!M)return;
  var lay=_lerMapaTela();var r=_aplicarLayout(lay,M.H,M.rows);
+ var regs=_aplicarCorrecoes(r.regs);
+ window._extRegsAtual=regs;window._extSaldoAtual=r.saldoFin;
+ var pbox=document.getElementById('mxPend');if(pbox)pbox.innerHTML=_blocoPendExt(regs);
  var box=document.getElementById('mxPrev');if(!box)return;
- if(!r.regs.length){box.innerHTML='<div class=mini style="padding:14px;color:var(--rubro)"><b>Nenhuma linha foi lida.</b> Confira a coluna de data e a de valor acima.</div>';return;}
- box.innerHTML=_renderPrevRegs(r.regs,M.banco,r.saldoFin);}catch(e){}}
+ if(!regs.length){box.innerHTML='<div class=mini style="padding:14px;color:var(--rubro)"><b>Nenhuma linha foi lida.</b> Confira a coluna de data e a de valor acima.</div>';}
+ else box.innerHTML=_renderPrevRegs(regs.filter(function(x){return x.data&&x.v;}),M.banco,r.saldoFin);
+ _travarBotaoExt(regs,'btnConfMapa');}catch(e){}}
 
 function _renderPrevRegs(regs,banco,saldoFin){
  var jaTem=new Set((dados().lancamentos||[]).map(_sigLanc));
@@ -4004,32 +4429,45 @@ function _renderPrevRegs(regs,banco,saldoFin){
   +(linhas.length>40?'<div class=mini style="padding:8px 10px;color:var(--suave)">\u2026 e mais '+(linhas.length-40)+' linha(s).</div>':'');}
 
 /* prévia do OFX — padrão de mercado, não precisa mapear coluna nenhuma */
-function abrirPreviaOFX(banco,regs,saldoFin,arq){
- window._prevOFX={banco:banco,regs:regs,saldoFin:saldoFin};
+function abrirPreviaOFX(banco,regsOrig,saldoFin,arq){
+ if(!window._prevOFX||window._prevOFX.arq!==arq||window._prevOFX.banco!==banco)_limparEstadoExt();
+ window._mapExt=null;
+ var regs=_aplicarCorrecoes(regsOrig);
+ window._prevOFX={banco:banco,regs:regs,regsOrig:regsOrig,saldoFin:saldoFin,arq:arq};
+ window._extRegsAtual=regs;
  document.getElementById('modalConteudo').innerHTML=
   '<h3>Extrato de '+esc(banco)+' &mdash; conferir antes de importar</h3>'
   +'<div class=mini style="margin:-4px 0 10px">Arquivo <b>OFX</b>: formato padr&atilde;o de banco, lido direto, sem configura&ccedil;&atilde;o. Arquivo: <b>'+esc(arq||'')+'</b>.</div>'
-  +'<div style="overflow:auto;max-height:48vh;border:1px solid #EDE6D8;border-radius:10px">'+_renderPrevRegs(regs,banco,saldoFin)+'</div>'
-  +'<div class="modal-acoes"><button class="btn sec" onclick="fecharModal()">Cancelar</button> <button class="btn ouro" onclick="confirmarPreviaOFX()">Importar para '+esc(banco)+'</button></div>';
- var mb=document.getElementById('modalConteudo').closest('.modal');if(mb)mb.style.maxWidth='860px';
- document.getElementById('modalBg').classList.add('show');}
-function confirmarPreviaOFX(){var P=window._prevOFX;if(!P)return;fecharModal();_gravarExtrato(P.banco,P.regs,P.saldoFin,false);window._prevOFX=null;}
+  +_blocoPendExt(regs)
+  +'<div style="overflow:auto;max-height:40vh;border:1px solid #EDE6D8;border-radius:10px">'+_renderPrevRegs(regs.filter(function(x){return x.data&&x.v;}),banco,saldoFin)+'</div>'
+  +'<div class="modal-acoes"><button class="btn sec" onclick="fecharModal()">Cancelar</button> <button class="btn ouro" id="btnConfOFX" onclick="confirmarPreviaOFX()">Importar para '+esc(banco)+'</button></div>';
+ var mb=document.getElementById('modalConteudo').closest('.modal');if(mb)mb.style.maxWidth='880px';
+ document.getElementById('modalBg').classList.add('show');
+ _travarBotaoExt(regs,'btnConfOFX');}
+function confirmarPreviaOFX(){var P=window._prevOFX;if(!P)return;
+ if(_extratoPendencias(P.regs).length){alert('Ainda há movimento sem data, valor ou descrição. Resolva ou descarte antes de importar.');return;}
+ var bons=P.regs.filter(function(x){return x.data&&x.v;});
+ var nDesc=Object.keys(_extDesc()).length;
+ fecharModal();_gravarExtrato(P.banco,bons,P.saldoFin,false,P.arq,nDesc);
+ window._prevOFX=null;_limparEstadoExt();}
 
 function confirmarMapaExtrato(){try{var M=window._mapExt;if(!M)return;
  var lay=_lerMapaTela();
  if(lay.iData<0){alert('Escolha a coluna da data.');return;}
  if(lay.iValor<0&&lay.iEnt<0&&lay.iSai<0){alert('Escolha a coluna do valor — ou as colunas de entrada e saída.');return;}
- var r=_aplicarLayout(lay,M.H,M.rows);
- if(!r.regs.length){alert('Nenhuma linha foi lida com esse mapeamento. Nada foi importado.');return;}
+ var regs=(window._extRegsAtual||[]).filter(function(x){return x.data&&x.v;});
+ if(!regs.length){alert('Nenhuma linha foi lida com esse mapeamento. Nada foi importado.');return;}
+ if(_extratoPendencias(window._extRegsAtual||[]).length){alert('Ainda há linha sem data, valor ou descrição. Resolva ou descarte antes de importar.');return;}
  lay.assinatura=_assinaCabecalho(M.H);
  _layoutsExtrato()[M.banco]=lay;
+ var nDesc=Object.keys(_extDesc()).length;
  fecharModal();
- _gravarExtrato(M.banco,r.regs,r.saldoFin,!M.jaSalvo);
- window._mapExt=null;}catch(e){alert('Erro: '+e.message);}}
+ _gravarExtrato(M.banco,regs,window._extSaldoAtual,!M.jaSalvo,M.arq,nDesc);
+ window._mapExt=null;_limparEstadoExt();}catch(e){alert('Erro: '+e.message);}}
 
 /* miolo comum: grava os movimentos, captura saldo, concilia */
-function _gravarExtrato(banco,regs,saldoFin,layoutNovo){
- var nR=0,nD=0,nDup=0;
+function _gravarExtrato(banco,regs,saldoFin,layoutNovo,arq,nDescartadas){
+ var nR=0,nD=0,nDup=0,vR=0,vD=0,vDup=0,nClass=0;var _idsNovos=[];
  var existe=new Set((dados().lancamentos||[]).map(_sigLanc));
  regs.forEach(function(x){if(!x.data||!x.v)return;
   var tipo=x.v<0?'despesa':'receita';
@@ -4037,9 +4475,10 @@ function _gravarExtrato(banco,regs,saldoFin,layoutNovo){
    categoria:'',tipo:tipo,valor:Math.abs(x.v),status:'realizado',origem:'Extrato bancário',
    unidade:(bancoUnidade(banco)||''),formaPagto:(/pix/i.test(x.desc||'')?'PIX':''),usuario:usuariaAtivaNome()};
   l.categoria=regraMatch(l)||'A classificar';
-  var sg=_sigLanc(l);if(existe.has(sg)){nDup++;return;}
-  existe.add(sg);dados().lancamentos.push(l);
-  if(tipo==='receita')nR++;else nD++;});
+  var sg=_sigLanc(l);if(existe.has(sg)){nDup++;vDup+=Math.abs(x.v);return;}
+  existe.add(sg);dados().lancamentos.push(l);_idsNovos.push(l.id);
+  if(l.categoria==='A classificar')nClass++;
+  if(tipo==='receita'){nR++;vR+=Math.abs(x.v);}else{nD++;vD+=Math.abs(x.v);}});
  if(saldoFin!=null){
   dados().saldoExtrato=dados().saldoExtrato||{};dados().saldoExtratoData=dados().saldoExtratoData||{};
   var maxd='';regs.forEach(function(x){if(x.data&&x.data>maxd)maxd=x.data;});
@@ -4048,14 +4487,19 @@ function _gravarExtrato(banco,regs,saldoFin,layoutNovo){
   if(maxd){dados().saldoExtratoMes=dados().saldoExtratoMes||{};dados().saldoExtratoMes[banco]=dados().saldoExtratoMes[banco]||{};
    dados().saldoExtratoMes[banco][maxd.slice(0,7)]=saldoFin;}}
  saveApp();
- var nb=autoConciliar();autoBaixaCorrespondentes();saveApp();render();
+ var nb=0;try{nb=autoConciliar();autoBaixaCorrespondentes();saveApp();}catch(e){}
  var el=document.getElementById('arqExt');if(el)el.value='';
- alert('Extrato importado em '+banco+'!\nEntradas: '+nR+'\nSaídas: '+nD
-  +(saldoFin!=null?'\nSaldo final do extrato: '+moeda(saldoFin):'')
-  +(nDup?'\nJá existentes (pulados): '+nDup:'')
-  +(nb?'\nContas a receber baixadas e amarradas: '+nb:'')
-  +(layoutNovo?'\n\n✔ Layout do '+banco+' salvo. Nas próximas importações deste banco ele já vem pronto.':''));
- if(dados().autoAbrirConcil!==false){window._cbBanco=banco;window._cbMes='';abrirConciliacaoBanco();}}
+ var imp=_novaImportacao('Extrato bancário',arq||'');
+ imp.banco=banco;imp.linhas=regs.length;imp.ids=_idsNovos;imp.aClassificar=nClass;imp.baixados=nb||0;imp.saldo=saldoFin;
+ imp.totalArquivo=Math.round((vR+vD+vDup)*100)/100;
+ imp.criados=[{rotulo:'Entradas',qtd:nR,valor:vR},{rotulo:'Saídas',qtd:nD,valor:vD}].filter(function(b){return b.qtd;});
+ imp.pulados=[];
+ if(nDup)imp.pulados.push({rotulo:'Já estavam na base',qtd:nDup,valor:vDup,motivo:'mesmo dia, valor, banco e descrição — não duplicou'});
+ if(nDescartadas)imp.pulados.push({rotulo:'Descartadas por você na conferência',qtd:nDescartadas,valor:0,motivo:'linhas que você marcou para não entrar'});
+ if(layoutNovo)imp.obsLayout=true;
+ _registrarImportacao(imp);
+ try{render();}catch(e){}
+ if(layoutNovo)setTimeout(function(){alert('Layout do '+banco+' salvo.\n\nNas próximas importações de CSV deste banco ele já vem pronto — você só confere a prévia.');},400);}
 
 /* ---------- gerenciar os layouts salvos ---------- */
 function abrirLayoutsSalvos(){try{var L=_layoutsExtrato();var ks=Object.keys(L);
@@ -4085,7 +4529,10 @@ function _ehIdentificador(t){var x=String(t||'').trim();if(!x)return false;
  if(semSep.length>=20&&/^[0-9a-fA-F]+$/.test(semSep))return true;
  if(semSep.length>=24&&!/\s/.test(x)&&!/[aeiouAEIOU]{2}/.test(x)&&/[0-9]/.test(x)&&/[a-zA-Z]/.test(x))return true;
  return false;}
-function importarExtrato(ev){const f=ev.target.files[0];if(!f)return;
+function importarExtrato(ev){
+ if(!_exigirFormato(ev,['ofx','csv','txt'],'OFX (preferido) ou CSV',
+  'Baixe o extrato no site ou app do banco em OFX. Se o banco não tiver OFX, use CSV.\n\nPDF e Excel não servem para extrato: o PDF não tem os valores em coluna e o Excel não é o que o banco entrega como extrato.'))return;
+ const f=ev.target.files[0];if(!f)return;
  const banco=((document.getElementById('impBanco')||{}).value||'').trim();
  if(!banco){alert('Escolha primeiro o banco/conta no seletor acima.');ev.target.value='';return;}
  const r=new FileReader();
@@ -4103,7 +4550,7 @@ function importarExtrato(ev){const f=ev.target.files[0];if(!f)return;
     var memo=g('MEMO'),nome=g('NAME');
     var partes=[];[memo,nome].forEach(function(x){x=String(x||'').trim();
      if(!x||_ehIdentificador(x))return;if(partes.indexOf(x)<0)partes.push(x);});
-    regs.push({data:data,v:v,desc:partes.join(' \u2014 ')});});
+    regs.push({ri:regs.length,data:data,v:v,desc:partes.join(' \u2014 ')});});
    var mb=raw.match(/<LEDGERBAL>[\s\S]*?<BALAMT>([^<\r\n]+)/i);if(mb)saldoFin=_numBR(mb[1]);
    ev.target.value='';
    if(!regs.length){alert('Nao encontrei movimentos neste OFX.');return;}
@@ -4135,7 +4582,10 @@ function importarLancamentos(ev){const f=ev.target.files[0];if(!f)return;const r
   saveApp();const _nb=autoConciliar()+autoBaixaCorrespondentes();saveApp();render();document.getElementById('arqLanc').value='';
   alert('Planilha importada!\nEntradas: '+nR+'\nSaídas: '+nD+(nDup?'\nJá existentes (ignorados p/ não duplicar): '+nDup:'')+(_nb?'\nConciliados automaticamente: '+_nb:''));
   if(dados().autoAbrirConcil!==false){abrirConciliacaoBanco();}};r.readAsArrayBuffer(f);}
-function importarZoop(ev){const f=ev.target.files[0];if(!f)return;const r=new FileReader();
+function importarZoop(ev){
+  if(!_exigirFormato(ev,['xls','xlsx'],'Excel (.xls ou .xlsx)',
+   'Exporte o controle de links do Zoop em Excel e mande sem converter.'))return;
+  const f=ev.target.files[0];if(!f)return;const r=new FileReader();
   r.onload=e=>{_recebLinhasDoArquivo(f.name,e.target.result,function(res){
     var el=document.getElementById('arqZoop');if(el)el.value='';
     if(!res.rows.length){alert(res.aviso||'Não encontrei linhas para importar neste arquivo.');return;}
@@ -4143,15 +4593,20 @@ function importarZoop(ev){const f=ev.target.files[0];if(!f)return;const r=new Fi
     const iData=(ix('data pgto')>=0?ix('data pgto'):ix('data')),iNome=(ix('nome')>=0?ix('nome'):ix('cliente')),
           iBruto=(ix('valor total')>=0?ix('valor total'):ix('total')),iLiq=(ix('receber')>=0?ix('receber'):ix('liquido')),iParc=ix('parcela');
     if(iData<0||iLiq<0){alert('A planilha do Zoop precisa ter as colunas Data Pgto e Valor a Receber.\n\nColunas encontradas: '+(H.filter(Boolean).join(', ')||'(nenhuma)'));return;}
-    let nAR=0,taxaTot=0,liqTot=0;
+    let nAR=0,taxaTot=0,liqTot=0;var _idsZoop=[];
     rows.forEach(row=>{const liq=parseValor(row[iLiq]);if(!(liq>0))return;const data=parseData(row[iData]);if(!data)return;
       const bruto=iBruto>=0?parseValor(row[iBruto]):liq;const nome=String(iNome>=0?(row[iNome]||''):'').replace(//g,' ').replace(/\s+/g,' ').trim();
       const taxa=Math.max(0,bruto-liq);
       /* venc = data (a vista): titulo sem vencimento cai no mes errado */
-      dados().lancamentos.push({id:id(),data,dataEmissao:data,dataVencimento:data,venc:data,cliente:nome,descricao:(nome+' — Cartão (Zoop)'),servico:'Cartão (Zoop)',banco:'',categoria:'A classificar',tipo:'receita',valor:liq,status:'previsto',formaPagto:'CARTÃO (ZOOP)',origem:'Planilha de link',unidade:'',usuario:usuariaAtivaNome()});nAR++;liqTot+=liq;
-      if(taxa>0){dados().lancamentos.push({id:id(),data,dataEmissao:data,dataVencimento:data,venc:data,cliente:nome,descricao:(nome+' — Taxa cartão (Zoop)'),banco:'',categoria:'Taxas de Plataforma de Pagamento',tipo:'despesa',valor:taxa,status:'previsto',formaPagto:'CARTÃO (ZOOP)',origem:'Planilha de link',unidade:'',usuario:usuariaAtivaNome()});taxaTot+=taxa;}});
-    saveApp();const nb=autoConciliar();render();
-    alert('Zoop importado!\nVendas no cartão (a receber, líquido): '+nAR+' — '+moeda(liqTot)+'\nTaxas lançadas (despesa): '+moeda(taxaTot)+(nb?'\nBaixados automaticamente: '+nb:''));
+      dados().lancamentos.push({id:id(),data,dataEmissao:data,dataVencimento:data,venc:data,cliente:nome,descricao:(nome+' — Cartão (Zoop)'),servico:'Cartão (Zoop)',banco:'',categoria:'A classificar',tipo:'receita',valor:liq,status:'previsto',formaPagto:'CARTÃO (ZOOP)',origem:'Planilha de link',unidade:'',usuario:usuariaAtivaNome()});_idsZoop.push(dados().lancamentos[dados().lancamentos.length-1].id);nAR++;liqTot+=liq;
+      if(taxa>0){dados().lancamentos.push({id:id(),data,dataEmissao:data,dataVencimento:data,venc:data,cliente:nome,descricao:(nome+' — Taxa cartão (Zoop)'),banco:'',categoria:'Taxas de Plataforma de Pagamento',tipo:'despesa',valor:taxa,status:'previsto',formaPagto:'CARTÃO (ZOOP)',origem:'Planilha de link',unidade:'',usuario:usuariaAtivaNome()});_idsZoop.push(dados().lancamentos[dados().lancamentos.length-1].id);taxaTot+=taxa;}});
+    saveApp();var nb=0;try{nb=autoConciliar();}catch(e){}
+    var _imp=_novaImportacao('Zoop (links de pagamento)',f.name);
+    _imp.ids=_idsZoop;_imp.baixados=nb||0;_imp.linhas=rows.length;
+    _imp.totalArquivo=Math.round((liqTot+taxaTot)*100)/100;
+    _imp.criados=[{rotulo:'Vendas no cartão (a receber, líquido)',qtd:nAR,valor:liqTot},
+                  {rotulo:'Taxas do Zoop (despesa)',qtd:_idsZoop.length-nAR,valor:taxaTot}].filter(function(b){return b.qtd;});
+    _registrarImportacao(_imp);try{render();}catch(e){}
   });};
   r.readAsArrayBuffer(f);}
 function confirmarImport(){const t=window._impTemp||[];dados().lancamentos.push(...t);saveApp();const _nb=autoConciliar();alert(t.length+' lançamento(s) importados!'+(_nb?' '+_nb+' conta(s) prevista(s) baixada(s) automaticamente.':''));document.getElementById('previewArea').innerHTML='';document.getElementById('mapeamento').style.display='none';['arqPers','arqPlan','arqExt'].forEach(i=>{const e=document.getElementById(i);if(e)e.value='';});const rc=document.getElementById('impResultadoCard');if(rc)rc.style.display='none';window._impRaw=null;window._impTx=null;autoBaixaCorrespondentes();saveApp();render();abrirAba('lancamentos');}
@@ -4161,7 +4616,10 @@ function exportarCSV(){const arr=dados().lancamentos.slice().sort((a,b)=>(a.data
 function autoUnidadeDoBanco(pre){try{var bs=document.getElementById(pre+'Banco');if(!bs)return;var uni=(typeof bancoUnidade==='function')?bancoUnidade(bs.value):'';if(!uni)return;var us=document.getElementById(pre+'Unidade');if(!us)return;for(var i=0;i<us.options.length;i++){if(us.options[i].value===uni||us.options[i].textContent.trim()===uni){us.selectedIndex=i;break;}}}catch(e){}}
 function mostrarBotaoBackupPasta(){try{if(document.getElementById('bkPrompt'))return;if(typeof _bkDirHandle==='undefined'||!_bkDirHandle)return;var d=document.createElement('div');d.id='bkPrompt';d.style.cssText='position:fixed;right:18px;bottom:18px;z-index:400;background:#143b4d;color:#fff;border:1px solid #c1922f;border-radius:12px;padding:14px 16px;box-shadow:0 12px 30px -10px rgba(0,0,0,.5);max-width:300px;font-size:13px;font-family:inherit';d.innerHTML='<div style="margin-bottom:10px">Está na hora do backup de hoje. Salvar na pasta <b>'+esc((_bkDirHandle&&_bkDirHandle.name)||'')+'</b>?</div><button onclick="fazerBackupPastaAgora()" style="background:#c1922f;color:#143b4d;border:none;padding:8px 12px;border-radius:8px;font-weight:700;cursor:pointer">Salvar backup na pasta</button> <span onclick="this.parentNode.remove()" style="cursor:pointer;margin-left:10px;font-size:12px;opacity:.85">agora não</span>';document.body.appendChild(d);}catch(e){}}
 function fazerBackupPastaAgora(){var p=document.getElementById('bkPrompt');if(p)p.remove();try{exportarBackup();}catch(e){alert('Não consegui gerar o backup: '+((e&&e.message)||e));}}
-function importarAReceber(ev){var f=ev.target.files[0];if(!f)return;var r=new FileReader();r.onload=function(e){try{
+function importarAReceber(ev){
+  if(!_exigirFormato(ev,['xls','xlsx'],'Excel (.xlsx ou .xls)',
+   'Esta é a planilha de LINKS e BOLETOS. Ela precisa vir em Excel, porque o painel lê as duas abas separadas — em CSV só existe uma aba.'))return;
+  var f=ev.target.files[0];if(!f)return;var r=new FileReader();r.onload=function(e){try{
   var wb=XLSX.read(new Uint8Array(e.target.result),{type:'array',cellDates:true});
   var num=function(v){if(typeof v==='number')return v;var s=String(v||'').trim().replace(/[^0-9,.-]/g,'');if(s.indexOf(',')>=0&&s.indexOf('.')>=0)s=s.replace(/\./g,'').replace(',','.');else if(s.indexOf(',')>=0)s=s.replace(',','.');return parseFloat(s)||0;};
   var toISO=function(d){if(!d)return'';if(d instanceof Date){return d.getFullYear()+'-'+('0'+(d.getMonth()+1)).slice(-2)+'-'+('0'+d.getDate()).slice(-2);}var s=String(d).trim();var m=s.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})/);if(m)return m[3]+'-'+('0'+m[2]).slice(-2)+'-'+('0'+m[1]).slice(-2);if(/^\d{4}-\d{2}-\d{2}/.test(s))return s.slice(0,10);return'';};
@@ -4192,8 +4650,16 @@ function importarAReceber(ev){var f=ev.target.files[0];if(!f)return;var r=new Fi
     }
   });
   if(!novos.length){alert('Nada novo para importar.'+(pulados?(' '+pulados+' parcela(s) já existiam e foram puladas.'):' Confira se a planilha tem as abas LINKS/BOLETOS preenchidas.'));ev.target.value='';return;}
-  dados().lancamentos.push.apply(dados().lancamentos,novos);saveApp();render();
-  alert('Planilha importada!\nParcelas novas: '+novos.length+'\nJá existiam (puladas): '+pulados);ev.target.value='';
+  dados().lancamentos.push.apply(dados().lancamentos,novos);saveApp();ev.target.value='';
+  var _nLink=novos.filter(function(l){return l.formaPagto==='LINK';}),_nBol=novos.filter(function(l){return l.formaPagto==='BOLETO';});
+  var _sm=function(a){return a.reduce(function(t,l){return t+(+l.valor||0);},0);};
+  var _imp=_novaImportacao('Planilha de links e boletos',f.name);
+  _imp.ids=novos.map(function(l){return l.id;});
+  _imp.aClassificar=novos.filter(function(l){return !l.categoria||l.categoria==='A classificar';}).length;
+  _imp.criados=[{rotulo:'Parcelas de LINK',qtd:_nLink.length,valor:_sm(_nLink)},
+                {rotulo:'Parcelas de BOLETO',qtd:_nBol.length,valor:_sm(_nBol)}].filter(function(b){return b.qtd;});
+  _imp.pulados=pulados?[{rotulo:'Já existiam na base',qtd:pulados,valor:0,motivo:'mesma parcela já criada antes — não duplicou'}]:[];
+  _registrarImportacao(_imp);try{render();}catch(e){}
 }catch(err){alert('Não consegui ler a planilha: '+((err&&err.message)||err));}};r.readAsArrayBuffer(f);}
 function nomeArquivoBackup(ext){const p=perfil();const razao=((p.dados.empresas&&p.dados.empresas[0]&&p.dados.empresas[0].razaoSocial)||(p.dados.cliente&&p.dados.cliente.razaoSocial)||p.nome||'cliente');const slug=razao.replace(/[^a-z0-9]/gi,'_').replace(/_+/g,'_').replace(/^_|_$/g,'');const hoje=new Date().toISOString().slice(0,10);return `${slug}_${hoje}.${ext}`;}
 let _bkDirHandle=null;
