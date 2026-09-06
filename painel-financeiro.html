@@ -387,6 +387,11 @@
   .rel-card .ric{width:44px;height:44px;border-radius:12px;display:flex;align-items:center;justify-content:center;font-size:20px;margin-bottom:14px;}
   .rel-card h3{font-size:15px;margin-bottom:5px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,'Helvetica Neue',Arial,sans-serif;font-weight:700;color:var(--vinho);letter-spacing:.1px;}
   .rel-card p{font-size:12.5px;color:var(--suave);line-height:1.45;}
+
+/* modo somente leitura: nada que altere dado fica clicavel */
+body.so-leitura .btn.ouro{pointer-events:none;opacity:.4;filter:grayscale(.6)}
+body.so-leitura input:not([type=search]),body.so-leitura select,body.so-leitura textarea{pointer-events:none;background:#f4f1ea;color:#8b8578}
+body.so-leitura input[type=file]{display:none}
 </style>
 </head>
 <body>
@@ -449,7 +454,7 @@
   <div class="conteudo">
     <header class="topbar">
       <button class="hamb" onclick="document.getElementById('sidebar').classList.toggle('aberta')">☰</button>
-      <div class="tb-cliente" onclick="irPara('perfis')" title="Trocar de cliente">
+      <div class="tb-cliente" onclick="_cliqueNoCliente()" title="Empresa aberta">
         <div class="av" id="avPerfil">?</div>
         <div class="tb-info"><div class="n" id="nomePerfil">—</div><div class="b" id="negPerfil">—</div></div>
       </div>
@@ -470,7 +475,7 @@
     <div class="saudacao" id="saudacao">Bem-vinda à gestão da sua empresa.</div>
     <div id="avisoConcil"></div>
     <div id="bannerCaixaDup"></div>
-    <div id="bannerCompletarMaio"></div>
+    
     <div id="bannerVinculos"></div>
     <div id="bannerVencVazio"></div>
     <div id="bannerCaixaSemTitulo"></div>
@@ -1090,7 +1095,7 @@
     <div class="eyebrow">Cadastro</div>
     <div class="titulo-pg"><em>Clientes</em></div>
     <div class="sub-pg">Cada cliente é uma empresa, com dados totalmente separados. Selecione qual cliente você está atendendo, ou cadastre um novo.</div>
-    <div style="margin-bottom:20px"><button class="btn ouro" onclick="novoPerfil()">＋ Novo cliente</button></div>
+    <div style="margin-bottom:20px" id="boxNovoPerfil"></div>
     <div class="grid-perfis" id="gridPerfis"></div>
   </section>
 
@@ -1321,7 +1326,7 @@ function planoMapa(){return [
     {numero:'3.3.14',nome:'Limpeza / Higiene',descricao:'',grupo:'DESPESAS ADMINISTRATIVAS',tipo:'despesa'},
     {numero:'3.3.15',nome:'Marketing',descricao:'',grupo:'DESPESAS ADMINISTRATIVAS',tipo:'despesa'},
     {numero:'3.3.16',nome:'Materiais de Escritório',descricao:'',grupo:'DESPESAS ADMINISTRATIVAS',tipo:'despesa'},
-    {numero:'3.3.17',nome:'Reembolso / Rateio – Filial Antônio Prado',descricao:'',grupo:'DESPESAS ADMINISTRATIVAS',tipo:'despesa'},
+    {numero:'3.3.17',nome:'Reembolso / Rateio entre Filiais',descricao:'',grupo:'DESPESAS ADMINISTRATIVAS',tipo:'despesa'},
     {numero:'3.3.18',nome:'Seguros',descricao:'',grupo:'DESPESAS ADMINISTRATIVAS',tipo:'despesa'},
     {numero:'3.3.19',nome:'Sistema de telemedicina',descricao:'',grupo:'DESPESAS ADMINISTRATIVAS',tipo:'despesa'},
     {numero:'3.3.20',nome:'Softwares para exames',descricao:'Sistemas clínicos e softwares de exames',grupo:'DESPESAS ADMINISTRATIVAS',tipo:'despesa'},
@@ -1373,6 +1378,86 @@ let _unidades=null;  // filiais que eu posso ver (null = todas)
 let _tver=0;        // versão carregada (trava de sobrescrita otimista)
 let _me=null;       // {user_id,email,nome,papel,ativo}
 let _empresas=[];   // empresas que posso abrir
+/* ======================================================================
+   BLINDAGEM MULTI-EMPRESA
+   O painel atende vários clientes no mesmo navegador. Três garantias:
+   1. O objeto de dados carrega a identidade da empresa (APP._tenantId).
+      Nada é gravado na nuvem se essa identidade não bater com a empresa
+      aberta — é a trava que impede dado de um cliente cair no outro.
+   2. Trocar de empresa limpa TUDO que ficou em memória: buffers de
+      importação, relatório calculado, seleções, filtros e gráficos.
+   3. Backup só entra na empresa de onde saiu.
+   ====================================================================== */
+
+function _ehMaster(){return !!(_me&&_me.papel==='master');}
+/* Antes, "somente leitura" só pulava a gravação: a pessoa editava, o sistema
+   confirmava, e nada subia. Agora a interface é realmente bloqueada. */
+function _aplicarSomenteLeitura(){try{
+ var d=document.getElementById('faixaSoLeitura');
+ if(!_readonly){if(d)d.remove();document.body.classList.remove('so-leitura');return;}
+ document.body.classList.add('so-leitura');
+ if(!d){d=document.createElement('div');d.id='faixaSoLeitura';
+  d.style.cssText='position:fixed;left:0;right:0;bottom:0;z-index:880;background:#143b4d;color:#fff;padding:9px 16px;font-family:inherit;font-size:13px;text-align:center';
+  d.innerHTML='🔒 <b>Somente leitura.</b> Você pode consultar e exportar, mas não alterar os dados desta empresa.';
+  document.body.appendChild(d);}
+}catch(e){}}
+/* _unidades vem do servidor e diz quais filiais a pessoa pode ver. Antes só virava
+   texto na barra: bastava limpar o filtro para ver a empresa inteira. */
+function _unidadePermitida(u){
+ if(!_unidades||!_unidades.length)return true;
+ if(!u)return true;
+ return _unidades.some(function(x){return String(x||'').toLowerCase().trim()===String(u||'').toLowerCase().trim();});}
+function _cliqueNoCliente(){if(_podeCriarPerfil())irPara('perfis');else trocarEmpresa();}
+/* Criar "cliente" aqui cria um perfil DENTRO da empresa aberta — não uma empresa nova.
+   Para trocar de empresa existe o botão "Trocar empresa" na barra da nuvem. */
+function _podeCriarPerfil(){return _ehMaster();}
+function _nomeEmpresaAberta(){try{
+ var e=(_empresas||[]).find(function(x){return x.tenant_id===_tenant;});
+ if(e&&e.nome)return e.nome;
+ var p=(APP&&APP.perfis&&APP.perfis[0])||null;
+ return (p&&p.dados&&p.dados.cliente&&p.dados.cliente.razaoSocial)||(p&&p.nome)||'esta empresa';}catch(e){return 'esta empresa';}}
+function _mesmaEmpresa(){
+ if(!_tenant)return false;
+ if(!APP)return false;
+ if(!APP._tenantId){APP._tenantId=_tenant;return true;} /* base antiga: adota a empresa aberta */
+ return APP._tenantId===_tenant;}
+
+/* Tudo que vive fora de dados() e não pode atravessar a troca de empresa. */
+function limparEstadoLocal(){try{
+ /* buffers de importação — guardam lançamentos prontos para gravar */
+ ['_impTemp','_impTx','_impRaw','_impModoAtual','_mapExt','_prevOFX','_extRegsAtual','_extSaldoAtual',
+  '_extratoCSV','_recebPlano','_recebArq','_recebTotalArq','_bkpImport','_extCorrecoes','_extDescartadas',
+  '_bkpAuriumPre','_bkpImportRuim','_bkpBaixaDupla','_bkpVinculos','_bkpVencVazio','_bkpTitCaixa',
+  '_bkpDuplicados','_bkpCaixaFix'].forEach(function(k){try{delete window[k];}catch(e){window[k]=null;}});
+ try{csvLinhas=[];csvHeader=[];}catch(e){}
+ try{_demoAOA=null;}catch(e){}
+ /* relatório calculado — exportar depois da troca entregaria os números da outra empresa */
+ window._relAtual=null;window._relBanco='';window._relCat='';
+ /* seleções que guardam ids de lançamentos */
+ window._concTitSel=new Set();window._concMovSel=null;window._cbSel=null;window._cbMarc=null;
+ window._baixaSel=null;window._baixaId=null;window._concBusca='';window._concMes='';
+ window._cbBanco='';window._cbMes='';
+ /* filtros — unidade e banco de uma empresa não fazem sentido na outra */
+ window._flt={uni:new Set(),banco:'',per:''};
+ window._filtroLanc=null;window._filtroExt=null;window._ocultar=null;window._perExp=null;
+ window._pendMes='';window._audCache=null;
+ /* gráficos */
+ try{if(window.donutChart&&window.donutChart.destroy)window.donutChart.destroy();}catch(e){}
+ try{if(window.fluxoChart&&window.fluxoChart.destroy)window.fluxoChart.destroy();}catch(e){}
+ window.donutChart=null;window.fluxoChart=null;
+ try{Object.keys(window._charts||{}).forEach(function(k){try{window._charts[k].destroy();}catch(e){}});}catch(e){}
+ window._charts={};window._donuts={};
+ /* modal aberto de uma empresa não pode continuar na outra */
+ try{var mb=document.getElementById('modalBg');if(mb)mb.classList.remove('show');}catch(e){}
+}catch(e){console.warn('limparEstadoLocal',e);}}
+
+/* Guarda a cópia local só da empresa aberta; as demais saem do disco. */
+function _limparLocalOutrasEmpresas(){try{
+ var manter=_tenant?(KEY+'_'+_tenant):'';
+ for(var i=localStorage.length-1;i>=0;i--){var k=localStorage.key(i);
+  if(k&&k.indexOf(KEY)===0&&k!==manter)localStorage.removeItem(k);}
+}catch(e){}}
+
 async function carregarMeu(){try{const u=await cloudUser();if(!u)return null;const{data}=await sb.from('app_users').select('user_id,email,nome,papel,ativo').eq('user_id',u.id).maybeSingle();_me=data||{user_id:u.id,email:u.email,nome:u.email,papel:'operador',ativo:true};return _me;}catch(e){console.warn(e);return null;}}
 async function carregarMinhasEmpresas(){try{const{data,error}=await sb.rpc('listar_minhas_empresas');if(error){console.warn(error);return[];}return data||[];}catch(e){console.warn(e);return[];}}
 async function abrirTenant(tid){try{
@@ -1380,8 +1465,10 @@ async function abrirTenant(tid){try{
   if(error){alert('Não consegui abrir a empresa: '+error.message);return false;}
   const r=(data&&data[0])||null;
   if(!r){alert('Empresa não encontrada ou sem acesso.');return false;}
+  limparEstadoLocal();
   _tenant=tid; _tver=r.version||0; _readonly=!!r.somente_leitura; _unidades=r.unidades||null;
   APP=(r.data&&r.data.perfis)?r.data:{perfilAtivo:null,perfis:[]};
+  APP._tenantId=tid;   /* identidade da empresa DENTRO dos dados */
   const _ne=((_empresas||[]).find(e=>e.tenant_id===tid)||{}).nome||'Minha empresa';
   if(!APP.perfis||!APP.perfis.length){const p=novoPerfilObj(_ne,'');APP.perfis=[p];APP.perfilAtivo=p.id;}
   else if(APP.perfis.length===1&&(APP.perfis[0].nome==='Nova empresa'||!APP.perfis[0].nome)){
@@ -1390,14 +1477,59 @@ async function abrirTenant(tid){try{
     const _c=APP.perfis[0].dados&&APP.perfis[0].dados.cliente;
     if(_c&&(!_c.razaoSocial||_c.razaoSocial==='Nova empresa'))_c.razaoSocial=_ne;}
   normalizarPerfis();reagruparEntradas();window._cloudReady=true;fecharSeletor();initApos();montarBarraNuvem();
-  if(!_readonly)cloudSave(true);
+  _aplicarSomenteLeitura();_limparLocalOutrasEmpresas();
+  /* NAO grava ao abrir: abrir a empresa subia a versao e derrubava a sessao de quem ja estava dentro */
   return true;}catch(e){alert('Erro ao abrir: '+e.message);return false;}}
 let _cloudT=null;
 function cloudSave(now){if(!cloudOn()||!window._cloudReady||!_tenant)return;
+  if(_conflitoTravado){var _tt=document.getElementById('cloudStatus');if(_tt)_tt.textContent='⛔ não está salvando';try{_avisoTravaFixo();}catch(e){}return;}
+  if(!_mesmaEmpresa()){var _te=document.getElementById('cloudStatus');if(_te)_te.textContent='⛔ gravação bloqueada';
+    console.warn('cloudSave bloqueado: APP._tenantId('+APP._tenantId+') != _tenant('+_tenant+')');
+    alert('Parei a gravação por segurança.\n\nOs dados carregados na tela são de outra empresa. Nada foi gravado.\n\nFeche e abra a empresa de novo.');return;}
   if(_readonly){const t0=document.getElementById('cloudStatus');if(t0)t0.textContent='🔒 somente leitura';return;}clearTimeout(_cloudT);const go=async()=>{const t=document.getElementById('cloudStatus');try{const{data,error}=await sb.rpc('tenant_salvar',{p_tenant:_tenant,p_data:APP,p_expected:_tver});if(error){if(t)t.textContent='⚠ erro ao salvar';console.warn(error);return;}if(data===-1){if(t)t.textContent='⚠ salvo por outra pessoa';avisarConflito();return;}_tver=data;if(t)t.textContent='☁ salvo '+new Date().toLocaleTimeString('pt-BR');}catch(e){if(t)t.textContent='⚠ erro ao salvar';console.warn(e);}};now?go():(_cloudT=setTimeout(go,1500));}
-function saveApp(){if(_tenant){try{localStorage.setItem(KEY+'_'+_tenant,JSON.stringify(APP));}catch(e){}}cloudSave();}
+function saveApp(){if(_tenant&&!_readonly&&_mesmaEmpresa()){try{localStorage.setItem(KEY+'_'+_tenant,JSON.stringify(APP));}catch(e){}}cloudSave();}
 let _conflitoAberto=false;
-async function avisarConflito(){if(_conflitoAberto)return;_conflitoAberto=true;const ok=confirm('Esta empresa foi salva por outra pessoa (ou em outra aba) depois que você abriu.\n\nPara NÃO sobrescrever o trabalho dela, vou recarregar a versão mais recente. Alterações não salvas desta tela serão perdidas.\n\nOK = recarregar a versão mais recente.');_conflitoAberto=false;if(ok&&_tenant){await abrirTenant(_tenant);if(typeof render==='function')render();}}
+/* Antes: "Cancelar" deixava a versão desatualizada para sempre — a tela continuava
+   respondendo e NADA mais chegava na nuvem. Agora não existe caminho que perca
+   trabalho em silêncio: ou recarrega (com backup do que estava na tela), ou fica
+   claramente marcado como travado até a pessoa resolver. */
+async function avisarConflito(){if(_conflitoAberto)return;_conflitoAberto=true;
+ try{
+  var ok=confirm('Outra pessoa salvou esta empresa depois que você abriu.\n\n'
+   +'Para não apagar o trabalho dela, preciso recarregar a versão mais recente.\n'
+   +'Antes de recarregar, vou baixar um arquivo com o que está na sua tela agora, para nada se perder.\n\n'
+   +'OK = baixar e recarregar.\nCancelar = a gravação continua BLOQUEADA até você recarregar.');
+  if(ok&&_tenant){
+   try{var _cont=JSON.stringify(APP,null,2);
+    baixar(_cont,'antes_de_recarregar_'+(_nomeEmpresaAberta()||'empresa').replace(/[^A-Za-z0-9]/g,'_')+'_'+new Date().toISOString().slice(0,16).replace(/[:T]/g,'-')+'.json','application/json');}catch(e){}
+   _conflitoTravado=false;
+   await abrirTenant(_tenant);if(typeof render==='function')render();
+  }else{
+   _conflitoTravado=true;
+   try{montarBarraNuvem();}catch(e){}
+   try{_avisoTravaFixo();}catch(e){}
+  }
+ }finally{_conflitoAberto=false;}}
+let _conflitoTravado=false;
+/* Faixa fixa no topo enquanto a gravação estiver bloqueada — impossível trabalhar
+   uma tarde inteira sem perceber, como acontecia antes. */
+function _avisoTravaFixo(){try{
+ var d=document.getElementById('avisoTravaSalvar');
+ if(!_conflitoTravado){if(d)d.remove();return;}
+ if(d)return;
+ d=document.createElement('div');d.id='avisoTravaSalvar';
+ d.style.cssText='position:fixed;left:0;right:0;top:0;z-index:900;background:#7A2E39;color:#fff;padding:10px 16px;font-family:inherit;font-size:13.5px;display:flex;align-items:center;justify-content:center;gap:14px;flex-wrap:wrap;box-shadow:0 4px 14px -4px rgba(0,0,0,.4)';
+ d.innerHTML='<b>⛔ Nada está sendo salvo.</b> <span style="opacity:.92">Outra pessoa alterou esta empresa. O que você fizer agora será perdido.</span>'
+  +'<button onclick="_resolverTrava()" style="background:#fff;color:#7A2E39;border:none;padding:7px 14px;border-radius:8px;font-weight:800;cursor:pointer;font-family:inherit">Baixar meu trabalho e recarregar</button>';
+ document.body.appendChild(d);
+ document.body.style.paddingTop='42px';
+}catch(e){}}
+async function _resolverTrava(){try{
+ var _cont=JSON.stringify(APP,null,2);
+ baixar(_cont,'antes_de_recarregar_'+(_nomeEmpresaAberta()||'empresa').replace(/[^A-Za-z0-9]/g,'_')+'_'+new Date().toISOString().slice(0,16).replace(/[:T]/g,'-')+'.json','application/json');
+}catch(e){}
+ _conflitoTravado=false;var d=document.getElementById('avisoTravaSalvar');if(d)d.remove();document.body.style.paddingTop='';
+ if(_tenant){await abrirTenant(_tenant);if(typeof render==='function')render();}}
 function reagruparEntradas(){if(!APP||!APP.perfis)return;APP.perfis.forEach(p=>{(((p.dados)||{}).categorias||[]).forEach(c=>{if(c.tipo!=='receita')return;if(ehMovimento(c.nome))return;const _n=_normEntradaNome(c.nome);if(ENTRADA_GRUPO_MAP[_n]&&!ENTRADA_GRUPO_EXCLUIR.includes(_n))c.grupo=ENTRADA_GRUPO_MAP[_n];});});}
 function loadApp(){
   const raw=localStorage.getItem(KEY);
@@ -1405,8 +1537,7 @@ function loadApp(){
   // migração da versão antiga
   if(!APP.perfis||!APP.perfis.length){
     const old=localStorage.getItem(KEY_OLD);
-    let p=novoPerfilObj('AURIUM SAUDE LTDA','Caxias do Sul + Antônio Prado');
-    p.dados.unidades=['Caxias do Sul','Antônio Prado'];p.dados.empresas=[{id:id(),unidade:'Caxias do Sul',tipo:'Matriz',razaoSocial:'AURIUM SAUDE LTDA'},{id:id(),unidade:'Antônio Prado',tipo:'Filial',razaoSocial:'AURIUM SAUDE LTDA'}];p.tipo='Cliente';p.dados.cliente.razaoSocial='AURIUM SAUDE LTDA';
+    let p=novoPerfilObj('Minha empresa','');p.tipo='Cliente';
     if(old){try{const d=JSON.parse(old);if(d.lancamentos)p.dados.lancamentos=d.lancamentos;if(d.categorias&&d.categorias.length)p.dados.categorias=d.categorias;if(!d.orcamentos)p.dados.orcamentos=[];}catch(e){}}
     APP.perfis=[p];APP.perfilAtivo=p.id;saveApp();
   }
@@ -1421,9 +1552,12 @@ function normalizarPerfis(){
   // migração (uma única vez): "Venda de Cartão Zoop" era ambígua (recebimentos via link de cartão OU
   // boleto de vendas a prazo) — vira "Recebimento de Vendas a Prazo – Serviços", e passa a existir
   // também a categoria irmã "…– Produtos".
-  if(!APP._migRecebPrazoV1){
+  /* As marcas de migração ficam NO PERFIL, não no APP. Antes uma empresa criada depois
+     da migração nunca recebia as categorias que o resto do código assume existir. */
+  {
     const NOVO_SERV='Recebimento de Vendas a Prazo – Serviços',NOVO_PROD='Recebimento de Vendas a Prazo – Produtos';
     APP.perfis.forEach(p=>{
+      if(p.dados._migRecebPrazoV1)return;p.dados._migRecebPrazoV1=true;
       const cats=p.dados.categorias||(p.dados.categorias=[]);
       const zoop=cats.find(c=>c.nome==='Venda de Cartão Zoop');
       if(zoop){zoop.nome=NOVO_SERV;zoop.grupo='RECEITA DE SERVIÇOS';zoop.tipo='receita';}
@@ -1431,21 +1565,21 @@ function normalizarPerfis(){
       if(!cats.find(c=>c.nome===NOVO_PROD)){const ref=planoMapa().find(c=>c.nome===NOVO_PROD);cats.push(ref?{...ref,id:id()}:{id:id(),numero:'1.12',nome:NOVO_PROD,descricao:'',grupo:'RECEITA DE PRODUTOS',tipo:'receita'});}
       (p.dados.lancamentos||[]).forEach(l=>{if(l.categoria==='Venda de Cartão Zoop')l.categoria=NOVO_SERV;});
     });
-    APP._migRecebPrazoV1=true;
   }
   // migração (uma única vez): garante as categorias de aplicação/resgate (movimento, fora do lucro)
   // e a categoria de rendimentos (receita real) em todos os perfis já existentes.
-  if(!APP._migFinanceiroAplicV1){
+  {
     const ADIC=[
       {nome:'(-) Aplicação Financeira',numero:'3.5.17',grupo:'FINANCEIRO',tipo:'despesa',descricao:'Valor movimentado para aplicação financeira — sai do caixa operacional e vira patrimônio (não é despesa)'},
       {nome:'(+) Resgate de Aplicação Financeira',numero:'3.5.18',grupo:'FINANCEIRO',tipo:'receita',descricao:'Valor resgatado de aplicação financeira — volta ao caixa operacional (não é receita operacional)'},
       {nome:'Receitas Financeiras / Rendimentos',numero:'1.13',grupo:'OUTRAS RECEITAS',tipo:'receita',descricao:'Juros e rendimentos de aplicações financeiras'}
     ];
-    APP.perfis.forEach(p=>{const cats=p.dados.categorias||(p.dados.categorias=[]);ADIC.forEach(a=>{if(!cats.find(c=>c.nome===a.nome))cats.push({id:id(),...a});});});
-    APP._migFinanceiroAplicV1=true;
+    APP.perfis.forEach(p=>{if(p.dados._migFinanceiroAplicV1)return;p.dados._migFinanceiroAplicV1=true;
+      const cats=p.dados.categorias||(p.dados.categorias=[]);ADIC.forEach(a=>{if(!cats.find(c=>c.nome===a.nome))cats.push({id:id(),...a});});});
   }
-  if(!APP._migCaixaFonoV1){
+  {
     APP.perfis.forEach(function(p){
+      if(p.dados._migCaixaV1)return;p.dados._migCaixaV1=true;
       var bs=(p.dados.bancos||[]);
       var cx=bs.find(function(b){return b.tipo==='Caixa'||b.tipo==='Dinheiro';})||bs.find(function(b){return /caixa/i.test(b.nome||'');});
       if(!cx)return;
@@ -1453,12 +1587,11 @@ function normalizarPerfis(){
         if((l.banco||'').toLowerCase().trim()==='caixa'&&l.banco!==cx.nome){l.banco=cx.nome;if(!l.unidade&&cx.unidade)l.unidade=cx.unidade;}
       });
     });
-    APP._migCaixaFonoV1=true;
   }
-  if(!APP._migDifCatV1){
+  {
     var DIF=[{nome:'Juros Recebidos',tipo:'receita',grupo:'OUTRAS RECEITAS'},{nome:'Desconto Obtido',tipo:'receita',grupo:'OUTRAS RECEITAS'},{nome:'Juros Pagos',tipo:'despesa',grupo:'FINANCEIRO'},{nome:'Desconto Concedido',tipo:'despesa',grupo:'FINANCEIRO'}];
-    APP.perfis.forEach(function(p){var cats=p.dados.categorias||(p.dados.categorias=[]);DIF.forEach(function(a){if(!cats.find(function(c){return semAc(c.nome||'')===semAc(a.nome);}))cats.push({id:id(),nome:a.nome,tipo:a.tipo,grupo:a.grupo,descricao:'Diferença de conciliação (juros/desconto)'});});});
-    APP._migDifCatV1=true;
+    APP.perfis.forEach(function(p){if(p.dados._migDifCatV1)return;p.dados._migDifCatV1=true;
+      var cats=p.dados.categorias||(p.dados.categorias=[]);DIF.forEach(function(a){if(!cats.find(function(c){return semAc(c.nome||'')===semAc(a.nome);}))cats.push({id:id(),nome:a.nome,tipo:a.tipo,grupo:a.grupo,descricao:'Diferença de conciliação (juros/desconto)'});});});
   }
   if(!APP.usuarias||!APP.usuarias.length)APP.usuarias=[{id:id(),nome:'Administrador'}];
   if(!APP.usuariaAtiva||!APP.usuarias.find(u=>u.id===APP.usuariaAtiva))APP.usuariaAtiva=APP.usuarias[0].id;
@@ -1503,7 +1636,7 @@ function abrirAba(pg){const b=[...document.querySelectorAll('.menu-item')].find(
 /* REGRA CONTABIL: titulo (previsto) = data de VENCIMENTO (competencia) · movimento do extrato = data do extrato (caixa).
    Usar dataRef(l) em TODO filtro, agrupamento, ordenacao e comparacao com hoje. Emissao nunca e criterio de periodo. */
 /* ===== VERSAO DO PAINEL — para saber, sem adivinhar, se a tela esta atualizada ===== */
-const APP_VERSAO='2026-08-25.4';
+const APP_VERSAO='2026-09-06.1';
 function _marcaVersao(){try{
  /* versao no CABECALHO, ao lado do status da nuvem — fica visivel sem procurar */
  var bar=document.querySelector('.tb-acoes');var d=document.getElementById('appVersaoTag');
@@ -1522,7 +1655,10 @@ function periodosDisponiveis(){const set=new Set();dados().lancamentos.forEach(l
 window._flt=window._flt||{uni:new Set(),banco:new Set(),per:new Set()};
 function bancoUnidade(nome){const b=(dados().bancos||[]).find(x=>(x.nome||'').toLowerCase().trim()===(nome||'').toLowerCase().trim());return b?(b.unidade||''):'';}
 function noPeriodo(l){const s=window._flt.per;if(!s.size)return true;const _d=dataRef(l);if(!_d)return false;const ym=_d.slice(0,7),ano=_d.slice(0,4);for(const v of s){if(v.indexOf('ano-')===0){if(ano===v.slice(4))return true;}else if(ym===v)return true;}return false;}
-function noUnidade(l){const s=window._flt.uni;if(!s.size)return true;if(s.has(l.unidade||''))return true;return s.has(bancoUnidade(l.banco));}
+function noUnidade(l){
+  /* primeiro a restrição de acesso (servidor), depois o filtro que a pessoa escolheu */
+  if(!_unidadePermitida(l.unidade||bancoUnidade(l.banco)))return false;
+  const s=window._flt.uni;if(!s.size)return true;if(s.has(l.unidade||''))return true;return s.has(bancoUnidade(l.banco));}
 function noBanco(l){const s=window._flt.banco;if(!s.size)return true;return s.has(l.banco||'');}
 function bancoFiltro(){const s=window._flt.banco;return s.size===1?[...s][0]:'';}
 function unidadeAtual(){const s=window._flt.uni;return s.size===1?[...s][0]:'';}
@@ -1607,11 +1743,11 @@ function consolidarCaixaDinheiro(){var L=dados().lancamentos||[];var pairs=_caix
 function _caixaPendentes(){var L=dados().lancamentos||[];var bs=(dados().bancos||[]);function ehCx(nm){nm=(nm||'').toLowerCase().trim();if(!nm)return false;var b=bs.find(function(x){return (x.nome||'').toLowerCase().trim()===nm;});if(b)return (b.tipo==='Caixa'||b.tipo==='Dinheiro'||/caixa/i.test(b.nome||''));return /caixa/i.test(nm);}return L.filter(function(l){return l.status!=='previsto'&&!l.conciliado&&ehCx(l.banco);});}
 function _autoConciliarCaixa(){try{var d=dados();var L=d.lancamentos||[];var bs=d.bancos||[];function ehCx(nm){nm=(nm||'').toLowerCase().trim();if(!nm)return false;var b=bs.find(function(x){return (x.nome||'').toLowerCase().trim()===nm;});if(b)return (b.tipo==='Caixa'||b.tipo==='Dinheiro'||/caixa/i.test(b.nome||''));return /caixa/i.test(nm);}function semCat(l){return !l.categoria||/^a classificar$/i.test((l.categoria||'').trim());}var mud=0;L.forEach(function(l){if(l.status==='previsto'||!ehCx(l.banco))return;if(semCat(l)){if(l.conciliado){l.conciliado=false;mud++;}return;}if(!l.conciliado){l.conciliado=true;if(!l.conciliadoEm)l.conciliadoEm=(l.data||'');mud++;}});if(mud)saveApp();return mud;}catch(e){return 0;}}
 
-var _relMaioCaixa=[{"data": "2026-05-04", "valor": 450.0, "desc": "Zulmira Esteves da Rosa Vectoeletronistagmografia — Exame da Tontura"}, {"data": "2026-05-05", "valor": 250.0, "desc": "Melzi João Cavazzola Audiometria Adulto Completa (com Imitanciometria) / Remoção de cerúmen / Teste"}, {"data": "2026-05-06", "valor": 150.0, "desc": "Paciente - ELODI DE LOURDES LIMA GUERRA"}, {"data": "2026-05-06", "valor": 250.0, "desc": "Juliano Zulianello Audiometria Adulto Completa (com Imitanciometria) / Remoção de cerúmen / Teste"}, {"data": "2026-05-07", "valor": 450.0, "desc": "Cassiano Czarnobay Avaliação para Zumbido"}, {"data": "2026-05-08", "valor": 45.0, "desc": "Debora Regina Dos Santos Mello Venda de produto"}, {"data": "2026-05-08", "valor": 75.0, "desc": "Laurindo Antônio Mascarello Revisão Aparelhos Auditivos (dentro do contrato)"}, {"data": "2026-05-08", "valor": 6000.0, "desc": "SANTIN LUIZ MARCON Audiometria Adulto Completa (com Imitanciometria) / Remoção de cerúmen / Teste"}, {"data": "2026-05-11", "valor": 25.0, "desc": "Paciente - Felix Pelissaro"}, {"data": "2026-05-11", "valor": 29.0, "desc": "Gabriel Delbi Lopes Benedetti Avaliação do Processamento Auditivo (Audio + Imitâncio + Emissões) Parceiros"}, {"data": "2026-05-12", "valor": 225.0, "desc": "Meris Margarete Guerra Scapin Audiometria Adulto Completa (com Imitanciometria) / Remoção de cerúmen / Teste"}, {"data": "2026-05-20", "valor": 260.0, "desc": "Nirce Luiza Gelatti Revisão de Aparelhos Auditivos — Paciente Externo"}, {"data": "2026-05-20", "valor": 125.0, "desc": "ANTONIO GIROTTO Revisão de Aparelhos Auditivos — Paciente Externo"}, {"data": "2026-05-22", "valor": 400.01, "desc": "Camila Bernart Avaliação para Zumbido"}, {"data": "2026-05-22", "valor": 380.0, "desc": "Divaldo Airton P . Stella Reabilitação Vestibular (Avaliação, Manobra ou Avaliação para Sessões)"}, {"data": "2026-05-25", "valor": 120.0, "desc": "Terezinha Gazzi Brezolin Revisão de Aparelhos Auditivos — Paciente da Clínica"}, {"data": "2026-05-25", "valor": 2200.0, "desc": "SANTIN LUIZ MARCON Consulta de Retorno"}, {"data": "2026-05-25", "valor": 120.0, "desc": "Cláudio Auler Revisão de Aparelhos Auditivos — Paciente da Clínica"}, {"data": "2026-05-26", "valor": 140.0, "desc": "MARFISIA L. P. MOLON Audiometria Adulto Completa (com Imitanciometria) / Remoção de cerúmen / Teste"}, {"data": "2026-05-26", "valor": 420.0, "desc": "VILMA LAZZARI Revisão de Aparelhos Auditivos — Paciente da Clínica"}, {"data": "2026-05-27", "valor": 225.0, "desc": "Darci Jose Susin Audiometria Adulto Completa (com Imitanciometria) / Remoção de cerúmen / Teste"}, {"data": "2026-05-27", "valor": 150.0, "desc": "Luizinho Locateli Revisão de Aparelhos Auditivos — Paciente Externo"}, {"data": "2026-05-27", "valor": 145.0, "desc": "LUCIA MARIA CHIMIMAZZO MORESCO Revisão de Aparelhos Auditivos — Paciente Externo"}, {"data": "2026-05-27", "valor": 225.0, "desc": "Nair Zanotto Parisotto Audiometria Adulto Completa (com Imitanciometria) / Remoção de cerúmen / Teste"}, {"data": "2026-05-29", "valor": 200.0, "desc": "Alecir Marcelo Maraschin Audiometria Adulto Completa (com Imitanciometria) / Remoção de cerúmen / Teste"}];
-function _catServMaio(desc){var m=(typeof normServMatch==='function')?normServMatch(desc):null;if(m&&m.categoria)return m.categoria;if(/venda de produto|venda de aparelho/i.test(desc||'')){var cs=(dados().categorias||[]);var vp=cs.find(function(c){return c.tipo==='receita'&&/venda de produtos?/i.test(c.nome||'');});if(vp)return vp.nome;}var rg=(typeof regraMatch==='function')?regraMatch({descricao:desc,cliente:'',tipo:'receita',valor:0}):null;return rg||'A classificar';}
-function _cliDeDesc(desc){var d=(desc||'').trim();var mp=/^paciente\s*-\s*(.+)$/i.exec(d);if(mp)return mp[1].trim();var kw=/(audiometria|avalia|revis|consulta|vectoeletron|reabilita|\bbera\b|venda|sess|exame|limpeza|remo[\u00e7c]|retorno|processamento|imped|imitanci)/i;var idx=d.search(kw);if(idx>2)return d.slice(0,idx).trim();return '';}
-function completarCaixaMaio(){try{var d=dados();var L=d.lancamentos||[];function semCat(l){return !l.categoria||/^a classificar$/i.test((l.categoria||'').trim());}var alvo=L.filter(function(l){return /caixa/i.test(l.banco||'')&&l.status!=='previsto'&&semCat(l)&&(l.data||'').slice(0,7)==='2026-05';});if(!alvo.length){alert('Nada a completar \u2014 o caixa de maio j\u00e1 est\u00e1 classificado.');return;}var pool=_relMaioCaixa.map(function(r){return {data:r.data,valor:Math.round(r.valor*100)/100,desc:r.desc,usado:false};});var prev={ex:0,te:0,ac:0};alvo.forEach(function(l){var v=Math.round(+l.valor*100)/100;var r=pool.find(function(x){return !x.usado&&x.data===l.data&&Math.abs(x.valor-v)<0.005;});if(!r)return;r._c=_catServMaio(r.desc);if(/^a classificar$/i.test(r._c))prev.ac++;else if(/exame/i.test(r._c))prev.ex++;else prev.te++;});pool.forEach(function(x){x.usado=false;});if(!confirm('Completar '+alvo.length+' lan\u00e7amento(s) de caixa de maio com o seu relat\u00f3rio (casado por data e valor):\n\n\u2022 '+prev.ex+' Exames Diagn\u00f3sticos\n\u2022 '+prev.te+' Terapias / Sess\u00f5es\n\u2022 '+prev.ac+' ficam em A classificar (o relat\u00f3rio n\u00e3o traz o servi\u00e7o) \u2014 esses N\u00c3O ficam conciliados.\n\nNada \u00e9 apagado. Confirma?'))return;var bkp=[],okN=0,acN=0,naoAchou=0;alvo.sort(function(a,b){return (a.data||'').localeCompare(b.data||'');});alvo.forEach(function(l){var v=Math.round(+l.valor*100)/100;var r=pool.find(function(x){return !x.usado&&x.data===l.data&&Math.abs(x.valor-v)<0.005;});if(!r){naoAchou++;return;}r.usado=true;bkp.push(JSON.parse(JSON.stringify(l)));var cat=_catServMaio(r.desc);l.descricao=r.desc;l.servico=r.desc;l.cliente=_cliDeDesc(r.desc);l.origem='Relat\u00f3rio do sistema';l.categoria=cat;if(/^a classificar$/i.test(cat)){l.conciliado=false;acN++;}else{l.conciliado=true;if(!l.conciliadoEm)l.conciliadoEm=(l.data||'');okN++;}});window.__bkpCompletarMaio=bkp;saveApp();render();alert('Pronto! '+okN+' lan\u00e7amento(s) categorizado(s) e conciliado(s). '+acN+' ficaram em A classificar (defina a categoria e eles voltam ao saldo). '+(naoAchou?naoAchou+' n\u00e3o casaram.':''));}catch(e){alert('Erro: '+e.message);}}
-function renderBannerCompletarMaio(){var box=document.getElementById('bannerCompletarMaio');if(!box)return;var L=dados().lancamentos||[];function semCat(l){return !l.categoria||/^a classificar$/i.test((l.categoria||'').trim());}var n=L.filter(function(l){return /caixa/i.test(l.banco||'')&&l.status!=='previsto'&&semCat(l)&&(l.data||'').slice(0,7)==='2026-05';}).length;if(!n){box.innerHTML='';return;}box.innerHTML='<div style="background:#FBF3DE;border:1px solid #E4CE8F;border-radius:12px;padding:14px 16px;margin:0 0 14px;display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap"><div style="font-size:13.5px;color:#7a6320;line-height:1.5"><b>\uD83D\uDDC2\uFE0F '+n+' recebimento(s) de caixa de maio sem categoria</b><br><span style="font-size:12.5px">Completar com o servi\u00e7o e a categoria do relat\u00f3rio, casando por data e valor. Nada \u00e9 apagado.</span></div><button class="btn" onclick="completarCaixaMaio()">Completar categorias de maio</button></div>';}
+/* O patch pontual de maio/2026 (lista de atendimentos + botão "Completar categorias
+   de maio") foi REMOVIDO em 06/09/2026. Ele carregava dados de clientes finais dentro
+   do código e o banner aparecia para qualquer empresa com lançamento de caixa sem
+   categoria em maio — podendo gravar esses dados na base de outro cliente.
+   A correção que ele fazia já foi aplicada na base de origem. */
 function _herdaDoTitulo(m,t){if(!m||!t)return;if(t.categoria&&!/^a classificar$/i.test((t.categoria||'').trim()))m.categoria=t.categoria;if((t.cliente||'').trim())m.cliente=t.cliente;if(!(m.servico||'').trim()&&(t.servico||'').trim())m.servico=t.servico;var _v=t.dataVencimento||t.venc;if(_v)m.dataVencimento=_v;if(!(m.dataBaixa||m.baixaData)&&m.data){m.dataBaixa=m.data;m.baixaData=m.data;}}
 function _vinculosPendentes(){var d=dados();var L=d.lancamentos||[];var byId={};L.forEach(function(l){byId[l.id]=l;});return L.filter(function(m){if(!(m.status!=='previsto'&&m.conciliado&&m.baixaDe&&byId[m.baixaDe]))return false;var t=byId[m.baixaDe];var v=t.dataVencimento||t.venc;var catDif=t.categoria&&!/^a classificar$/i.test((t.categoria||'').trim())&&m.categoria!==t.categoria;var cliDif=(t.cliente||'').trim()&&m.cliente!==t.cliente;var vencDif=v&&(m.dataVencimento||m.venc)!==v;return catDif||cliDif||vencDif;});}
 function corrigirVinculos(){try{var d=dados();var L=d.lancamentos||[];var byId={};L.forEach(function(l){byId[l.id]=l;});var alvo=L.filter(function(m){return m.status!=='previsto'&&m.conciliado&&m.baixaDe&&byId[m.baixaDe];});if(!alvo.length){alert('Nada a corrigir \u2014 todos os movimentos conciliados j\u00e1 est\u00e3o em dia com o t\u00edtulo.');return;}var catN=0,cliN=0,vencN=0;alvo.forEach(function(m){var t=byId[m.baixaDe];if(t.categoria&&!/^a classificar$/i.test((t.categoria||'').trim())&&m.categoria!==t.categoria)catN++;if((t.cliente||'').trim()&&m.cliente!==t.cliente)cliN++;var v=t.dataVencimento||t.venc;if(v&&(m.dataVencimento||m.venc)!==v)vencN++;});if(!confirm('Sincronizar '+alvo.length+' movimento(s) conciliado(s) com o t\u00edtulo que cada um baixou:\n\n\u2022 '+catN+' recebem a categoria do t\u00edtulo\n\u2022 '+cliN+' recebem o nome do cliente\n\u2022 '+vencN+' recebem o vencimento\n\nNada \u00e9 apagado, tem backup. O total do saldo n\u00e3o muda. Confirma?'))return;window.__bkpVinculos=alvo.map(function(m){return JSON.parse(JSON.stringify(m));});alvo.forEach(function(m){_herdaDoTitulo(m,byId[m.baixaDe]);});saveApp();render();alert('Pronto! '+alvo.length+' movimento(s) sincronizado(s) com o t\u00edtulo. Categoria, cliente e vencimento agora batem.');}catch(e){alert('Erro: '+e.message);}}
@@ -1913,7 +2049,6 @@ function renderBannerVencVazio(){var box=document.getElementById('bannerVencVazi
 function render(){
   try{normalizarTextos();}catch(e){}
   try{renderBannerCaixaDup();}catch(e){}
-  try{renderBannerCompletarMaio();}catch(e){}
   try{renderBannerVinculos();}catch(e){}
   try{renderBannerVencVazio();}catch(e){}
   try{renderBannerCaixaSemTitulo();}catch(e){}
@@ -3446,7 +3581,7 @@ function salvarCategoria(){const g=i=>{const e=document.getElementById(i);return
   else{if(dados().categorias.some(x=>x.nome.toLowerCase()===nome.toLowerCase())){alert('Já existe uma categoria com esse nome.');return;}rec.id=id();dados().categorias.push(rec);}
   saveApp();fecharModal();render();}
 function copiarCategoria(cid){const c=(dados().categorias||[]).find(x=>x.id===cid);if(!c)return;dados().categorias.push({...c,id:id(),nome:c.nome+' (cópia)'});saveApp();render();}
-function importarPlanoMapa(){if(!confirm('Isso substitui as categorias atuais pelo plano de contas do MAPA Financeira (Aurium Saúde). As categorias atuais serão removidas. Continuar?'))return;dados().categorias=planoMapa();saveApp();render();alert('Plano de contas importado: '+dados().categorias.length+' categorias, em ordem numérica.');}
+function importarPlanoMapa(){if(!confirm('Isso SUBSTITUI o plano de contas desta empresa pelo modelo de CLÍNICA.\n\nAs categorias atuais e a classificação que depende delas serão perdidas. Continuar?'))return;dados().categorias=planoMapa();saveApp();render();alert('Plano de contas de clínica importado: '+dados().categorias.length+' categorias, em ordem numérica.');}
 function normServ(t){return String(t||'').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,'').replace(/[^a-z0-9]+/g,' ').trim().replace(/\s+/g,' ');}
 function servicosAurium(){return [
   {pai:'🎧 AUDIOMETRIA E AVALIAÇÃO AUDITIVA',cat:'Exames Diagnósticos',itens:['Audiometria Adulto Completa (com Imitanciometria) / Remoção de cerúmen / Teste (Consulta de experiência)','Audiometria Infantil Completa (com Imitanciometria + Emissões Otoacústicas)','Imitanciometria','Emissões Otoacústicas — Teste da Orelhinha','Avaliação do Processamento Auditivo','Ganho de Inserção — Mapeamento de Fala']},
@@ -3460,7 +3595,7 @@ function servicosAurium(){return [
   {pai:'🥗 NUTRIÇÃO',cat:'Consultas Clínicas',itens:['Consulta Nutricional']},
   {pai:'🦷 ORTODONTIA E PROCEDIMENTOS ODONTOLÓGICOS',cat:'Consultas Clínicas',itens:['Consulta com Ortodontista','Procedimentos Odontológicos']}
 ];}
-function importarServicosAurium(){if(!confirm('Importar a lista de serviços da AURIUM? Isso substitui o catálogo de serviços atual pela lista oficial (organizada em pai → filhos). Você pode editar depois.'))return;const novos=[];servicosAurium().forEach(g=>{const pid=id();novos.push({id:pid,nome:g.pai,tipo:'Serviço',categoria:g.cat,pai:''});g.itens.forEach(nome=>novos.push({id:id(),nome,tipo:'Serviço',categoria:g.cat,pai:pid}));});dados().servicos=novos;saveApp();render();renderServicos();alert('Lista AURIUM importada: '+novos.length+' itens (pais + filhos), organizados por especialidade.');}
+function importarServicosAurium(){if(!confirm('Importar o catálogo de serviços de CLÍNICA (fonoaudiologia e audiologia)?\n\nIsso SUBSTITUI o catálogo de serviços desta empresa. Só use se o segmento for esse.'))return;const novos=[];servicosAurium().forEach(g=>{const pid=id();novos.push({id:pid,nome:g.pai,tipo:'Serviço',categoria:g.cat,pai:''});g.itens.forEach(nome=>novos.push({id:id(),nome,tipo:'Serviço',categoria:g.cat,pai:pid}));});dados().servicos=novos;saveApp();render();renderServicos();alert('Catálogo de clínica importado: '+novos.length+' itens (pais + filhos), organizados por especialidade.');}
 function abrirRelatorio(titulo,sub,corpo){const ea=empresaAtiva();const marca=(ea&&ea.razaoSocial)||perfil().nome;
   const css="<style>body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,'Helvetica Neue',Arial,sans-serif;color:#2b2b2b;max-width:920px;margin:28px auto;padding:0 24px}table{width:100%;border-collapse:collapse;margin-top:8px}th,td{border:1px solid #e0d5d8;padding:8px 10px;text-align:left;font-size:12.5px;vertical-align:top}th{background:#143b4d;color:#fff;font-weight:600}h3{color:#143b4d;font-family:Georgia,serif;margin:20px 0 4px;font-size:16px}.cab{text-align:center;margin-bottom:22px;border-bottom:2px solid #c1922f;padding-bottom:14px}.cab .m{font-family:Georgia,serif;font-size:22px;font-weight:700;color:#143b4d}.cab .t{font-family:Georgia,serif;font-size:18px;color:#1c4d61;margin-top:6px}.cab .s{font-size:12px;color:#888;margin-top:4px}.rod{margin-top:28px;text-align:center;color:#aaa;font-size:11px;border-top:1px solid #eee;padding-top:10px}tr:nth-child(even) td{background:#faf6f1}@media print{.noprint{display:none}}</style>";
   const cab=`<div class="cab"><div class="m">${marca}</div><div class="t">${titulo}</div><div class="s">${sub||''} · ${new Date().toLocaleDateString('pt-BR')}</div></div>`;
@@ -3667,7 +3802,7 @@ function corrigirAcentos(){let n=0;const fx=(o,ks)=>{if(!o)return;ks.forEach(k=>
   (dados().empresas||[]).forEach(e=>fx(e,['razaoSocial','responsavel','logradouro','bairro','municipio','unidade']));
   saveApp();render();alert(n+' campo(s) corrigido(s). Se ainda restar algo, reimporte o arquivo — agora ele lê os acentos certos.');}
 function lerCSVsimples(txt){const sep=(txt.split(';').length>txt.split(',').length)?';':',';const linhas=txt.split(/\r?\n/).filter(l=>l.trim());const header=linhas[0].split(sep).map(h=>h.trim().replace(/^"|"$/g,'').toLowerCase());return {header,rows:linhas.slice(1).map(l=>l.split(sep).map(c=>c.trim().replace(/^"|"$/g,'')))};}
-function contaCaixa(){var bs=(dados().bancos||[]);var c=bs.find(function(b){return (b.tipo==='Caixa'||b.tipo==='Dinheiro')&&b.ativo!==false;})||bs.find(function(b){return /caixa/i.test(b.nome||'')&&b.ativo!==false;});return c?c.nome:'CAIXA FONO CARE';}
+function contaCaixa(){var bs=(dados().bancos||[]);var c=bs.find(function(b){return (b.tipo==='Caixa'||b.tipo==='Dinheiro')&&b.ativo!==false;})||bs.find(function(b){return /caixa/i.test(b.nome||'')&&b.ativo!==false;});return c?c.nome:'';}
 /* Dedup de título. Exato por padrão.
    Para BOLETO / LINK / CARTÃO aceita folga de dias: a MESMA parcela chega por duas fontes com datas
    diferentes (a planilha traz o vencimento do boleto; o relatório de recebimentos traz o dia do pagamento).
@@ -4690,19 +4825,42 @@ function exportarExcel(){
 }
 function importarBackup(){const inp=document.createElement('input');inp.type='file';inp.accept='.json';inp.onchange=e=>{const f=e.target.files[0];const r=new FileReader();r.onload=ev=>{try{const d=JSON.parse(ev.target.result);if(!(d.perfis&&d.perfis.length)&&!d.lancamentos){alert('Arquivo inválido.');return;}window._bkpImport=d;abrirRestaurar(d);}catch(x){alert('Não foi possível ler o arquivo.');}};r.readAsText(f);};inp.click();}
 function contarBkp(d){let l=0,e=0;const ps=(d.perfis&&d.perfis.length)?d.perfis:(d.lancamentos?[{dados:d}]:[]);ps.forEach(p=>{const dd=p.dados||p;l+=(dd.lancamentos||[]).length;e+=(dd.empresas||[]).length;});return {perfis:ps.length,lanc:l,emp:e};}
+function _empresaDoBkp(d){try{
+ if(!d)return '';
+ var p=(d.perfis&&d.perfis[0])||null;
+ var c=(p&&p.dados&&p.dados.cliente)||d.cliente||null;
+ return (c&&c.razaoSocial)||(p&&p.nome)||'';}catch(e){return '';}}
+function _bkpDeOutraEmpresa(d){
+ if(!d)return false;
+ if(!d._tenantId)return null;           /* backup antigo, sem carimbo: decide pelo nome */
+ return d._tenantId!==_tenant;}
+
 function abrirRestaurar(d){const b=contarBkp(d);const at={perfis:(APP.perfis||[]).length,lanc:(dados().lancamentos||[]).length};
   document.getElementById('modalConteudo').innerHTML=`<h3>Restaurar backup</h3>
   <div class="cap" style="margin-bottom:10px">O backup tem <b>${b.perfis}</b> perfil(s), <b>${b.emp}</b> empresa(s) e <b>${b.lanc}</b> lançamento(s).<br>Seus dados atuais: <b>${at.perfis}</b> perfil(s) e <b>${at.lanc}</b> lançamento(s) no perfil ativo.</div>
-  <div class="alerta ok" style="margin-bottom:14px"><span>🔒</span><div>Antes de substituir, eu baixo automaticamente um backup de segurança dos seus dados atuais.</div></div>
-  <div style="display:flex;flex-direction:column;gap:10px">
-    <button class="btn ouro" onclick="restaurarMesclar()">➕ Somar só os novos (não duplica)</button>
-    <button class="btn" onclick="restaurarSubstituir()">🔁 Substituir tudo pelo backup</button>
-    <button class="btn sec" onclick="fecharModal()">Cancelar</button>
+  <div style="background:#FAF7F0;border:1px solid #EDE6D8;border-radius:10px;padding:10px 12px;margin-bottom:12px;font-size:13px;line-height:1.7">
+    Empresa do <b>arquivo</b>: <b>${esc(_empresaDoBkp(d)||'(sem identificação)')}</b><br>
+    Empresa <b>aberta agora</b>: <b>${esc(_nomeEmpresaAberta())}</b>
   </div>
+  ${_bkpDeOutraEmpresa(d)===true
+    ? `<div style="background:#FBE3E0;border:1px solid #d99a92;border-radius:10px;padding:12px 14px;margin-bottom:14px;color:#7A2E39;line-height:1.6"><b>⛔ Este backup é de outra empresa.</b><br><span style="font-size:12.5px">Restaurar aqui substituiria os dados desta empresa pelos da outra. Abra a empresa correta e restaure lá.</span></div>
+       <div style="display:flex;flex-direction:column;gap:10px"><button class="btn sec" onclick="fecharModal()">Fechar</button></div>`
+    : `${_bkpDeOutraEmpresa(d)===null?`<div class="alerta" style="margin-bottom:12px"><span>⚠️</span><div>Este arquivo é de uma versão antiga e <b>não diz de qual empresa veio</b>. Confira o nome acima antes de continuar.</div></div>`:''}
+       <div class="alerta ok" style="margin-bottom:14px"><span>🔒</span><div>Antes de substituir, eu baixo automaticamente um backup de segurança dos seus dados atuais.</div></div>
+       <div style="display:flex;flex-direction:column;gap:10px">
+         <button class="btn ouro" onclick="restaurarMesclar()">➕ Somar só os novos (não duplica)</button>
+         <button class="btn" onclick="restaurarSubstituir()">🔁 Substituir tudo pelo backup</button>
+         <button class="btn sec" onclick="fecharModal()">Cancelar</button>
+       </div>`}
   <div class="mini" style="margin-top:12px"><b>Somar</b> mantém o que você já tem e adiciona só os itens do backup que ainda não existem (pelo nome/código), sem duplicar. <b>Substituir</b> troca todos os dados pelos do backup.</div>`;
   document.getElementById('modalBg').classList.add('show');}
-function restaurarSubstituir(){try{exportarBackup();}catch(e){}const d=window._bkpImport;if(!d)return;if(d.perfis&&d.perfis.length){APP=d;if(!APP.perfilAtivo)APP.perfilAtivo=APP.perfis[0].id;}else if(d.lancamentos){perfil().dados.lancamentos=d.lancamentos;if(d.categorias)perfil().dados.categorias=d.categorias;}saveApp();fecharModal();render();alert('Backup restaurado (substituição concluída). Um backup de segurança dos dados anteriores foi baixado.');}
-function restaurarMesclar(){const d=window._bkpImport;if(!d)return;const src=(d.perfis&&d.perfis[0]&&d.perfis[0].dados)||(d.lancamentos?d:null);if(!src){alert('Backup sem dados para mesclar.');return;}const dd=dados();
+function restaurarSubstituir(){const d=window._bkpImport;if(!d)return;
+  if(_bkpDeOutraEmpresa(d)===true){alert('Não restaurei: este backup é de outra empresa.\n\nAbra a empresa correta e restaure lá.');return;}
+  if(!confirm('Substituir TODOS os dados de "'+_nomeEmpresaAberta()+'" pelo conteúdo deste backup?\n\nUm backup de segurança dos dados atuais será baixado antes.'))return;
+  try{exportarBackup();}catch(e){}
+  if(d.perfis&&d.perfis.length){var _tid=_tenant;APP=d;APP._tenantId=_tid;if(!APP.perfilAtivo)APP.perfilAtivo=APP.perfis[0].id;}else if(d.lancamentos){perfil().dados.lancamentos=d.lancamentos;if(d.categorias)perfil().dados.categorias=d.categorias;}saveApp();fecharModal();render();alert('Backup restaurado (substituição concluída). Um backup de segurança dos dados anteriores foi baixado.');}
+function restaurarMesclar(){const d=window._bkpImport;if(!d)return;
+  if(_bkpDeOutraEmpresa(d)===true){alert('Não mesclei: este backup é de outra empresa.\n\nMisturar os dois seria irreversível.');return;}const src=(d.perfis&&d.perfis[0]&&d.perfis[0].dados)||(d.lancamentos?d:null);if(!src){alert('Backup sem dados para mesclar.');return;}const dd=dados();
   const keyf={empresas:x=>(x.unidade||x.id||'').toString().toLowerCase(),bancos:x=>(x.nome||x.id||'').toString().toLowerCase(),categorias:x=>(x.nome||'').toString().toLowerCase(),lancamentos:x=>x.id,vencimentos:x=>x.id,regras:x=>x.id,orcamentos:x=>(x.categoria||'').toString().toLowerCase()};
   const add={};Object.keys(keyf).forEach(k=>{if(!Array.isArray(src[k]))return;dd[k]=dd[k]||[];const vistos=new Set(dd[k].map(keyf[k]));let n=0;src[k].forEach(x=>{const key=keyf[k](x);if(x&&key!==undefined&&key!==''&&!vistos.has(key)){dd[k].push(x);vistos.add(key);n++;}});add[k]=n;});
   if(typeof syncUnidades==='function')syncUnidades();saveApp();fecharModal();render();alert('Mesclado sem duplicar. Adicionados — lançamentos: '+(add.lancamentos||0)+', empresas: '+(add.empresas||0)+', bancos: '+(add.bancos||0)+', categorias: '+(add.categorias||0)+'.');}
@@ -4744,14 +4902,19 @@ function renderPerfis(){
   const g=document.getElementById('gridPerfis');
   g.innerHTML=APP.perfis.map(p=>{const d=p.dados;const real=d.lancamentos.filter(l=>l.status!=='previsto');const rec=real.filter(l=>l.tipo==='receita').reduce((s,l)=>s+(+l.valor||0),0);const desp=real.filter(l=>l.tipo==='despesa').reduce((s,l)=>s+(+l.valor||0),0);const ativo=p.id===APP.perfilAtivo;
     return `<div class="perfil-card ${ativo?'ativo':''}"><div class="pstat">${ativo?'<span class="pill ok">Em uso</span>':''}</div><div class="pav">${iniciais(p.nome)}</div><h3>${esc(p.nome)}</h3><div class="pneg">${p.negocio||'—'} · ${esc(p.tipo||'')}</div><div class="pinfo"><div>Lucro<b style="color:${rec-desp>=0?'var(--verde)':'var(--rubro)'}">${moeda(rec-desp)}</b></div><div>Lançamentos<b>${d.lancamentos.length}</b></div></div><div class="perfil-acoes">${ativo?'<button class="btn peq" disabled style="opacity:.5">Selecionado</button>':`<button class="btn peq" onclick="trocarPerfil('${p.id}')">Acessar</button>`}<button class="btn sec peq" onclick="editarPerfil('${p.id}')">Editar</button>${APP.perfis.length>1?`<button class="btn-ico" onclick="excluirPerfil('${p.id}')" title="Excluir">🗑️</button>`:''}</div></div>`;}).join('');
-  g.innerHTML+=`<div class="perfil-card" style="border-style:dashed;display:flex;flex-direction:column;align-items:center;justify-content:center;cursor:pointer;color:var(--suave)" onclick="novoPerfil()"><div style="font-size:34px;color:var(--ouro)">＋</div><div style="font-weight:600;margin-top:6px">Novo perfil</div></div>`;
+  if(_podeCriarPerfil())g.innerHTML+=`<div class="perfil-card" style="border-style:dashed;display:flex;flex-direction:column;align-items:center;justify-content:center;cursor:pointer;color:var(--suave)" onclick="novoPerfil()"><div style="font-size:34px;color:var(--ouro)">＋</div><div style="font-weight:600;margin-top:6px">Novo perfil</div></div>`;
+  try{var _bn=document.getElementById('boxNovoPerfil');
+    if(_bn)_bn.innerHTML=_podeCriarPerfil()
+      ?'<button class="btn ouro" onclick="novoPerfil()">＋ Novo perfil nesta empresa</button>'
+      :'<div class="mini" style="color:var(--suave)">Para abrir outra empresa use <b>Trocar empresa</b>, na barra do topo.</div>';}catch(e){}
 }
 function trocarPerfil(pid){APP.perfilAtivo=pid;saveApp();render();abrirAba('painel');}
 function novoPerfil(){
   document.getElementById('modalConteudo').innerHTML=`<h3>Novo perfil</h3><div class="form-grid"><div style="grid-column:span 3"><label>Nome da pessoa / mentorada</label><input id="npNome" placeholder="Ex: Maria Silva"></div><div style="grid-column:span 3"><label>Nome do negócio</label><input id="npNeg" placeholder="Ex: Boutique Maria"></div></div><div class="alerta" style="margin-top:16px"><span>💡</span><div>Quer começar com dados de demonstração para ver tudo funcionando? Marque abaixo.</div></div><label style="text-transform:none;font-weight:500;display:flex;gap:8px;align-items:center"><input type="checkbox" id="npExemplo" style="width:auto"> Preencher com dados de exemplo</label><div class="modal-acoes"><button class="btn sec" onclick="fecharModal()">Cancelar</button><button class="btn" onclick="criarPerfil()">Criar perfil</button></div>`;
   document.getElementById('modalBg').classList.add('show');
 }
-function criarPerfil(){const nome=document.getElementById('npNome').value.trim();if(!nome){alert('Informe o nome.');return;}const neg=document.getElementById('npNeg').value.trim();const p=novoPerfilObj(nome,neg);if(document.getElementById('npExemplo').checked)preencherExemplo(p);APP.perfis.push(p);APP.perfilAtivo=p.id;saveApp();fecharModal();render();abrirAba('painel');}
+function criarPerfil(){
+  if(!_podeCriarPerfil()){alert('Só quem administra o sistema pode criar um perfil dentro de uma empresa.\n\nPara abrir outra empresa, use "Trocar empresa" na barra do topo.');return;}const nome=document.getElementById('npNome').value.trim();if(!nome){alert('Informe o nome.');return;}const neg=document.getElementById('npNeg').value.trim();const p=novoPerfilObj(nome,neg);if(document.getElementById('npExemplo').checked)preencherExemplo(p);APP.perfis.push(p);APP.perfilAtivo=p.id;saveApp();fecharModal();render();abrirAba('painel');}
 function editarPerfil(pid){const p=APP.perfis.find(x=>x.id===pid);if(!p)return;document.getElementById('modalConteudo').innerHTML=`<h3>Editar perfil</h3><div class="form-grid"><div style="grid-column:span 3"><label>Nome</label><input id="epNome" value="${(p.nome||'').replace(/"/g,'&quot;')}"></div><div style="grid-column:span 3"><label>Negócio</label><input id="epNeg" value="${(p.negocio||'').replace(/"/g,'&quot;')}"></div><div style="grid-column:span 3"><label>Tipo</label><select id="epTipo"><option ${p.tipo==='Mentorada'?'selected':''}>Mentorada</option><option ${p.tipo==='Assinante'?'selected':''}>Assinante</option><option ${p.tipo==='Meu negócio'?'selected':''}>Meu negócio</option></select></div><div style="grid-column:span 3"><label>Status</label><select id="epStatus"><option ${p.status==='Ativo'?'selected':''}>Ativo</option><option ${p.status==='Bloqueado'?'selected':''}>Bloqueado</option></select></div></div><div class="alerta" style="margin-top:14px"><span>📍</span><div>As unidades (matriz e filial) são cadastradas na aba Clientes.</div></div><div class="modal-acoes"><button class="btn sec" onclick="fecharModal()">Cancelar</button><button class="btn" onclick="confirmarEditarPerfil('${pid}')">Salvar</button></div>`;document.getElementById('modalBg').classList.add('show');}
 function confirmarEditarPerfil(pid){const p=APP.perfis.find(x=>x.id===pid);if(!p)return;p.nome=document.getElementById('epNome').value.trim()||p.nome;p.negocio=document.getElementById('epNeg').value.trim();p.tipo=document.getElementById('epTipo').value;p.status=document.getElementById('epStatus').value;saveApp();fecharModal();render();renderPerfis();}
 function excluirPerfil(pid){if(APP.perfis.length<=1){alert('É preciso ter pelo menos um perfil.');return;}const p=APP.perfis.find(x=>x.id===pid);if(!confirm(`Excluir o perfil "${p.nome}" e TODOS os dados dele? Esta ação não pode ser desfeita.`))return;APP.perfis=APP.perfis.filter(x=>x.id!==pid);if(APP.perfilAtivo===pid)APP.perfilAtivo=APP.perfis[0].id;saveApp();render();renderPerfis();}
@@ -4761,34 +4924,34 @@ function preencherExemplo(p){
   p.dados.categorias=categoriasPadrao();p.dados.orcamentos=[];
   const hoje=new Date();const ym=`${hoje.getFullYear()}-${String(hoje.getMonth()+1).padStart(2,'0')}`;const ex=[];
   const add=(d,desc,banco,cat,tipo,valor,status)=>ex.push({id:id(),data:d,descricao:desc,banco,categoria:cat,tipo,valor,status:status||'realizado'});
-  for(let i=0;i<8;i++)add(`${ym}-0${(i%9)+1}`,'Recebimento PIX cliente','Sicredi','Vendas','receita',1500+i*420);
-  add(`${ym}-05`,'Venda cartão','Sicredi','Vendas','receita',58500);
-  add(`${ym}-12`,'Prestação de serviço','Sicredi','Serviços','receita',14200);
-  add(`${ym}-03`,'Compra de mercadoria','Sicredi','Compra de mercadoria','despesa',35680);
-  add(`${ym}-08`,'Fornecedor insumos','Sicredi','Compra de mercadoria','despesa',9820);
-  add(`${ym}-05`,'Aluguel da loja','Sicredi','Aluguel','despesa',6800);
-  add(`${ym}-05`,'Folha de pagamento','Sicredi','Salários','despesa',9200);
-  add(`${ym}-10`,'Energia e internet','Sicredi','Energia / Água / Internet','despesa',1850);
-  add(`${ym}-15`,'Impostos do mês','Sicredi','Impostos','despesa',4300);
-  add(`${ym}-18`,'Tarifas e juros','Sicredi','Tarifas e juros','despesa',1240);
-  add(`${ym}-20`,'Marketing / tráfego','Sicredi','Marketing','despesa',2100);
-  add(`${ym}-22`,'Compra de equipamento','Sicredi','Equipamentos','despesa',3400);
-  add(`${ym}-26`,'A pagar: fornecedor','Sicredi','Compra de mercadoria','despesa',5200,'previsto');
-  add(`${ym}-28`,'A receber: cliente grande','Sicredi','Vendas','receita',8800,'previsto');
-  add(`${ym}-15`,'A pagar: imposto parcelado','Sicredi','Impostos','despesa',1900,'previsto');
+  for(let i=0;i<8;i++)add(`${ym}-0${(i%9)+1}`,'Recebimento PIX cliente','Conta principal','Vendas','receita',1500+i*420);
+  add(`${ym}-05`,'Venda cartão','Conta principal','Vendas','receita',58500);
+  add(`${ym}-12`,'Prestação de serviço','Conta principal','Serviços','receita',14200);
+  add(`${ym}-03`,'Compra de mercadoria','Conta principal','Compra de mercadoria','despesa',35680);
+  add(`${ym}-08`,'Fornecedor insumos','Conta principal','Compra de mercadoria','despesa',9820);
+  add(`${ym}-05`,'Aluguel da loja','Conta principal','Aluguel','despesa',6800);
+  add(`${ym}-05`,'Folha de pagamento','Conta principal','Salários','despesa',9200);
+  add(`${ym}-10`,'Energia e internet','Conta principal','Energia / Água / Internet','despesa',1850);
+  add(`${ym}-15`,'Impostos do mês','Conta principal','Impostos','despesa',4300);
+  add(`${ym}-18`,'Tarifas e juros','Conta principal','Tarifas e juros','despesa',1240);
+  add(`${ym}-20`,'Marketing / tráfego','Conta principal','Marketing','despesa',2100);
+  add(`${ym}-22`,'Compra de equipamento','Conta principal','Equipamentos','despesa',3400);
+  add(`${ym}-26`,'A pagar: fornecedor','Conta principal','Compra de mercadoria','despesa',5200,'previsto');
+  add(`${ym}-28`,'A receber: cliente grande','Conta principal','Vendas','receita',8800,'previsto');
+  add(`${ym}-15`,'A pagar: imposto parcelado','Conta principal','Impostos','despesa',1900,'previsto');
   // mês anterior para o fluxo de caixa ter histórico
   const ant=new Date(hoje.getFullYear(),hoje.getMonth()-1,1);const ym2=`${ant.getFullYear()}-${String(ant.getMonth()+1).padStart(2,'0')}`;
-  add(`${ym2}-05`,'Venda cartão','Sicredi','Vendas','receita',41200);
-  add(`${ym2}-08`,'Recebimentos PIX','Sicredi','Vendas','receita',22800);
-  add(`${ym2}-04`,'Compra de mercadoria','Sicredi','Compra de mercadoria','despesa',28400);
-  add(`${ym2}-05`,'Aluguel','Sicredi','Aluguel','despesa',6800);
-  add(`${ym2}-05`,'Folha','Sicredi','Salários','despesa',9200);
-  add(`${ym2}-15`,'Impostos','Sicredi','Impostos','despesa',3900);
-  ex.forEach((l,i)=>{l.unidade=(i%3===0)?'Antônio Prado':'Caxias do Sul';l.banco=(i%2===0)?'Sicredi':'Banco Inter';});
-  p.dados.unidades=['Caxias do Sul','Antônio Prado'];
-  p.dados.unidadesTipo={'Caxias do Sul':'Matriz','Antônio Prado':'Filial'};
-  p.dados.empresas=[{id:id(),unidade:'Caxias do Sul',tipo:'Matriz',razaoSocial:'AURIUM SAUDE LTDA'},{id:id(),unidade:'Antônio Prado',tipo:'Filial',razaoSocial:'AURIUM SAUDE LTDA'}];
-  p.dados.bancos=[{id:id(),nome:'Sicredi',agencia:'0001',conta:'12345-6',saldoInicial:5000},{id:id(),nome:'Banco Inter',agencia:'0077',conta:'98765-4',saldoInicial:2000}];
+  add(`${ym2}-05`,'Venda cartão','Conta principal','Vendas','receita',41200);
+  add(`${ym2}-08`,'Recebimentos PIX','Conta principal','Vendas','receita',22800);
+  add(`${ym2}-04`,'Compra de mercadoria','Conta principal','Compra de mercadoria','despesa',28400);
+  add(`${ym2}-05`,'Aluguel','Conta principal','Aluguel','despesa',6800);
+  add(`${ym2}-05`,'Folha','Conta principal','Salários','despesa',9200);
+  add(`${ym2}-15`,'Impostos','Conta principal','Impostos','despesa',3900);
+  ex.forEach((l,i)=>{l.unidade=(i%3===0)?'Filial':'Matriz';l.banco=(i%2===0)?'Conta principal':'Conta secundária';});
+  p.dados.unidades=['Matriz','Filial'];
+  p.dados.unidadesTipo={'Matriz':'Matriz','Filial':'Filial'};
+  p.dados.empresas=[{id:id(),unidade:'Matriz',tipo:'Matriz',razaoSocial:'Empresa Exemplo'},{id:id(),unidade:'Filial',tipo:'Filial',razaoSocial:'Empresa Exemplo'}];
+  p.dados.bancos=[{id:id(),nome:'Conta principal',agencia:'0001',conta:'12345-6',saldoInicial:5000},{id:id(),nome:'Conta secundária',agencia:'0077',conta:'98765-4',saldoInicial:2000}];
   p.dados.lancamentos=ex;
   p.dados.orcamentos=[{id:id(),categoria:'Compra de mercadoria',valor:42000},{id:id(),categoria:'Marketing',valor:2500},{id:id(),categoria:'Salários',valor:9000},{id:id(),categoria:'Aluguel',valor:6800}];
   p.dados.regras=[{id:id(),contem:'RGE',banco:'',tipo:'despesa',categoria:'Energia / Água / Internet'},{id:id(),contem:'PIX',banco:'',tipo:'receita',categoria:'Vendas'},{id:id(),contem:'aluguel',banco:'',tipo:'despesa',categoria:'Aluguel'}];
@@ -5359,7 +5522,7 @@ function limparParcelasPagas(){
     var val=rem.reduce(function(s,l){return s+(+l.valor||0);},0);
     if(!confirm('Encontrei '+rem.length+' título(s) em aberto que já foram pagos por outro título, ou soltos sem vencimento que duplicam uma cobrança já paga — R$ '+val.toFixed(2)+' cobrado em dobro no a receber.\n\nRemover? A parcela paga permanece e o saldo do banco NÃO muda. Um backup é baixado antes. Confirmar?'))return;
     try{ if(typeof exportarBackup==='function') exportarBackup(); }catch(e){}
-    window.__bkpAuriumPre=JSON.parse(JSON.stringify(L));
+    window.__bkpParcelasPagas=JSON.parse(JSON.stringify(L));
     d.lancamentos=L.filter(function(l){return !ids[l.id];});
     saveApp();render();
     alert('Pronto! '+rem.length+' título(s) removido(s). O a receber reduziu R$ '+val.toFixed(2)+'. Backup baixado nos Downloads.');
@@ -5647,7 +5810,9 @@ function montarBarraNuvem(){const bar=document.querySelector('.tb-acoes');if(!ba
   mk('Trocar empresa',trocarEmpresa);
   mk('Sair',sairNuvem).id='btnBarSair';
 }
-async function trocarEmpresa(){window._cloudReady=false;_tenant=null;_empresas=await carregarMinhasEmpresas();renderSeletor();}
+async function trocarEmpresa(){window._cloudReady=false;_tenant=null;_tver=0;_readonly=false;_unidades=null;
+ limparEstadoLocal();APP={perfilAtivo:null,perfis:[]};
+ _empresas=await carregarMinhasEmpresas();renderSeletor();}
 
 /* ===================== SELETOR DE EMPRESA ===================== */
 function fecharSeletor(){const o=document.getElementById('seletorOverlay');if(o)o.remove();}
