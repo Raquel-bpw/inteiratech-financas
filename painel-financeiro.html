@@ -425,6 +425,7 @@ body.so-leitura input[type=file]{display:none}
       <div class="sb-bloco">
         <button class="sb-grupo" onclick="toggleGrupo(this)">Configuração<span class="sb-seta">⌄</span></button>
         <div class="sb-itens">
+          <button class="menu-item" onclick="abrirChecklist()">✅ Configuração da empresa</button>
           <button class="menu-item" data-pages="cliente" onclick="irPara('cliente',this)">Empresa</button>
           <button class="menu-item" data-pages="bancos" onclick="irPara('bancos',this)">Bancos</button>
           <button class="menu-item" data-pages="categorias" onclick="irPara('categorias',this)">Categorias</button>
@@ -447,6 +448,8 @@ body.so-leitura input[type=file]{display:none}
         <button class="sb-grupo" onclick="toggleGrupo(this)">Sistema<span class="sb-seta">⌄</span></button>
         <div class="sb-itens">
           <button class="menu-item" id="menuAdmin" onclick="abrirAdmin()">🛡 Admin</button>
+          <button class="menu-item" onclick="abrirAcervo()">📚 Acervo padrão</button>
+          <button class="menu-item" onclick="marcarComoModelo()">⭐ Empresa-modelo</button>
         </div>
       </div>
     </nav>
@@ -479,6 +482,7 @@ body.so-leitura input[type=file]{display:none}
     <div id="bannerVinculos"></div>
     <div id="bannerVencVazio"></div>
     <div id="bannerCaixaSemTitulo"></div>
+    <div id="bannerChecklist"></div>
     <div id="bannerImportRuim"></div>
     <div id="bannerBaixaDupla"></div>
     <div id="bannerDuplicados"></div>
@@ -1411,6 +1415,375 @@ function _cliqueNoCliente(){if(_podeCriarPerfil())irPara('perfis');else trocarEm
 /* Criar "cliente" aqui cria um perfil DENTRO da empresa aberta — não uma empresa nova.
    Para trocar de empresa existe o botão "Trocar empresa" na barra da nuvem. */
 function _podeCriarPerfil(){return _ehMaster();}
+/* ======================================================================
+   ACERVO PADRÃO
+   Uma empresa é marcada como MODELO. O que está nela (plano de contas,
+   regras de categorização e layouts de extrato por banco) é o padrão da
+   casa e pode ser distribuído para as outras empresas.
+
+   Padrão e personalização convivem no mesmo lugar, separados por MARCA
+   DE ORIGEM em cada item:
+     _org:'padrao'  → veio do acervo; pode ser atualizado
+     _org:'empresa' → criado ou editado nesta empresa; NUNCA é tocado
+   Item sem marca é tratado como da empresa — na dúvida, não se mexe.
+   ====================================================================== */
+
+var ACERVO_PARTES=[
+ {chave:'categorias',rotulo:'Plano de contas',id:function(x){return _normAc(x.nome);}},
+ {chave:'regras',    rotulo:'Regras de categorização',id:function(x){return _normAc(x.contem)+'|'+_normAc(x.tipo||'');}},
+ {chave:'layoutExtrato',rotulo:'Layouts de extrato por banco',mapa:true}
+];
+function _normAc(s){return String(s||'').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,'').replace(/\s+/g,' ').trim();}
+
+/* ---------- marca de origem ---------- */
+function _ehDoPadrao(x){return !!(x&&x._org==='padrao');}
+function _marcarPadrao(x,v){if(!x)return x;x._org='padrao';x._v=v||'';return x;}
+function _marcarDaEmpresa(x){if(!x)return x;x._org='empresa';delete x._v;return x;}
+/* Chamado sempre que a pessoa salva à mão: o item deixa de ser padrão. */
+function marcarEditadoNaEmpresa(x){if(x&&x._org==='padrao')_marcarDaEmpresa(x);return x;}
+
+/* ---------- a empresa-modelo ---------- */
+function _ehEmpresaModelo(){try{return !!(dados()&&dados()._ehModelo);}catch(e){return false;}}
+function _idModelo(){try{return localStorage.getItem('inteira_modelo_tenant')||'';}catch(e){return '';}}
+function _setIdModelo(t){try{if(t)localStorage.setItem('inteira_modelo_tenant',t);else localStorage.removeItem('inteira_modelo_tenant');}catch(e){}}
+
+function marcarComoModelo(){
+ if(!_ehMaster()){alert('Só quem administra o sistema pode definir a empresa-modelo.');return;}
+ var d=dados();
+ if(d._ehModelo){
+  if(!confirm('Deixar de usar "'+_nomeEmpresaAberta()+'" como empresa-modelo?'))return;
+  delete d._ehModelo;delete d._acervoVersao;_setIdModelo('');saveApp();render();
+  alert('Esta empresa não é mais o modelo.');return;}
+ if(!confirm('Marcar "'+_nomeEmpresaAberta()+'" como EMPRESA-MODELO?\n\n'
+  +'O plano de contas, as regras e os layouts de banco desta empresa passam a ser o padrão da casa, '
+  +'distribuído para as demais. Os lançamentos dela não são usados para nada disso.'))return;
+ d._ehModelo=true;d._acervoVersao=d._acervoVersao||_agoraISO();
+ _setIdModelo(_tenant);saveApp();render();
+ alert('Pronto. Esta é a empresa-modelo.\n\nAo terminar de ajustar o padrão, use "Publicar acervo" para carimbar a versão e distribuir.');}
+
+function publicarAcervo(){
+ if(!_ehEmpresaModelo()){alert('Só a empresa-modelo publica o acervo.');return;}
+ var d=dados();var v=_agoraISO();
+ var n={categorias:0,regras:0,layoutExtrato:0};
+ (d.categorias||[]).forEach(function(c){if(c._org!=='empresa'){_marcarPadrao(c,v);n.categorias++;}});
+ (d.regras||[]).forEach(function(r){if(r._org!=='empresa'){_marcarPadrao(r,v);n.regras++;}});
+ var L=d.layoutExtrato||{};Object.keys(L).forEach(function(k){if(L[k]._org!=='empresa'){_marcarPadrao(L[k],v);n.layoutExtrato++;}});
+ d._acervoVersao=v;_setIdModelo(_tenant);saveApp();
+ alert('Acervo publicado — versão '+v+'\n\n'
+  +n.categorias+' categoria(s)\n'+n.regras+' regra(s)\n'+n.layoutExtrato+' layout(s) de banco\n\n'
+  +'Agora abra "Acervo padrão" para aplicar às empresas.');}
+
+/* ---------- leitura do acervo sem trocar de empresa ---------- */
+async function _lerAcervo(){
+ var tid=_idModelo();
+ if(!tid){
+  var cand=(_empresas||[]).find(function(e){return /padr[aã]o|modelo/i.test(e.nome||'');});
+  if(cand)tid=cand.tenant_id;}
+ if(!tid)return {erro:'Nenhuma empresa-modelo definida. Abra a empresa que serve de padrão e use "Marcar como empresa-modelo".'};
+ if(tid===_tenant){
+  var d=dados();
+  return {tenant:tid,nome:_nomeEmpresaAberta(),versao:d._acervoVersao||'',
+   categorias:(d.categorias||[]).filter(_ehDoPadrao),
+   regras:(d.regras||[]).filter(_ehDoPadrao),
+   layoutExtrato:_soPadraoMapa(d.layoutExtrato||{})};}
+ try{
+  var r=await sb.rpc('carregar_empresa',{p_tenant:tid});
+  if(r.error)return {erro:'Não consegui ler a empresa-modelo: '+r.error.message};
+  var row=(r.data&&r.data[0])||null;
+  if(!row)return {erro:'Empresa-modelo não encontrada ou sem acesso.'};
+  var A=row.data||{};var p=(A.perfis&&A.perfis[0])||null;var dd=(p&&p.dados)||{};
+  return {tenant:tid,nome:((_empresas||[]).find(function(e){return e.tenant_id===tid;})||{}).nome||'Empresa-modelo',
+   versao:dd._acervoVersao||'',
+   categorias:(dd.categorias||[]).filter(_ehDoPadrao),
+   regras:(dd.regras||[]).filter(_ehDoPadrao),
+   layoutExtrato:_soPadraoMapa(dd.layoutExtrato||{})};
+ }catch(e){return {erro:'Erro ao ler a empresa-modelo: '+e.message};}}
+
+function _soPadraoMapa(m){var o={};Object.keys(m||{}).forEach(function(k){if(_ehDoPadrao(m[k]))o[k]=m[k];});return o;}
+
+/* ---------- comparação: o que entraria nesta empresa ---------- */
+function _diffAcervo(ac,d){
+ var out={novos:{categorias:[],regras:[],layoutExtrato:[]},
+          atualiza:{categorias:[],regras:[],layoutExtrato:[]},
+          protegidos:{categorias:[],regras:[],layoutExtrato:[]}};
+ /* categorias e regras: listas */
+ [{k:'categorias',id:ACERVO_PARTES[0].id},{k:'regras',id:ACERVO_PARTES[1].id}].forEach(function(P){
+  var atuais=(d[P.k]||[]);var idx={};atuais.forEach(function(x){idx[P.id(x)]=x;});
+  (ac[P.k]||[]).forEach(function(x){
+   var ja=idx[P.id(x)];
+   if(!ja){out.novos[P.k].push(x);return;}
+   if(ja._org==='empresa'){out.protegidos[P.k].push(ja);return;}
+   if(JSON.stringify(_semMarca(ja))!==JSON.stringify(_semMarca(x)))out.atualiza[P.k].push({de:ja,para:x});});});
+ /* layouts: mapa por nome de banco */
+ var Lm=d.layoutExtrato||{};
+ Object.keys(ac.layoutExtrato||{}).forEach(function(k){
+  var ja=Lm[k];
+  if(!ja){out.novos.layoutExtrato.push({banco:k,lay:ac.layoutExtrato[k]});return;}
+  if(ja._org==='empresa'){out.protegidos.layoutExtrato.push({banco:k});return;}
+  if(JSON.stringify(_semMarca(ja))!==JSON.stringify(_semMarca(ac.layoutExtrato[k])))
+   out.atualiza.layoutExtrato.push({banco:k,lay:ac.layoutExtrato[k]});});
+ return out;}
+function _semMarca(x){var o=JSON.parse(JSON.stringify(x||{}));delete o._org;delete o._v;delete o.id;return o;}
+
+/* ---------- aplicar na empresa ABERTA ---------- */
+function _aplicarAcervoNaEmpresa(ac,d,partes){
+ var n={categorias:0,regras:0,layoutExtrato:0};
+ var quer=function(k){return !partes||partes.indexOf(k)>=0;};
+ if(quer('categorias')){
+  var idc=ACERVO_PARTES[0].id;d.categorias=d.categorias||[];
+  var idx={};d.categorias.forEach(function(x){idx[idc(x)]=x;});
+  (ac.categorias||[]).forEach(function(x){
+   var ja=idx[idc(x)];
+   if(!ja){var novo=JSON.parse(JSON.stringify(x));novo.id=id();d.categorias.push(novo);n.categorias++;return;}
+   if(ja._org==='empresa')return;                 /* personalizado: não se toca */
+   var keep=ja.id;Object.keys(x).forEach(function(kk){if(kk!=='id')ja[kk]=x[kk];});ja.id=keep;n.categorias++;});}
+ if(quer('regras')){
+  var idr=ACERVO_PARTES[1].id;d.regras=d.regras||[];
+  var idx2={};d.regras.forEach(function(x){idx2[idr(x)]=x;});
+  (ac.regras||[]).forEach(function(x){
+   var ja=idx2[idr(x)];
+   if(!ja){var nr=JSON.parse(JSON.stringify(x));nr.id=id();d.regras.push(nr);n.regras++;return;}
+   if(ja._org==='empresa')return;
+   var k2=ja.id;Object.keys(x).forEach(function(kk){if(kk!=='id')ja[kk]=x[kk];});ja.id=k2;n.regras++;});}
+ if(quer('layoutExtrato')){
+  d.layoutExtrato=d.layoutExtrato||{};
+  Object.keys(ac.layoutExtrato||{}).forEach(function(k){
+   var ja=d.layoutExtrato[k];
+   if(ja&&ja._org==='empresa')return;
+   d.layoutExtrato[k]=JSON.parse(JSON.stringify(ac.layoutExtrato[k]));n.layoutExtrato++;});}
+ d._acervoAplicado=ac.versao||'';
+ return n;}
+
+/* ---------- tela: Acervo padrão ---------- */
+async function abrirAcervo(){
+ if(!_ehMaster()){alert('Só quem administra o sistema vê o acervo padrão.');return;}
+ document.getElementById('modalConteudo').innerHTML='<h3>Acervo padrão</h3><div class=mini style="padding:20px 0">Lendo a empresa-modelo…</div>';
+ document.getElementById('modalBg').classList.add('show');
+ var ac=await _lerAcervo();
+ if(ac.erro){
+  document.getElementById('modalConteudo').innerHTML='<h3>Acervo padrão</h3>'
+   +'<div class=mini style="background:#FBF3DE;border:1px solid #E4CE8F;border-radius:10px;padding:12px 14px;margin:6px 0 12px;line-height:1.7">'+esc(ac.erro)+'</div>'
+   +'<div class=mini style="line-height:1.8">O acervo é o padrão da casa: <b>plano de contas</b>, <b>regras de categorização</b> e <b>layouts de extrato por banco</b>.<br>'
+   +'Ele mora numa empresa marcada como modelo. Abra essa empresa e use <b>Marcar como empresa-modelo</b>, ajuste o que for o padrão e clique em <b>Publicar acervo</b>.</div>'
+   +'<div class="modal-acoes"><button class="btn sec" onclick="fecharModal()">Fechar</button>'
+   +(_ehMaster()?' <button class="btn ouro" onclick="marcarComoModelo()">Marcar esta empresa como modelo</button>':'')+'</div>';
+  return;}
+ window._acervo=ac;
+ var d=dados();var dif=_diffAcervo(ac,d);
+ var tot=function(o){return o.categorias.length+o.regras.length+o.layoutExtrato.length;};
+ var linha=function(rot,qtd,cor){return '<div style="display:flex;justify-content:space-between;padding:5px 0;border-bottom:1px solid #F3EFE5"><span class=mini>'+rot+'</span><b style="color:'+cor+'">'+qtd+'</b></div>';};
+ var ehModelo=_ehEmpresaModelo();
+ document.getElementById('modalConteudo').innerHTML='<h3>Acervo padrão</h3>'
+  +'<div class=mini style="margin:-4px 0 12px">Modelo: <b>'+esc(ac.nome)+'</b>'+(ac.versao?' · versão <b>'+esc(ac.versao)+'</b>':' · <b>ainda não publicado</b>')+'</div>'
+  +(ehModelo?'<div class=mini style="background:#FBF3DE;border:1px solid #E4CE8F;border-radius:10px;padding:10px 12px;margin:0 0 12px">Você está <b>dentro da empresa-modelo</b>. Ajuste aqui o que é padrão e clique em <b>Publicar acervo</b>. Depois abra outra empresa para aplicar.</div>':'')
+  +'<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px">'
+   +'<div style="background:#FAF7F0;border:1px solid #EDE6D8;border-radius:10px;padding:11px 13px">'
+     +'<div class=mini style="font-weight:800;color:var(--vinho);margin-bottom:6px">No acervo</div>'
+     +linha('Plano de contas',(ac.categorias||[]).length,'var(--vinho)')
+     +linha('Regras',(ac.regras||[]).length,'var(--vinho)')
+     +linha('Layouts de banco',Object.keys(ac.layoutExtrato||{}).length,'var(--vinho)')+'</div>'
+   +'<div style="background:#F2F7F4;border:1px solid #cfe6d6;border-radius:10px;padding:11px 13px">'
+     +'<div class=mini style="font-weight:800;color:#2f6b4f;margin-bottom:6px">Entraria em «'+esc(_nomeEmpresaAberta())+'»</div>'
+     +linha('Itens novos',tot(dif.novos),'#2f6b4f')
+     +linha('Itens atualizados',tot(dif.atualiza),'#8a6d1f')
+     +linha('Protegidos (seus)',tot(dif.protegidos),'var(--suave)')+'</div>'
+  +'</div>'
+  +(tot(dif.protegidos)?'<div class=mini style="background:#FAF7F0;border:1px solid #EDE6D8;border-radius:8px;padding:9px 11px;margin:0 0 10px">🔒 <b>'+tot(dif.protegidos)+' item(ns) que você personalizou nesta empresa não serão tocados.</b> O acervo só mexe no que ainda é padrão.</div>':'')
+  +'<div class=mini style="font-weight:700;color:var(--vinho);margin:0 0 6px">O que aplicar</div>'
+  +'<div style="display:flex;gap:16px;flex-wrap:wrap;margin-bottom:10px">'
+   +ACERVO_PARTES.map(function(P){return '<label class=mini style="display:flex;gap:6px;align-items:center"><input type="checkbox" class="acvChk" value="'+P.chave+'" checked style="width:auto"> '+P.rotulo+'</label>';}).join('')
+  +'</div>'
+  +'<div id="acvDetalhe"></div>'
+  +'<div class="modal-acoes" style="flex-wrap:wrap;gap:8px"><button class="btn sec" onclick="fecharModal()">Fechar</button>'
+   +' <button class="btn sec" onclick="verDetalheAcervo()">Ver o que muda</button>'
+   +(ehModelo?' <button class="btn ouro" onclick="publicarAcervo()">Publicar acervo</button>'
+             :(tot(dif.novos)+tot(dif.atualiza)?' <button class="btn ouro" onclick="aplicarAcervoAqui()">Aplicar nesta empresa</button>':' <span class=mini style="align-self:center;color:#2f6b4f"><b>✔ Esta empresa já está com o acervo em dia.</b></span>'))
+  +'</div>';
+ var mb=document.getElementById('modalConteudo').closest('.modal');if(mb)mb.style.maxWidth='860px';}
+
+function verDetalheAcervo(){try{
+ var ac=window._acervo;if(!ac)return;var dif=_diffAcervo(ac,dados());
+ var bloco=function(tit,arr,fmt,cor){if(!arr.length)return '';
+  return '<div style="margin-bottom:10px"><div class=mini style="font-weight:700;color:'+cor+'">'+tit+' ('+arr.length+')</div>'
+   +'<div class=mini style="color:var(--suave);line-height:1.7">'+arr.slice(0,25).map(fmt).join(' · ')+(arr.length>25?' … +'+(arr.length-25):'')+'</div></div>';};
+ var nc=function(x){return esc(x.nome||x.contem||'');};
+ var nu=function(x){return esc((x.para&&(x.para.nome||x.para.contem))||x.banco||'');};
+ var nb=function(x){return esc(x.banco||'');};
+ document.getElementById('acvDetalhe').innerHTML=
+  '<div style="background:#FAF7F0;border:1px solid #EDE6D8;border-radius:10px;padding:11px 13px;margin-bottom:10px;max-height:34vh;overflow:auto">'
+  +bloco('Categorias novas',dif.novos.categorias,nc,'#2f6b4f')
+  +bloco('Categorias atualizadas',dif.atualiza.categorias,nu,'#8a6d1f')
+  +bloco('Regras novas',dif.novos.regras,nc,'#2f6b4f')
+  +bloco('Regras atualizadas',dif.atualiza.regras,nu,'#8a6d1f')
+  +bloco('Layouts de banco novos',dif.novos.layoutExtrato,nb,'#2f6b4f')
+  +bloco('Layouts atualizados',dif.atualiza.layoutExtrato,nb,'#8a6d1f')
+  +bloco('Protegidos — você personalizou',dif.protegidos.categorias.concat(dif.protegidos.regras),nc,'var(--suave)')
+  +((dif.novos.categorias.length+dif.atualiza.categorias.length+dif.novos.regras.length+dif.atualiza.regras.length
+    +dif.novos.layoutExtrato.length+dif.atualiza.layoutExtrato.length)?'':'<div class=mini>Nada a mudar.</div>')
+  +'</div>';}catch(e){alert('Erro: '+e.message);}}
+
+function aplicarAcervoAqui(){try{
+ var ac=window._acervo;if(!ac)return;
+ var partes=Array.prototype.slice.call(document.querySelectorAll('.acvChk')).filter(function(c){return c.checked;}).map(function(c){return c.value;});
+ if(!partes.length){alert('Escolha ao menos uma parte do acervo.');return;}
+ var d=dados();var dif=_diffAcervo(ac,d);
+ var q=dif.novos.categorias.length+dif.atualiza.categorias.length+dif.novos.regras.length+dif.atualiza.regras.length
+      +dif.novos.layoutExtrato.length+dif.atualiza.layoutExtrato.length;
+ if(!q){alert('Esta empresa já está com o acervo em dia.');return;}
+ if(!confirm('Aplicar o acervo padrão em "'+_nomeEmpresaAberta()+'"?\n\n'
+  +'O que você personalizou nesta empresa não será alterado.\nUm backup será baixado antes.'))return;
+ try{exportarBackup();}catch(e){}
+ var n=_aplicarAcervoNaEmpresa(ac,d,partes);
+ saveApp();render();fecharModal();
+ alert('Acervo aplicado em '+_nomeEmpresaAberta()+'.\n\n'
+  +'Plano de contas: '+n.categorias+'\nRegras: '+n.regras+'\nLayouts de banco: '+n.layoutExtrato
+  +'\n\nO que era personalizado desta empresa ficou como estava.');}catch(e){alert('Erro: '+e.message);}}
+
+/* ======================================================================
+   CRIAR EMPRESA — deixa de ser um "prompt" pedindo o nome.
+   A empresa nasce com o acervo padrão do segmento escolhido e com um
+   checklist do que ainda falta configurar.
+   ====================================================================== */
+
+var SEGMENTOS=[
+ {id:'servicos', nome:'Serviços',  desc:'Consultoria, agência, escritório, prestação de serviço em geral'},
+ {id:'comercio', nome:'Comércio',  desc:'Loja, revenda, distribuição — tem compra de mercadoria e estoque'},
+ {id:'clinica',  nome:'Clínica / Saúde', desc:'Atendimentos, exames, terapias, convênios'},
+ {id:'vazio',    nome:'Começar do zero', desc:'Sem plano de contas — você monta do jeito da empresa'}
+];
+
+async function adminNovaEmpresa(){
+ if(!_ehMaster()){alert('Só quem administra o sistema cria empresa.');return;}
+ var ac=await _lerAcervo();
+ var temAcervo=!ac.erro;
+ document.getElementById('modalConteudo').innerHTML='<h3>Nova empresa</h3>'
+  +'<div class=mini style="margin:-4px 0 12px">A empresa nasce com o plano de contas e as regras do segmento. Depois o checklist mostra o que falta configurar.</div>'
+  +'<div style="margin-bottom:12px"><label class=mini>Nome da empresa</label>'
+  +'<input id="neNome" placeholder="Razão social ou nome pelo qual você a chama" style="width:100%;padding:9px 11px;border:1px solid #e2ddd0;border-radius:9px;font-family:inherit;font-size:14px"></div>'
+  +'<div class=mini style="font-weight:700;color:var(--vinho);margin:0 0 6px">Segmento</div>'
+  +'<div style="display:grid;gap:8px;margin-bottom:12px">'
+   +SEGMENTOS.map(function(sg,i){return '<label style="display:flex;gap:10px;align-items:flex-start;border:1px solid #e2ddd0;border-radius:10px;padding:10px 12px;cursor:pointer">'
+     +'<input type="radio" name="neSeg" value="'+sg.id+'"'+(i===0?' checked':'')+' style="width:auto;margin-top:3px">'
+     +'<span><b style="font-size:13.5px">'+esc(sg.nome)+'</b><br><span class=mini style="color:var(--suave)">'+esc(sg.desc)+'</span></span></label>';}).join('')
+  +'</div>'
+  +(temAcervo
+    ?'<label class=mini style="display:flex;gap:8px;align-items:center;background:#F2F7F4;border:1px solid #cfe6d6;border-radius:10px;padding:10px 12px;margin-bottom:12px;color:#2f6b4f">'
+      +'<input type="checkbox" id="neAcervo" checked style="width:auto"> Aplicar também o <b>acervo padrão</b> de «'+esc(ac.nome)+'»'
+      +(ac.versao?' (versão '+esc(ac.versao)+')':'')+' — regras e layouts de banco</label>'
+    :'<div class=mini style="background:#FBF3DE;border:1px solid #E4CE8F;border-radius:10px;padding:10px 12px;margin-bottom:12px">Nenhuma empresa-modelo definida ainda. A empresa vai nascer só com o plano de contas do segmento.</div>')
+  +'<div class="modal-acoes"><button class="btn sec" onclick="fecharModal()">Cancelar</button> <button class="btn ouro" onclick="criarEmpresaNova()">Criar empresa</button></div>';
+ var mb=document.getElementById('modalConteudo').closest('.modal');if(mb)mb.style.maxWidth='620px';
+ document.getElementById('modalBg').classList.add('show');
+ window._acervoNova=temAcervo?ac:null;
+ setTimeout(function(){var e=document.getElementById('neNome');if(e)e.focus();},80);}
+
+async function criarEmpresaNova(){
+ var nome=(document.getElementById('neNome')||{}).value||'';nome=nome.trim();
+ if(!nome){alert('Informe o nome da empresa.');return;}
+ var seg=(document.querySelector('input[name=neSeg]:checked')||{}).value||'servicos';
+ var usarAcervo=!!(document.getElementById('neAcervo')||{}).checked;
+ var ac=window._acervoNova;
+ var btn=document.querySelector('.modal-acoes .btn.ouro');
+ if(btn){btn.disabled=true;btn.textContent='Criando…';}
+ try{
+  var r=await sb.rpc('admin_criar_empresa',{p_nome:nome});
+  if(r.error){alert('Não consegui criar: '+r.error.message);if(btn){btn.disabled=false;btn.textContent='Criar empresa';}return;}
+  _empresas=await carregarMinhasEmpresas();
+  var ok=await abrirTenant(r.data);
+  if(!ok)return;
+  var d=dados();
+  d._segmento=seg;
+  d.categorias=planoDoSegmento(seg);
+  if(usarAcervo&&ac&&!ac.erro)_aplicarAcervoNaEmpresa(ac,d,['regras','layoutExtrato']);
+  saveApp();render();fecharModal();
+  abrirChecklist();
+ }catch(e){alert('Erro ao criar: '+e.message);if(btn){btn.disabled=false;btn.textContent='Criar empresa';}}}
+
+/* ---------- planos de contas por segmento ----------
+   O plano de clínica é o que já existia (planoMapa). Os demais são a base
+   comum, sem as contas de atendimento e exame. */
+function planoDoSegmento(seg){
+ if(seg==='clinica')return planoMapa().map(function(c){var o=Object.assign({},c);o.id=id();o._org='padrao';return o;});
+ if(seg==='vazio')return _catsMinimas();
+ var fora=/exame|terapia|sess[aã]o|aparelho auditivo|aasi|cl[ií]nic|convênio|convenio|fonoaudi|audiolog|paciente|equipamentos auditivos|smartclinic|terap[eê]utic/i;
+ var base=planoMapa().filter(function(c){return !fora.test((c.nome||'')+' '+(c.descricao||''));})
+  .map(function(c){var o=Object.assign({},c);o.id=id();o._org='padrao';return o;});
+ if(seg==='comercio'){
+  [{numero:'1.1',nome:'Venda de Mercadorias',grupo:'RECEITA DE PRODUTOS',tipo:'receita',descricao:'Venda de produtos no balcão, delivery ou online'},
+   {numero:'3.1.1',nome:'Compra de Mercadoria para Revenda',grupo:'CUSTOS VARIÁVEIS',tipo:'despesa',descricao:'Custo do produto vendido'},
+   {numero:'3.1.2',nome:'Frete sobre Compras',grupo:'CUSTOS VARIÁVEIS',tipo:'despesa',descricao:''}
+  ].forEach(function(c){if(!base.some(function(x){return _normAc(x.nome)===_normAc(c.nome);}))base.push(Object.assign({id:id(),_org:'padrao'},c));});}
+ if(seg==='servicos'){
+  [{numero:'1.1',nome:'Prestação de Serviços',grupo:'RECEITA DE SERVIÇOS',tipo:'receita',descricao:'Serviços prestados aos clientes'},
+   {numero:'3.1.1',nome:'Profissionais Terceirizados',grupo:'CUSTOS VARIÁVEIS',tipo:'despesa',descricao:'Prestadores que atuam na entrega ao cliente'}
+  ].forEach(function(c){if(!base.some(function(x){return _normAc(x.nome)===_normAc(c.nome);}))base.push(Object.assign({id:id(),_org:'padrao'},c));});}
+ return base;}
+
+function _catsMinimas(){
+ return [{numero:'1.1',nome:'Receitas',grupo:'RECEITA DE SERVIÇOS',tipo:'receita',descricao:''},
+  {numero:'3.1',nome:'Despesas',grupo:'DESPESAS ADMINISTRATIVAS',tipo:'despesa',descricao:''},
+  {numero:'9.1',nome:'Juros Recebidos',grupo:'OUTRAS RECEITAS',tipo:'receita',descricao:'Diferença a maior na conciliação'},
+  {numero:'9.2',nome:'Desconto Obtido',grupo:'OUTRAS RECEITAS',tipo:'receita',descricao:''},
+  {numero:'9.3',nome:'Juros Pagos',grupo:'FINANCEIRO',tipo:'despesa',descricao:''},
+  {numero:'9.4',nome:'Desconto Concedido',grupo:'FINANCEIRO',tipo:'despesa',descricao:'Diferença a menor na conciliação'}
+ ].map(function(c){return Object.assign({id:id(),_org:'padrao'},c);});}
+
+/* ======================================================================
+   CHECKLIST — o que falta para a empresa funcionar, na ordem que o
+   sistema exige. Filial antes de conta bancária (a conta pede unidade).
+   ====================================================================== */
+function _itensChecklist(){
+ var d=dados();
+ var cli=d.cliente||{};
+ return [
+  {ok:!!(cli.razaoSocial||'').trim(),tit:'Razão social da empresa',
+   det:'Aparece no cabeçalho e em todos os relatórios.',ir:"irPara('cliente')",bt:'Abrir'},
+  {ok:(d.empresas||[]).length>0,tit:'Filiais / unidades',
+   det:'Sem ao menos uma, o filtro por unidade some das telas e não dá para restringir acesso por filial. Se a empresa só tem matriz, cadastre "Matriz".',ir:"irPara('cliente')",bt:'Cadastrar'},
+  {ok:(d.bancos||[]).length>0,tit:'Contas bancárias',
+   det:'Sem conta não há extrato nem conferência de saldo. Cadastre as filiais antes — a conta pede a unidade.',ir:"irPara('bancos')",bt:'Cadastrar'},
+  {ok:(d.bancos||[]).some(function(b){return b.tipo==='Caixa'||b.tipo==='Dinheiro';}),tit:'Conta de caixa (dinheiro)',
+   det:'Só se a empresa recebe em dinheiro. É nela que o recebimento em espécie entra.',ir:"irPara('bancos')",bt:'Cadastrar',opcional:true},
+  {ok:(d.categorias||[]).length>3,tit:'Plano de contas',
+   det:'Veio do segmento escolhido. Ajuste os nomes para a linguagem da empresa.',ir:"irPara('categorias')",bt:'Revisar'},
+  {ok:(d.regras||[]).length>0,tit:'Regras de categorização',
+   det:'Classificam sozinhas o que vem do extrato. Vale criar depois da primeira importação, quando você já viu os textos reais do banco.',ir:"irPara('regras')",bt:'Abrir',opcional:true},
+  {ok:(d.servicos||[]).length>0,tit:'Catálogo de serviços ou produtos',
+   det:'Serve para a categoria vir preenchida na importação de recebimentos.',ir:"irPara('servicos')",bt:'Abrir',opcional:true},
+  {ok:Object.keys(d.layoutExtrato||{}).length>0||(d.lancamentos||[]).some(function(l){return /extrato/i.test(l.origem||'');}),
+   tit:'Primeira importação de extrato',det:'Prefira OFX. No CSV o painel pergunta as colunas uma vez e guarda no banco.',ir:"irPara('importar')",bt:'Importar',opcional:true}
+ ];}
+
+function _checklistPendencias(){return _itensChecklist().filter(function(x){return !x.ok&&!x.opcional;});}
+
+function abrirChecklist(){try{
+ var it=_itensChecklist();
+ var falta=it.filter(function(x){return !x.ok&&!x.opcional;}).length;
+ var linhas=it.map(function(x){
+  return '<div style="display:flex;gap:11px;align-items:flex-start;padding:10px 0;border-bottom:1px solid #F3EFE5">'
+   +'<div style="font-size:17px;line-height:1.2;width:22px;text-align:center">'+(x.ok?'✅':(x.opcional?'○':'⬜'))+'</div>'
+   +'<div style="flex:1"><b style="font-size:13.5px;color:'+(x.ok?'var(--suave)':'var(--vinho)')+'">'+esc(x.tit)+'</b>'
+     +(x.opcional?' <span class=mini style="color:var(--suave)">(opcional)</span>':'')
+     +'<div class=mini style="color:var(--suave);line-height:1.6;margin-top:2px">'+x.det+'</div></div>'
+   +'<div>'+(x.ok?'':'<button class="btn sec peq" onclick="fecharModal();'+x.ir+'">'+x.bt+'</button>')+'</div></div>';}).join('');
+ document.getElementById('modalConteudo').innerHTML='<h3>Configuração de «'+esc(_nomeEmpresaAberta())+'»</h3>'
+  +'<div class=mini style="margin:-4px 0 10px">'+(falta
+     ?'<b style="color:var(--rubro)">'+falta+' item(ns) essenciais faltando.</b> A ordem importa: filial antes de conta bancária.'
+     :'<b style="color:#2f6b4f">✔ O essencial está configurado.</b> Os opcionais melhoram a automação.')+'</div>'
+  +'<div>'+linhas+'</div>'
+  +'<div class="modal-acoes"><button class="btn ouro" onclick="fecharModal()">Fechar</button></div>';
+ var mb=document.getElementById('modalConteudo').closest('.modal');if(mb)mb.style.maxWidth='700px';
+ document.getElementById('modalBg').classList.add('show');}catch(e){alert('Erro: '+e.message);}}
+
+function renderBannerChecklist(){try{
+ var box=document.getElementById('bannerChecklist');if(!box)return;
+ var falta=_checklistPendencias();
+ if(!falta.length){box.innerHTML='';return;}
+ box.innerHTML='<div style="background:#FBF3DE;border:1px solid #E4CE8F;border-radius:12px;padding:14px 16px;margin:0 0 14px;display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap">'
+  +'<div style="font-size:13.5px;color:#7a6220;line-height:1.5"><b>⚙️ Falta configurar '+falta.length+' item(ns) nesta empresa</b><br>'
+  +'<span style="font-size:12.5px">'+falta.map(function(x){return esc(x.tit);}).join(' · ')+'</span></div>'
+  +'<button class="btn" onclick="abrirChecklist()">Ver o que falta</button></div>';}catch(e){}}
+
 function _nomeEmpresaAberta(){try{
  var e=(_empresas||[]).find(function(x){return x.tenant_id===_tenant;});
  if(e&&e.nome)return e.nome;
@@ -1636,7 +2009,7 @@ function abrirAba(pg){const b=[...document.querySelectorAll('.menu-item')].find(
 /* REGRA CONTABIL: titulo (previsto) = data de VENCIMENTO (competencia) · movimento do extrato = data do extrato (caixa).
    Usar dataRef(l) em TODO filtro, agrupamento, ordenacao e comparacao com hoje. Emissao nunca e criterio de periodo. */
 /* ===== VERSAO DO PAINEL — para saber, sem adivinhar, se a tela esta atualizada ===== */
-const APP_VERSAO='2026-09-06.1';
+const APP_VERSAO='2026-09-06.2';
 function _marcaVersao(){try{
  /* versao no CABECALHO, ao lado do status da nuvem — fica visivel sem procurar */
  var bar=document.querySelector('.tb-acoes');var d=document.getElementById('appVersaoTag');
@@ -2052,6 +2425,7 @@ function render(){
   try{renderBannerVinculos();}catch(e){}
   try{renderBannerVencVazio();}catch(e){}
   try{renderBannerCaixaSemTitulo();}catch(e){}
+  try{renderBannerChecklist();}catch(e){}
   try{renderBannerImportRuim();}catch(e){}
   try{renderBannerBaixaDupla();}catch(e){}
   try{renderBannerDuplicados();}catch(e){}
@@ -3577,8 +3951,8 @@ function abrirCategoria(cid){const cs=dados().categorias||[];const c=cid?cs.find
     </div><div class="modal-acoes"><button class="btn sec" onclick="fecharModal()">Cancelar</button><button class="btn" onclick="salvarCategoria()">Salvar categoria</button></div>`;
   document.getElementById('modalBg').classList.add('show');}
 function salvarCategoria(){const g=i=>{const e=document.getElementById(i);return e?e.value.trim():'';};const nome=g('cNome');if(!nome){alert('Informe o nome.');return;}dados().categorias=dados().categorias||[];const cid=window._editCatId;const rec={numero:g('cNum'),nome,descricao:g('cDesc'),tipo:g('cTipo'),grupo:g('cGrupo')};
-  if(cid){const c=dados().categorias.find(x=>x.id===cid);if(c){const antigo=c.nome;Object.assign(c,rec);if(antigo!==nome){dados().lancamentos.forEach(l=>{if(l.categoria===antigo)l.categoria=nome;});(dados().orcamentos||[]).forEach(o=>{if(o.categoria===antigo)o.categoria=nome;});}}}
-  else{if(dados().categorias.some(x=>x.nome.toLowerCase()===nome.toLowerCase())){alert('Já existe uma categoria com esse nome.');return;}rec.id=id();dados().categorias.push(rec);}
+  if(cid){const c=dados().categorias.find(x=>x.id===cid);if(c){const antigo=c.nome;Object.assign(c,rec);marcarEditadoNaEmpresa(c);if(antigo!==nome){dados().lancamentos.forEach(l=>{if(l.categoria===antigo)l.categoria=nome;});(dados().orcamentos||[]).forEach(o=>{if(o.categoria===antigo)o.categoria=nome;});}}}
+  else{if(dados().categorias.some(x=>x.nome.toLowerCase()===nome.toLowerCase())){alert('Já existe uma categoria com esse nome.');return;}rec.id=id();rec._org='empresa';dados().categorias.push(rec);}
   saveApp();fecharModal();render();}
 function copiarCategoria(cid){const c=(dados().categorias||[]).find(x=>x.id===cid);if(!c)return;dados().categorias.push({...c,id:id(),nome:c.nome+' (cópia)'});saveApp();render();}
 function importarPlanoMapa(){if(!confirm('Isso SUBSTITUI o plano de contas desta empresa pelo modelo de CLÍNICA.\n\nAs categorias atuais e a classificação que depende delas serão perdidas. Continuar?'))return;dados().categorias=planoMapa();saveApp();render();alert('Plano de contas de clínica importado: '+dados().categorias.length+' categorias, em ordem numérica.');}
@@ -3723,7 +4097,7 @@ tab.innerHTML=head+'<tbody>'+body+'</tbody>';}
 // ===================== REGRAS =====================
 function rTipoRadio(v){const h=document.getElementById('rTipo');if(h)h.value=v;atualizaRegraCat();}
 function atualizaRegraCat(){const el=document.getElementById('rTipo');const tipo=el?el.value:'despesa';const sel=document.getElementById('rCat');if(!sel)return;const atual=sel.value;const cats=(tipo==='transfer')?dados().categorias.filter(c=>ehMovimento(c.nome)):dados().categorias.filter(c=>c.tipo===tipo);sel.innerHTML=cats.map(c=>`<option value="${esc(c.nome)}">${esc(c.nome)} (${esc(c.grupo)})</option>`).join('')||'<option value="">— cadastre categorias —</option>';if(atual)sel.value=atual;}
-function salvarRegra(){const contem=document.getElementById('rContem').value.trim();const cat=document.getElementById('rCat').value;if(!contem){alert('Diga qual texto a descrição deve conter.');return;}if(!cat){alert('Escolha a categoria.');return;}const alt=(document.getElementById('rAlt')?document.getElementById('rAlt').value.trim():'');dados().regras.push({id:id(),contem,alt,banco:document.getElementById('rBanco').value.trim(),tipo:document.getElementById('rTipo').value,categoria:cat});saveApp();document.getElementById('rContem').value='';if(document.getElementById('rAlt'))document.getElementById('rAlt').value='';document.getElementById('rBanco').value='';renderRegras();}
+function salvarRegra(){const contem=document.getElementById('rContem').value.trim();const cat=document.getElementById('rCat').value;if(!contem){alert('Diga qual texto a descrição deve conter.');return;}if(!cat){alert('Escolha a categoria.');return;}const alt=(document.getElementById('rAlt')?document.getElementById('rAlt').value.trim():'');dados().regras.push({id:id(),contem,alt,banco:document.getElementById('rBanco').value.trim(),tipo:document.getElementById('rTipo').value,categoria:cat,_org:'empresa'});saveApp();document.getElementById('rContem').value='';if(document.getElementById('rAlt'))document.getElementById('rAlt').value='';document.getElementById('rBanco').value='';renderRegras();}
 function excluirRegra(rid,idx){if(!confirm('Excluir esta regra?'))return;var R=dados().regras||[];var i=-1;if(rid){i=R.findIndex(function(r){return r.id===rid;});}if(i<0&&idx!==undefined&&idx!==null&&idx!==''){i=+idx;}if(i>=0&&i<R.length){R.splice(i,1);}else if(rid){R=R.filter(function(r){return r.id!==rid;});}dados().regras=R;saveApp();renderRegras();}
 function renderRegras(){const tb=document.getElementById('tbodyRegras');if(!tb)return;const regras=dados().regras;document.getElementById('regrasVazio').style.display=regras.length?'none':'block';
   tb.innerHTML=regras.map((r,ix)=>{const g=grupoDaCategoria(r.categoria);return `<tr><td><b>"${esc(r.contem)}"</b>${r.auto?' <span class="pill" style="background:var(--creme2);color:var(--suave)">aprendida</span>':''}</td><td class="mini">${esc(r.banco||'qualquer')}</td><td><span class="pill ${r.tipo==='receita'?'rec':'desp'}">${esc(r.tipo)}</span></td><td><span style="display:inline-flex;align-items:center;gap:7px"><span style="width:9px;height:9px;border-radius:50%;background:${CORES_GRUPO[g]}"></span>${esc(r.categoria)}</span></td><td style="text-align:right"><button class="btn-ico" onclick="excluirRegra('${r.id||''}',${ix})">🗑️</button></td></tr>`;}).join('');}
@@ -4594,6 +4968,9 @@ function confirmarMapaExtrato(){try{var M=window._mapExt;if(!M)return;
  if(!regs.length){alert('Nenhuma linha foi lida com esse mapeamento. Nada foi importado.');return;}
  if(_extratoPendencias(window._extRegsAtual||[]).length){alert('Ainda há linha sem data, valor ou descrição. Resolva ou descarte antes de importar.');return;}
  lay.assinatura=_assinaCabecalho(M.H);
+ /* a pessoa conferiu as colunas nesta empresa: o layout passa a ser dela e o acervo não o sobrescreve */
+ var _lantes=_layoutsExtrato()[M.banco];
+ lay._org=(_lantes&&_lantes._org==='padrao'&&M.jaSalvo)?'padrao':'empresa';
  _layoutsExtrato()[M.banco]=lay;
  var nDesc=Object.keys(_extDesc()).length;
  fecharModal();
@@ -5804,6 +6181,14 @@ function montarBarraNuvem(){const bar=document.querySelector('.tb-acoes');if(!ba
   if(!s){s=document.createElement('span');s.id='cloudStatus';s.style.cssText='font-size:11px;color:#8f8073;margin-right:6px';bar.appendChild(s);}
   const nomeEmp=((_empresas.find(e=>e.tenant_id===_tenant)||{}).nome)||'';
   s.textContent=(_readonly?'🔒 ':'☁ ')+(nomeEmp?nomeEmp+' · ':'')+(_readonly?('somente leitura'+(_unidades&&_unidades.length?' · '+_unidades.join(', '):'')):'nuvem');
+  try{var _sm=document.getElementById('seloModelo');
+    if(_ehEmpresaModelo()){
+      if(!_sm){_sm=document.createElement('span');_sm.id='seloModelo';
+        _sm.style.cssText='font-size:10.5px;font-weight:800;letter-spacing:.05em;background:#143b4d;color:#fff;border-radius:6px;padding:3px 8px;margin-right:6px;cursor:pointer';
+        _sm.title='Esta empresa é o modelo: o que está nela vira o padrão das outras';
+        _sm.onclick=function(){abrirAcervo();};bar.insertBefore(_sm,s);}
+      _sm.textContent='EMPRESA-MODELO';}
+    else if(_sm)_sm.remove();}catch(e){}
   const sis=document.getElementById('sbSistema');if(sis)sis.style.display=(_me&&_me.papel==='master')?'':'none';
   if(document.getElementById('btnBarSair'))return;
   const mk=(txt,fn)=>{const b=document.createElement('button');b.className='btn peq sec';b.textContent=txt;b.onclick=fn;bar.appendChild(b);return b;};
@@ -5835,12 +6220,7 @@ function renderSeletor(){
   </div>`;
   document.body.appendChild(d);
 }
-async function adminNovaEmpresa(){
-  const nome=prompt('Nome da nova empresa/cliente:');if(!nome||!nome.trim())return;
-  const{data,error}=await sb.rpc('admin_criar_empresa',{p_nome:nome.trim()});
-  if(error){alert('Não consegui criar: '+error.message);return;}
-  _empresas=await carregarMinhasEmpresas();await abrirTenant(data);
-}
+
 
 /* ===================== PAINEL ADMIN (modelo SB) ===================== */
 const PLANOS=['Teste','Mensal','Semestral','Anual','Interno'];
