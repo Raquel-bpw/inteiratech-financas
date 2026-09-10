@@ -1811,7 +1811,7 @@ function limparEstadoLocal(){try{
  window._baixaSel=null;window._baixaId=null;window._concBusca='';window._concMes='';
  window._cbBanco='';window._cbMes='';
  /* filtros — unidade e banco de uma empresa não fazem sentido na outra */
- window._flt={uni:new Set(),banco:'',per:''};
+ window._flt={uni:new Set(),banco:new Set(),per:new Set()};
  window._filtroLanc=null;window._filtroExt=null;window._ocultar=null;window._perExp=null;
  window._pendMes='';window._audCache=null;
  /* gráficos */
@@ -2009,7 +2009,7 @@ function abrirAba(pg){const b=[...document.querySelectorAll('.menu-item')].find(
 /* REGRA CONTABIL: titulo (previsto) = data de VENCIMENTO (competencia) · movimento do extrato = data do extrato (caixa).
    Usar dataRef(l) em TODO filtro, agrupamento, ordenacao e comparacao com hoje. Emissao nunca e criterio de periodo. */
 /* ===== VERSAO DO PAINEL — para saber, sem adivinhar, se a tela esta atualizada ===== */
-const APP_VERSAO='2026-09-06.2';
+const APP_VERSAO='2026-09-10.1';
 function _marcaVersao(){try{
  /* versao no CABECALHO, ao lado do status da nuvem — fica visivel sem procurar */
  var bar=document.querySelector('.tb-acoes');var d=document.getElementById('appVersaoTag');
@@ -2027,18 +2027,28 @@ function dataRef(l){if(!l)return '';return (l.status==='previsto')?(l.dataVencim
 function periodosDisponiveis(){const set=new Set();dados().lancamentos.forEach(l=>{const _d=dataRef(l);if(_d)set.add(_d.slice(0,7));});return [...set].sort().reverse();}
 window._flt=window._flt||{uni:new Set(),banco:new Set(),per:new Set()};
 function bancoUnidade(nome){const b=(dados().bancos||[]).find(x=>(x.nome||'').toLowerCase().trim()===(nome||'').toLowerCase().trim());return b?(b.unidade||''):'';}
-function noPeriodo(l){const s=window._flt.per;if(!s.size)return true;const _d=dataRef(l);if(!_d)return false;const ym=_d.slice(0,7),ano=_d.slice(0,4);for(const v of s){if(v.indexOf('ano-')===0){if(ano===v.slice(4))return true;}else if(ym===v)return true;}return false;}
+/* Garante que os três filtros sejam sempre Set — um deles virando outra coisa
+   quebrava a montagem dos filtros ao abrir a empresa. */
+function _normFlt(){var f=window._flt=window._flt||{};
+ ['uni','banco','per'].forEach(function(k){
+  var v=f[k];
+  if(v instanceof Set)return;
+  if(Array.isArray(v)){f[k]=new Set(v);return;}
+  if(typeof v==='string'&&v){f[k]=new Set([v]);return;}
+  f[k]=new Set();});
+ return f;}
+function noPeriodo(l){_normFlt();const s=window._flt.per;if(!s.size)return true;const _d=dataRef(l);if(!_d)return false;const ym=_d.slice(0,7),ano=_d.slice(0,4);for(const v of s){if(v.indexOf('ano-')===0){if(ano===v.slice(4))return true;}else if(ym===v)return true;}return false;}
 function noUnidade(l){
   /* primeiro a restrição de acesso (servidor), depois o filtro que a pessoa escolheu */
   if(!_unidadePermitida(l.unidade||bancoUnidade(l.banco)))return false;
-  const s=window._flt.uni;if(!s.size)return true;if(s.has(l.unidade||''))return true;return s.has(bancoUnidade(l.banco));}
-function noBanco(l){const s=window._flt.banco;if(!s.size)return true;return s.has(l.banco||'');}
+  _normFlt();const s=window._flt.uni;if(!s.size)return true;if(s.has(l.unidade||''))return true;return s.has(bancoUnidade(l.banco));}
+function noBanco(l){_normFlt();const s=window._flt.banco;if(!s.size)return true;return s.has(l.banco||'');}
 function bancoFiltro(){const s=window._flt.banco;return s.size===1?[...s][0]:'';}
 function unidadeAtual(){const s=window._flt.uni;return s.size===1?[...s][0]:'';}
 function bancosVisiveis(){let bs=dados().bancos||[];const sb=window._flt.banco,su=window._flt.uni;if(sb.size)bs=bs.filter(b=>sb.has(b.nome));if(su.size)bs=bs.filter(b=>su.has(b.unidade||''));return bs;}
 function visivel(l){return noPeriodo(l)&&noUnidade(l)&&noBanco(l);}
 function opcoesFiltro(tipo){if(tipo==='uni'){const t=dados().unidadesTipo||{};const enc=new Set((dados().empresas||[]).filter(e=>e.ativa===false).map(e=>e.unidade));return (dados().unidades||[]).map(u=>({v:u,txt:'📍 '+u+(t[u]?' · '+t[u]:'')+(enc.has(u)?' · encerrada':'')}));}if(tipo==='banco'){return (dados().bancos||[]).slice().sort((a,b)=>(a.nome||'').localeCompare(b.nome||'')).map(b=>({v:b.nome,txt:'🏦 '+b.nome}));}const meses=periodosDisponiveis();const byY={};meses.forEach(function(m){(byY[m.slice(0,4)]=byY[m.slice(0,4)]||[]).push(m);});const years=Object.keys(byY).sort().reverse();const out=[];years.forEach(function(y){out.push({v:'ano-'+y,txt:'Ano de '+y,head:true});byY[y].slice().sort().forEach(function(m){var p=m.split('-');var n=new Date(+p[0],+p[1]-1,1).toLocaleDateString('pt-BR',{month:'long',year:'numeric'});out.push({v:m,txt:n.charAt(0).toUpperCase()+n.slice(1),ind:true});});});return out;}
-function labelFiltro(tipo,todosTxt){const s=window._flt[tipo];if(!s.size)return todosTxt;if(s.size===1){const o=opcoesFiltro(tipo).find(o=>o.v===[...s][0]);return o?o.txt.replace(/^📍 /,'').replace(/^🏦 /,''):[...s][0];}return s.size+' selecionadas';}
+function labelFiltro(tipo,todosTxt){_normFlt();const s=window._flt[tipo];if(!s.size)return todosTxt;if(s.size===1){const o=opcoesFiltro(tipo).find(o=>o.v===[...s][0]);return o?o.txt.replace(/^📍 /,'').replace(/^🏦 /,''):[...s][0];}return s.size+' selecionadas';}
 function _perTreeHtml(ps,kind){
   var opts=opcoesFiltro('per');
   var togCall=kind==='rel'?'_rTogglePer(this.dataset.v)':"toggleFlt('per',this.dataset.v)";
@@ -2060,7 +2070,7 @@ function _perExpTgl(y,kind,ev){if(ev){ev.stopPropagation();ev.preventDefault();}
   if(kind==='rel'){try{montarFiltrosRel();}catch(e){}var p=document.querySelector('#msPerRel .msel-pop');if(p)p.classList.add('open');}
   else{try{montarFiltros();}catch(e){}var p2=document.querySelector('#msPer .msel-pop');if(p2)p2.classList.add('open');}
 }
-function montarUmFiltro(id,tipo,todosTxt){const box=document.getElementById(id);if(!box)return;const opts=opcoesFiltro(tipo);if(tipo!=='per'&&!opts.length){box.style.display='none';return;}box.style.display='';const s=window._flt[tipo];
+function montarUmFiltro(id,tipo,todosTxt){_normFlt();const box=document.getElementById(id);if(!box)return;const opts=opcoesFiltro(tipo);if(tipo!=='per'&&!opts.length){box.style.display='none';return;}box.style.display='';const s=window._flt[tipo];
   const itens=(tipo==='per')?_perTreeHtml(s,'hdr'):('<label class="msel-item" onclick="event.stopPropagation()"><input type="checkbox" '+(!s.size?'checked':'')+' onchange="limparFlt(\''+tipo+'\')"> <b>Todas</b></label>'+opts.map(o=>{var st=o.head?' style="background:var(--vinho-fog)"':(o.ind?' style="padding-left:30px"':'');var lbl=o.head?('<b>'+o.txt+'</b>'):o.txt;return '<label class="msel-item"'+st+' onclick="event.stopPropagation()"><input type="checkbox" '+(s.has(o.v)?'checked':'')+' data-v="'+String(o.v).replace(/"/g,'&quot;')+'" onchange="toggleFlt(\''+tipo+'\',this.dataset.v)"> '+lbl+'</label>';}).join(''));
   box.innerHTML='<button class="msel-btn" onclick="abrirMsel(\''+id+'\',event)">'+labelFiltro(tipo,todosTxt)+' <span style="opacity:.5">▾</span></button><div class="msel-pop">'+itens+'</div>';}
 function empresasAgrupadas(){var es=(dados().empresas||[]).filter(function(e){return e.unidade;});var map={},ordem=[];es.forEach(function(e){var key=((e.razaoSocial||e.unidade||'')+'').trim()||e.unidade;if(!map[key]){map[key]={nome:e.razaoSocial||e.unidade,filiais:[]};ordem.push(key);}map[key].filiais.push({unidade:e.unidade,tipo:e.tipo||'',ativa:e.ativa!==false});});return ordem.map(function(k){return map[k];});}
@@ -2069,7 +2079,7 @@ function labelUni(){var s=window._flt.uni;if(!s.size)return 'Todas (consolidado)
 function montarFiltroUni(){var box=document.getElementById('msUni');if(!box)return;var g=empresasAgrupadas();window._empGrupos=g;if(!g.length){box.style.display='none';return;}box.style.display='';var s=window._flt.uni;var itens='<label class="msel-item" onclick="event.stopPropagation()"><input type="checkbox" '+(!s.size?'checked':'')+' onchange="limparFlt(\'uni\')"> <b>Todas (consolidado)</b></label>';g.forEach(function(gr,idx){var fu=gr.filiais.map(function(f){return f.unidade;});var todas=fu.length&&fu.every(function(u){return s.has(u);});itens+='<label class="msel-item" style="background:var(--vinho-fog)" onclick="event.stopPropagation()"><input type="checkbox" '+(todas?'checked':'')+' onchange="toggleEmpresaFlt('+idx+')"> <b>🏢 '+gr.nome+'</b></label>';gr.filiais.forEach(function(f){itens+='<label class="msel-item" style="padding-left:28px" onclick="event.stopPropagation()"><input type="checkbox" '+(s.has(f.unidade)?'checked':'')+' data-v="'+String(f.unidade).replace(/"/g,'&quot;')+'" onchange="toggleFlt(\'uni\',this.dataset.v)"> 📍 '+f.unidade+(f.tipo?' · '+f.tipo:'')+(f.ativa?'':' · encerrada')+'</label>';});});box.innerHTML='<button class="msel-btn" onclick="abrirMsel(\'msUni\',event)">'+labelUni()+' <span style="opacity:.5">▾</span></button><div class="msel-pop">'+itens+'</div>';}
 function montarFiltros(){const ab=document.querySelector('.msel-pop.open');const abId=(ab&&ab.parentElement)?ab.parentElement.id:null;montarFiltroUni();montarUmFiltro('msBanco','banco','Todas as contas');montarUmFiltro('msPer','per','Todos os períodos');if(abId){const p=document.querySelector('#'+abId+' .msel-pop');if(p)p.classList.add('open');}}
 function abrirMsel(id,ev){if(ev)ev.stopPropagation();const pop=document.querySelector('#'+id+' .msel-pop');document.querySelectorAll('.msel-pop.open').forEach(p=>{if(p!==pop)p.classList.remove('open');});if(pop)pop.classList.toggle('open');}
-function toggleFlt(tipo,v){const s=window._flt[tipo];if(s.has(v))s.delete(v);else s.add(v);render();}
+function toggleFlt(tipo,v){_normFlt();const s=window._flt[tipo];if(s.has(v))s.delete(v);else s.add(v);render();}
 function limparFlt(tipo){window._flt[tipo].clear();render();}
 document.addEventListener('click',function(){document.querySelectorAll('.msel-pop.open').forEach(function(p){p.classList.remove('open');});});
 
