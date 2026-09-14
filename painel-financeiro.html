@@ -1232,16 +1232,16 @@ let APP={perfilAtivo:null,perfis:[]};
 let donutChart=null, fluxoChart=null;
 let calRef=new Date(), csvLinhas=[], csvHeader=[];
 
-const GRUPOS_DESPESA=['CUSTOS VARIÁVEIS','DESPESAS COM PESSOAL','DESPESAS COMERCIAIS','DESPESAS ADMINISTRATIVAS','DESPESAS COM MANUTENÇÃO','FINANCEIRO','INVESTIMENTOS / RESERVAS','Fornecedores','Despesa Fixa','Não Operacional','Investimento','Outras Variáveis'];
-const LABEL_GRUPO={'RECEITA DE SERVIÇOS':'ENTRADAS DE SERVIÇOS','RECEITA DE PRODUTOS':'ENTRADAS DE PRODUTOS','OUTRAS RECEITAS':'OUTRAS ENTRADAS OPERACIONAIS','OUTRAS ENTRADAS':'OUTRAS ENTRADAS (não compõem o lucro)','INVESTIMENTOS / RESERVAS':'INVESTIMENTOS','CUSTOS VARIÁVEIS':'DESPESAS VARIÁVEIS'};
+const GRUPOS_DESPESA=['CUSTOS VARIÁVEIS','DESPESAS COM PESSOAL','DESPESAS COMERCIAIS','DESPESAS ADMINISTRATIVAS','DESPESAS COM MANUTENÇÃO','FINANCEIRO','INVESTIMENTOS / RESERVAS','OUTRAS SAÍDAS','Fornecedores','Despesa Fixa','Não Operacional','Investimento','Outras Variáveis'];
+const LABEL_GRUPO={'RECEITA DE SERVIÇOS':'ENTRADAS DE SERVIÇOS','RECEITA DE PRODUTOS':'ENTRADAS DE PRODUTOS','OUTRAS RECEITAS':'OUTRAS ENTRADAS OPERACIONAIS','OUTRAS ENTRADAS':'OUTRAS ENTRADAS (não compõem o lucro)','OUTRAS SAÍDAS':'OUTRAS SAÍDAS (não compõem o lucro)','INVESTIMENTOS / RESERVAS':'INVESTIMENTOS','CUSTOS VARIÁVEIS':'DESPESAS VARIÁVEIS'};
 const ORDEM_GRUPOS=['RECEITA DE SERVIÇOS','RECEITA DE PRODUTOS','OUTRAS RECEITAS','OUTRAS ENTRADAS'].concat(GRUPOS_DESPESA);
 const GRUPOS_FATURAMENTO=['RECEITA DE SERVIÇOS','RECEITA DE PRODUTOS','OUTRAS RECEITAS'];
-const CORES_GRUPO={'ENTRADAS':'#16447a','CUSTOS VARIÁVEIS':'#1c4d61','DESPESAS COM PESSOAL':'#c1922f','DESPESAS COMERCIAIS':'#2f6479','DESPESAS ADMINISTRATIVAS':'#3a5a8c','DESPESAS COM MANUTENÇÃO':'#6b4a7a','FINANCEIRO':'#b23b3b','INVESTIMENTOS / RESERVAS':'#2e7d5b','Fornecedores':'#1c4d61','Despesa Fixa':'#c1922f','Não Operacional':'#3a5a8c','Investimento':'#6b4a7a','Outras Variáveis':'#16447a','Receita':'#16447a'};
+const CORES_GRUPO={'ENTRADAS':'#16447a','OUTRAS SAÍDAS':'#8a6d1f','CUSTOS VARIÁVEIS':'#1c4d61','DESPESAS COM PESSOAL':'#c1922f','DESPESAS COMERCIAIS':'#2f6479','DESPESAS ADMINISTRATIVAS':'#3a5a8c','DESPESAS COM MANUTENÇÃO':'#6b4a7a','FINANCEIRO':'#b23b3b','INVESTIMENTOS / RESERVAS':'#2e7d5b','Fornecedores':'#1c4d61','Despesa Fixa':'#c1922f','Não Operacional':'#3a5a8c','Investimento':'#6b4a7a','Outras Variáveis':'#16447a','Receita':'#16447a'};
 function catNumKey(n){return String(n||'').split('.').map(x=>String(parseInt(x,10)||0).padStart(4,'0')).join('.');}
 const VARIAVEIS=['CUSTOS VARIÁVEIS','Fornecedores','Outras Variáveis'];
 const FIXOS=['DESPESAS COM PESSOAL','DESPESAS ADMINISTRATIVAS','DESPESAS COMERCIAIS','DESPESAS COM MANUTENÇÃO','FINANCEIRO','Despesa Fixa'];
 const INVESTIMENTOS=['INVESTIMENTOS / RESERVAS','Investimento'];
-const NAO_OPERACIONAL=['Não Operacional'];
+const NAO_OPERACIONAL=['Não Operacional','OUTRAS SAÍDAS'];
 const CLASSIFICADOS=[].concat(VARIAVEIS,FIXOS,INVESTIMENTOS,NAO_OPERACIONAL);
 const PALETA_REC=['#143b4d','#b3537a','#16447a','#2aa39a','#c1922f','#6b4a7a','#2f6479','#c2683b'];
 
@@ -2009,7 +2009,7 @@ function abrirAba(pg){const b=[...document.querySelectorAll('.menu-item')].find(
 /* REGRA CONTABIL: titulo (previsto) = data de VENCIMENTO (competencia) · movimento do extrato = data do extrato (caixa).
    Usar dataRef(l) em TODO filtro, agrupamento, ordenacao e comparacao com hoje. Emissao nunca e criterio de periodo. */
 /* ===== VERSAO DO PAINEL — para saber, sem adivinhar, se a tela esta atualizada ===== */
-const APP_VERSAO='2026-09-10.1';
+const APP_VERSAO='2026-09-14.1';
 function _marcaVersao(){try{
  /* versao no CABECALHO, ao lado do status da nuvem — fica visivel sem procurar */
  var bar=document.querySelector('.tb-acoes');var d=document.getElementById('appVersaoTag');
@@ -3211,7 +3211,10 @@ function mesLabelD(ym){const p=ym.split('-');return new Date(+p[0],+p[1]-1,1).to
 function catsDemo(){return dados().categorias||[];}
 function isEntradaCat(c){return c.tipo==='receita'||['Receita','ENTRADAS','RECEITA DE SERVIÇOS','RECEITA DE PRODUTOS','OUTRAS RECEITAS','OUTRAS ENTRADAS'].includes(c.grupo);}
 function ehForaDoLucro(c){return (c&&c.grupo)==='OUTRAS ENTRADAS';}
-function catForaDoLucro(catNome){const c=(dados().categorias||[]).find(x=>x.nome===catNome);return !!c&&c.grupo==='OUTRAS ENTRADAS';}
+/* Entradas e saídas que passam pelo caixa mas NÃO compõem o lucro:
+   aportes, empréstimos, devoluções, trocos. */
+function catForaDoLucro(catNome){const c=(dados().categorias||[]).find(x=>x.nome===catNome);
+ return !!c&&(c.grupo==='OUTRAS ENTRADAS'||c.grupo==='OUTRAS SAÍDAS');}
 function demoLancs(stOv){const st=stOv||window._demoStatus||'realizado';return dados().lancamentos.filter(l=>{if(!l.data||!noUnidade(l))return false;if(st==='realizado')return l.status!=='previsto'&&l.conciliado;if(st==='previsto')return l.status==='previsto'&&!l.baixado;return (l.status!=='previsto'&&l.conciliado)||(l.status==='previsto'&&!l.baixado);});}
 function setDemoStatus(v){window._demoStatus=v;renderDemonstrativo();}
 function demoMeses(){const s=new Set();demoLancs().forEach(l=>{const _d=dataRef(l);if(_d)s.add(_d.slice(0,7));});return [...s].sort();}
@@ -3950,8 +3953,19 @@ function copiarLanc(lid){const l=dados().lancamentos.find(x=>x.id===lid);if(!l)r
 function fecharModal(){document.getElementById('modalBg').classList.remove('show');var _mc=document.getElementById('modalConteudo');if(_mc){var _mm=_mc.closest('.modal');if(_mm)_mm.style.maxWidth='';}}
 
 // ===================== CATEGORIAS =====================
-function atualizaGrupoSelect(){const dl=document.getElementById('gruposList');if(!dl)return;const gs=[...new Set((dados().categorias||[]).map(c=>c.grupo).filter(Boolean))];dl.innerHTML=gs.map(g=>`<option value="${g}"></option>`).join('');}
-function abrirCategoria(cid){const cs=dados().categorias||[];const c=cid?cs.find(x=>x.id===cid):null;window._editCatId=cid||'';const v=k=>c&&c[k]?String(c[k]).replace(/"/g,'&quot;'):'';const gs=[...new Set(cs.map(x=>x.grupo).filter(Boolean))];const dl=gs.map(g=>`<option value="${g}"></option>`).join('');
+/* Oferece os grupos oficiais do sistema + os que a empresa já usa. Antes só listava
+   os já usados, então um grupo novo nunca aparecia para escolher. */
+function _gruposDisponiveis(){
+ var usados=(dados().categorias||[]).map(function(c){return c.grupo;}).filter(Boolean);
+ var todos=(typeof ORDEM_GRUPOS!=='undefined'?ORDEM_GRUPOS:[]).concat(usados);
+ var vis={},out=[];
+ todos.forEach(function(g){var k=String(g).toUpperCase();if(vis[k])return;vis[k]=1;out.push(g);});
+ return out;}
+function _optGrupos(){return _gruposDisponiveis().map(function(g){
+ var lb=(typeof LABEL_GRUPO!=='undefined'&&LABEL_GRUPO[g])?(' — '+LABEL_GRUPO[g]):'';
+ return '<option value="'+String(g).replace(/"/g,'&quot;')+'">'+esc(g+lb)+'</option>';}).join('');}
+function atualizaGrupoSelect(){const dl=document.getElementById('gruposList');if(!dl)return;dl.innerHTML=_optGrupos();}
+function abrirCategoria(cid){const cs=dados().categorias||[];const c=cid?cs.find(x=>x.id===cid):null;window._editCatId=cid||'';const v=k=>c&&c[k]?String(c[k]).replace(/"/g,'&quot;'):'';const dl=_optGrupos();
   document.getElementById('modalConteudo').innerHTML=`<h3>${c?'Editar categoria':'Nova categoria'}</h3><div class="form-grid">
     <div style="grid-column:span 2"><label>Número</label><input id="cNum" placeholder="Ex: 3.3.29" value="${v('numero')}"></div>
     <div style="grid-column:span 4"><label>Nome</label><input id="cNome" placeholder="Ex: Energia Elétrica" value="${v('nome')}"></div>
