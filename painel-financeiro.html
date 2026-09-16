@@ -1690,13 +1690,22 @@ async function criarEmpresaNova(){
   if(r.error){alert('Não consegui criar: '+r.error.message);if(btn){btn.disabled=false;btn.textContent='Criar empresa';}return;}
   _empresas=await carregarMinhasEmpresas();
   var ok=await abrirTenant(r.data);
-  if(!ok)return;
+  if(!ok){
+   /* A empresa JA existe no servidor. Sair calado aqui fazia parecer que a
+      criacao tinha falhado, quando o que falhou foi abrir a tela. */
+   alert('A empresa "'+nome+'" FOI criada, mas não consegui abri-la agora.\n\n'
+    +'Ela já aparece na lista de empresas. Recarregue a página (F5), abra-a pela lista '
+    +'e o checklist vai mostrar o que falta configurar.');
+   if(btn){btn.disabled=false;btn.textContent='Criar empresa';}
+   return;}
   var d=dados();
   d._segmento=seg;
   d.categorias=planoDoSegmento(seg);
   if(usarAcervo&&ac&&!ac.erro)_aplicarAcervoNaEmpresa(ac,d,['regras','layoutExtrato']);
-  saveApp();render();fecharModal();
-  abrirChecklist();
+  saveApp();cloudSave(true);           /* grava JA: plano de contas nao pode ficar em fila */
+  try{render();}catch(e){console.warn('render pos-criacao',e);}
+  fecharModal();
+  try{abrirChecklist();}catch(e){console.warn('checklist',e);}
  }catch(e){alert('Erro ao criar: '+e.message);if(btn){btn.disabled=false;btn.textContent='Criar empresa';}}}
 
 /* ---------- planos de contas por segmento ----------
@@ -1819,6 +1828,10 @@ function limparEstadoLocal(){try{
  try{if(window.fluxoChart&&window.fluxoChart.destroy)window.fluxoChart.destroy();}catch(e){}
  window.donutChart=null;window.fluxoChart=null;
  try{Object.keys(window._charts||{}).forEach(function(k){try{window._charts[k].destroy();}catch(e){}});}catch(e){}
+ /* os donuts tambem precisam ser DESTRUIDOS, nao so esquecidos: esquecer a
+    referencia deixava o grafico preso no canvas e a proxima abertura da
+    empresa morria com "Canvas is already in use". */
+ try{Object.keys(window._donuts||{}).forEach(function(k){try{window._donuts[k].destroy();}catch(e){}});}catch(e){}
  window._charts={};window._donuts={};
  /* modal aberto de uma empresa não pode continuar na outra */
  try{var mb=document.getElementById('modalBg');if(mb)mb.classList.remove('show');}catch(e){}
@@ -1849,7 +1862,12 @@ async function abrirTenant(tid){try{
     APP.perfis[0].nome=_ne;
     const _c=APP.perfis[0].dados&&APP.perfis[0].dados.cliente;
     if(_c&&(!_c.razaoSocial||_c.razaoSocial==='Nova empresa'))_c.razaoSocial=_ne;}
-  normalizarPerfis();reagruparEntradas();window._cloudReady=true;fecharSeletor();initApos();montarBarraNuvem();
+  normalizarPerfis();reagruparEntradas();window._cloudReady=true;fecharSeletor();
+  /* A empresa JA esta carregada aqui. Erro ao DESENHAR a tela nao pode fazer a
+     abertura falhar — era isso que abortava a criacao de empresa nova. */
+  try{initApos();}catch(e){console.warn('initApos',e);
+    alert('A empresa abriu, mas a tela não terminou de desenhar.\n\n'+e.message+'\n\nSeus dados estão íntegros. Recarregue a página (F5) para ver o painel completo.');}
+  try{montarBarraNuvem();}catch(e){console.warn('montarBarraNuvem',e);}
   _aplicarSomenteLeitura();_limparLocalOutrasEmpresas();
   /* NAO grava ao abrir: abrir a empresa subia a versao e derrubava a sessao de quem ja estava dentro */
   return true;}catch(e){alert('Erro ao abrir: '+e.message);return false;}}
@@ -2009,7 +2027,7 @@ function abrirAba(pg){const b=[...document.querySelectorAll('.menu-item')].find(
 /* REGRA CONTABIL: titulo (previsto) = data de VENCIMENTO (competencia) · movimento do extrato = data do extrato (caixa).
    Usar dataRef(l) em TODO filtro, agrupamento, ordenacao e comparacao com hoje. Emissao nunca e criterio de periodo. */
 /* ===== VERSAO DO PAINEL — para saber, sem adivinhar, se a tela esta atualizada ===== */
-const APP_VERSAO='2026-09-14.1';
+const APP_VERSAO='2026-09-16.1';
 function _marcaVersao(){try{
  /* versao no CABECALHO, ao lado do status da nuvem — fica visivel sem procurar */
  var bar=document.querySelector('.tb-acoes');var d=document.getElementById('appVersaoTag');
@@ -2562,7 +2580,10 @@ function confirmarGerarParcelas(){
   window._ppPreview=null;render();
 }
 
-function drawDonut(canvasId,itens,cores){const ctx=document.getElementById(canvasId);if(!ctx)return;window._donuts=window._donuts||{};if(window._donuts[canvasId])window._donuts[canvasId].destroy();
+function drawDonut(canvasId,itens,cores){const ctx=document.getElementById(canvasId);if(!ctx)return;window._donuts=window._donuts||{};if(window._donuts[canvasId]){try{window._donuts[canvasId].destroy();}catch(e){}}
+  /* cinto e suspensorio: se sobrou grafico preso no canvas sem estar no registro
+     (troca de empresa, recarga parcial), derruba antes de desenhar de novo. */
+  try{if(typeof Chart!=='undefined'&&Chart.getChart){var _vv=Chart.getChart(ctx);if(_vv)_vv.destroy();}}catch(e){}
   if(!itens.length){window._donuts[canvasId]=new Chart(ctx,{type:'doughnut',data:{labels:['Sem dados'],datasets:[{data:[1],backgroundColor:['#e9ddd8']}]},options:{responsive:false,maintainAspectRatio:false,plugins:{legend:{display:false},tooltip:{enabled:false}},cutout:'70%'}});return;}
   window._donuts[canvasId]=new Chart(ctx,{type:'doughnut',data:{labels:itens.map(i=>i.g),datasets:[{data:itens.map(i=>i.v),backgroundColor:cores,borderWidth:3,borderColor:'#fffdfb'}]},
     options:{responsive:false,maintainAspectRatio:false,plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>c.label+': '+moeda(c.parsed)}}},cutout:'70%'}});
