@@ -637,6 +637,7 @@ body.so-leitura input[type=file]{display:none}
   <section class="pagina" id="pg-conciliacao">
     <div class="titulo-pg">Extrato de <em>contas</em></div>
     <div class="sub-pg">A visão por banco e o extrato linha a linha, para conferir com o banco e conciliar. O total soma todas as contas.</div>
+    <div style="margin:0 0 14px"><button class="btn sec" style="font-size:13px;padding:9px 16px" onclick="abrirAdiantamentos('cliente')">💰 Adiantamentos <span id="chipAdiant" class="mini" style="opacity:.85"></span></button></div>
     <div id="conferenciaSaldo"></div>
     <div id="saldosBancoExt"></div>
     <div id="resultadosBancoExt"></div>
@@ -1557,6 +1558,281 @@ function _aplicarAcervoNaEmpresa(ac,d,partes){
  d._acervoAplicado=ac.versao||'';
  return n;}
 
+/* ======================================================================
+   ADIANTAMENTOS — cliente e fornecedor
+
+   O dinheiro entra (ou sai) antes da nota. Enquanto a nota não existe,
+   isso NÃO é receita nem despesa: é obrigação de entregar, ou direito de
+   receber. Por isso o adiantamento vive em OUTRAS ENTRADAS / OUTRAS
+   SAÍDAS — entra no caixa, fica fora do lucro.
+
+   A COMPENSAÇÃO NÃO MOVIMENTA DINHEIRO. O dinheiro já passou pelo banco
+   lá atrás. Compensar é amarrar aquele movimento ao título que nasceu
+   agora — e o movimento herda a categoria do título, virando receita (ou
+   despesa) na competência certa. O mesmo dinheiro, contado uma vez só.
+
+   Compensação parcial: o adiantamento encolhe e nasce um movimento do
+   tamanho do título, amarrado a ele. 1.000 = 400 compensados + 600 em
+   aberto. O caixa continua fechando em 1.000.
+   ====================================================================== */
+
+var CAT_ADIANT_CLI='Adiantamento de Clientes';
+var CAT_ADIANT_FOR='Adiantamento a Fornecedores';
+
+function _catsAdiantModelo(){return [
+ {numero:'2.1',nome:CAT_ADIANT_CLI,grupo:'OUTRAS ENTRADAS',tipo:'receita',
+  descricao:'Cliente pagou antes da nota. Entra no caixa, fica fora do lucro até a compensação.'},
+ {numero:'2.2',nome:CAT_ADIANT_FOR,grupo:'OUTRAS SAÍDAS',tipo:'despesa',
+  descricao:'Pagamento ao fornecedor antes da nota. Sai do caixa, fica fora do lucro até a compensação.'}
+];}
+
+function _temCatAdiant(nome){return (dados().categorias||[]).some(function(c){return c.nome===nome;});}
+function _criarCatsAdiantamento(){
+ var d=dados();d.categorias=d.categorias||[];var n=0;
+ _catsAdiantModelo().forEach(function(c){
+  if(_temCatAdiant(c.nome))return;
+  d.categorias.push(Object.assign({id:id(),_org:'empresa'},c));n++;});
+ if(n){saveApp();try{render();}catch(e){}}
+ return n;}
+
+/* ---------- leitura ---------- */
+function ehAdiantamento(l){
+ if(!l)return false;
+ if(l.adiantamento==='cliente'||l.adiantamento==='fornecedor')return true;
+ return l.categoria===CAT_ADIANT_CLI||l.categoria===CAT_ADIANT_FOR;}
+
+function adiantLado(l){
+ if(!l)return '';
+ if(l.adiantamento==='cliente'||l.adiantamento==='fornecedor')return l.adiantamento;
+ if(l.categoria===CAT_ADIANT_CLI)return 'cliente';
+ if(l.categoria===CAT_ADIANT_FOR)return 'fornecedor';
+ return '';}
+
+/* Saldo ainda não compensado. Sem marca, o saldo é o próprio valor. */
+function adiantSaldo(l){
+ if(!l)return 0;
+ var s=(l.adiantSaldo!=null)?+l.adiantSaldo:(+l.valor||0);
+ return Math.round(s*100)/100;}
+
+function adiantamentosAbertos(lado){
+ return (dados().lancamentos||[]).filter(function(l){
+  if(l.status==='previsto')return false;
+  if(!ehAdiantamento(l))return false;
+  if(lado&&adiantLado(l)!==lado)return false;
+  return adiantSaldo(l)>0.005;})
+ .sort(function(a,b){return String(a.data||'').localeCompare(String(b.data||''));});}
+
+function adiantTotalAberto(lado){
+ return adiantamentosAbertos(lado).reduce(function(s,l){return s+adiantSaldo(l);},0);}
+
+/* Títulos em aberto que este adiantamento pode compensar:
+   mesmo tipo (entrada compensa título de receita) e ainda não baixados. */
+function _titulosParaAdiant(l){
+ var lado=adiantLado(l);
+ var tp=(lado==='cliente')?'receita':'despesa';
+ var nome=_normAc(l.cliente||'');
+ return (dados().lancamentos||[]).filter(function(t){
+   return t.status==='previsto'&&!t.baixado&&t.tipo===tp&&(+t.valor||0)>0;})
+  .sort(function(a,b){
+   /* os do mesmo cliente primeiro, depois por vencimento */
+   var ma=(_normAc(a.cliente||'')===nome)?0:1, mb=(_normAc(b.cliente||'')===nome)?0:1;
+   if(ma!==mb)return ma-mb;
+   return String(a.dataVencimento||a.venc||a.data||'').localeCompare(String(b.dataVencimento||b.venc||b.data||''));});}
+
+/* Chip no botão: quanto há de adiantamento em aberto, sem precisar abrir a tela. */
+function _chipAdiantamentos(){try{
+ var el=document.getElementById('chipAdiant');if(!el)return;
+ var c=adiantTotalAberto('cliente'), f=adiantTotalAberto('fornecedor');
+ if(c<0.005&&f<0.005){el.textContent='';return;}
+ var partes=[];
+ if(c>=0.005)partes.push('clientes '+moeda(c));
+ if(f>=0.005)partes.push('fornecedores '+moeda(f));
+ el.textContent=' · '+partes.join(' · ');}catch(e){}}
+
+/* ---------- tela: adiantamentos em aberto ---------- */
+function abrirAdiantamentos(lado){
+ lado=lado||'cliente';
+ if(!_temCatAdiant(CAT_ADIANT_CLI)||!_temCatAdiant(CAT_ADIANT_FOR)){
+  if(confirm('Para usar adiantamentos preciso de duas categorias no plano de contas:\n\n'
+   +'• '+CAT_ADIANT_CLI+' (OUTRAS ENTRADAS)\n• '+CAT_ADIANT_FOR+' (OUTRAS SAÍDAS)\n\n'
+   +'As duas ficam FORA do lucro — o dinheiro entra no caixa sem virar resultado.\n\nCriar agora?')){
+   var n=_criarCatsAdiantamento();
+   alert(n+' categoria(s) criada(s).');}
+  else return;}
+ window._adiantLado=lado;
+ var lista=adiantamentosAbertos(lado);
+ var rot=(lado==='cliente')?'clientes':'fornecedores';
+ var aba=function(v,t){return '<button class="btn'+(lado===v?'':' sec')+'" style="font-size:13px;padding:8px 16px" onclick="abrirAdiantamentos(\''+v+'\')">'+t+'</button>';};
+ var linhas=lista.length?lista.map(function(l){
+   var s=adiantSaldo(l), orig=(+l.valorOrig||+l.valor||0);
+   var usado=(l.valorOrig!=null)?(orig-s):0;
+   return '<tr style="border-bottom:1px solid #F3EFE5">'
+    +'<td class=mini style="padding:8px 6px;white-space:nowrap">'+_dbr(l.data)+'</td>'
+    +'<td style="padding:8px 6px;font-weight:600">'+esc(l.cliente||l.descricao||'—')+'</td>'
+    +'<td class=mini style="padding:8px 6px;color:var(--suave)">'+esc(l.banco||'—')+'</td>'
+    +(usado>0.005?'<td class=mini style="padding:8px 6px;text-align:right;color:var(--suave)">'+moeda(usado)+'</td>':'<td class=mini style="padding:8px 6px;text-align:right;color:var(--suave)">—</td>')
+    +'<td style="padding:8px 6px;text-align:right;font-weight:800;color:var(--vinho)">'+moeda(s)+'</td>'
+    +'<td style="padding:8px 6px;text-align:right"><button class="btn" style="font-size:12px;padding:6px 12px" onclick="abrirCompensarAdiant(\''+l.id+'\')">Compensar</button></td>'
+    +'</tr>';}).join('')
+  :'<tr><td colspan="6" class=mini style="padding:18px 6px;color:var(--suave)">Nenhum adiantamento de '+rot+' em aberto.</td></tr>';
+
+ document.getElementById('modalConteudo').innerHTML='<h3>Adiantamentos</h3>'
+  +'<div class=mini style="margin:-4px 0 12px;line-height:1.7">Dinheiro que passou pelo banco <b>antes da nota</b>. '
+  +'Fica no caixa e <b>fora do lucro</b> até você compensar com o título.</div>'
+  +'<div style="display:flex;gap:8px;margin-bottom:12px">'+aba('cliente','Clientes')+aba('fornecedor','Fornecedores')+'</div>'
+  +'<div style="background:#FAF7F0;border:1px solid #EDE6D8;border-radius:10px;padding:11px 14px;margin-bottom:12px;display:flex;justify-content:space-between;align-items:center">'
+   +'<span class=mini style="font-weight:700;color:var(--vinho)">Em aberto com '+rot+'</span>'
+   +'<b style="font-size:18px;color:var(--vinho)">'+moeda(adiantTotalAberto(lado))+'</b></div>'
+  +'<div style="overflow:auto;max-height:44vh;border:1px solid #EDE6D8;border-radius:10px">'
+   +'<table style="width:100%;border-collapse:collapse;font-size:13px">'
+   +'<thead><tr style="background:#FAF7F0">'
+    +'<th class=mini style="padding:8px 6px;text-align:left">Data</th>'
+    +'<th class=mini style="padding:8px 6px;text-align:left">'+(lado==='cliente'?'Cliente':'Fornecedor')+'</th>'
+    +'<th class=mini style="padding:8px 6px;text-align:left">Conta</th>'
+    +'<th class=mini style="padding:8px 6px;text-align:right">Já compensado</th>'
+    +'<th class=mini style="padding:8px 6px;text-align:right">Em aberto</th>'
+    +'<th></th></tr></thead><tbody>'+linhas+'</tbody></table></div>'
+  +'<div class=mini style="margin-top:10px;color:var(--suave);line-height:1.7">Para registrar um adiantamento novo, lance o movimento com a categoria '
+  +'<b>'+esc(lado==='cliente'?CAT_ADIANT_CLI:CAT_ADIANT_FOR)+'</b>. Ele aparece aqui na hora.</div>'
+  +'<div class="modal-acoes"><button class="btn sec" onclick="fecharModal()">Fechar</button></div>';
+ var mb=document.getElementById('modalConteudo').closest('.modal');if(mb)mb.style.maxWidth='860px';
+ document.getElementById('modalBg').classList.add('show');}
+
+/* ---------- tela: escolher os títulos que serão compensados ---------- */
+function abrirCompensarAdiant(aid){
+ var A=(dados().lancamentos||[]).find(function(x){return x.id===aid;});
+ if(!A){alert('Adiantamento não encontrado.');return;}
+ window._adiantSel={aid:aid,titulos:{}};
+ _renderCompensarAdiant();}
+
+function _renderCompensarAdiant(){
+ var st=window._adiantSel;if(!st)return;
+ var L=dados().lancamentos||[];
+ var A=L.find(function(x){return x.id===st.aid;});if(!A)return;
+ var saldo=adiantSaldo(A);
+ var lado=adiantLado(A);
+ var tits=_titulosParaAdiant(A);
+ var soma=0;Object.keys(st.titulos).forEach(function(tid){if(st.titulos[tid]){var t=L.find(function(x){return x.id===tid;});if(t)soma+=(+t.valor||0);}});
+ soma=Math.round(soma*100)/100;
+ var resta=Math.round((saldo-soma)*100)/100;
+ var cabe=(soma>0.005)&&(soma<=saldo+0.005);
+
+ var rows=tits.length?tits.slice(0,300).map(function(t){
+   var marc=!!st.titulos[t.id];
+   var venc=t.dataVencimento||t.venc||t.data||'';
+   var mesmo=_normAc(t.cliente||'')===_normAc(A.cliente||'');
+   return '<tr style="border-bottom:1px solid #F3EFE5;background:'+(marc?'#F2F7F4':'transparent')+'">'
+    +'<td style="padding:7px 6px;text-align:center"><input type="checkbox" '+(marc?'checked':'')+' onchange="_toggleTitAdiant(\''+t.id+'\')" style="width:auto"></td>'
+    +'<td class=mini style="padding:7px 6px;white-space:nowrap">'+_dbr(venc)+'</td>'
+    +'<td style="padding:7px 6px">'+esc(String(t.cliente||'—').slice(0,30))+(mesmo?' <span class=mini style="color:#2f6b4f;font-weight:700">• mesmo nome</span>':'')+'</td>'
+    +'<td class=mini style="padding:7px 6px;color:var(--suave)">'+esc(String(t.servico||t.descricao||'—').slice(0,34))+'</td>'
+    +'<td class=mini style="padding:7px 6px;color:var(--suave)">'+esc(String(t.categoria||'—').slice(0,26))+'</td>'
+    +'<td style="padding:7px 6px;text-align:right;font-weight:700">'+moeda(+t.valor||0)+'</td>'
+    +'</tr>';}).join('')
+  :'<tr><td colspan="6" class=mini style="padding:18px 6px;color:var(--suave)">Nenhum título em aberto para compensar. Emita a nota (crie o título) e volte aqui.</td></tr>';
+
+ document.getElementById('modalConteudo').innerHTML='<h3>Compensar adiantamento</h3>'
+  +'<div style="background:#FAF7F0;border:1px solid #EDE6D8;border-radius:10px;padding:11px 14px;margin:-2px 0 12px;font-size:13px">'
+   +'<div style="display:flex;justify-content:space-between;padding:2px 0"><span style="color:#8f8073">'+(lado==='cliente'?'Cliente':'Fornecedor')+'</span><b>'+esc(A.cliente||A.descricao||'—')+'</b></div>'
+   +'<div style="display:flex;justify-content:space-between;padding:2px 0"><span style="color:#8f8073">Entrou em</span><b>'+_dbr(A.data)+' · '+esc(A.banco||'sem conta')+'</b></div>'
+   +'<div style="display:flex;justify-content:space-between;padding:2px 0;border-top:1px solid #EDE6D8;margin-top:4px;padding-top:6px"><span style="color:#8f8073">Saldo em aberto</span><b style="color:var(--vinho);font-size:15px">'+moeda(saldo)+'</b></div>'
+  +'</div>'
+  +'<div class=mini style="font-weight:700;color:var(--vinho);margin:0 0 6px">Marque os títulos que este adiantamento está pagando</div>'
+  +'<div style="overflow:auto;max-height:36vh;border:1px solid #EDE6D8;border-radius:10px">'
+   +'<table style="width:100%;border-collapse:collapse;font-size:13px">'
+   +'<thead><tr style="background:#FAF7F0"><th style="width:34px"></th>'
+    +'<th class=mini style="padding:8px 6px;text-align:left">Vencimento</th>'
+    +'<th class=mini style="padding:8px 6px;text-align:left">'+(lado==='cliente'?'Cliente':'Fornecedor')+'</th>'
+    +'<th class=mini style="padding:8px 6px;text-align:left">Serviço</th>'
+    +'<th class=mini style="padding:8px 6px;text-align:left">Categoria</th>'
+    +'<th class=mini style="padding:8px 6px;text-align:right">Valor</th>'
+   +'</tr></thead><tbody>'+rows+'</tbody></table></div>'
+  +'<div style="background:'+(cabe?'#F2F7F4':'#FBF3DE')+';border:1px solid '+(cabe?'#cfe6d6':'#E4CE8F')+';border-radius:10px;padding:11px 14px;margin-top:10px;font-size:13px">'
+   +'<div style="display:flex;justify-content:space-between;padding:2px 0"><span>Selecionado</span><b>'+moeda(soma)+'</b></div>'
+   +'<div style="display:flex;justify-content:space-between;padding:2px 0"><span>Fica em aberto depois</span><b>'+moeda(resta>0?resta:0)+'</b></div>'
+   +(soma>saldo+0.005?'<div class=mini style="color:var(--rubro);font-weight:700;margin-top:6px">A soma dos títulos passa do saldo do adiantamento em '+moeda(soma-saldo)+'. Desmarque algum título — não dá para compensar o que não entrou.</div>':'')
+   +((cabe&&resta>0.005)?'<div class=mini style="color:#2f6b4f;margin-top:6px">Compensação parcial: o saldo restante continua disponível para as próximas notas.</div>':'')
+  +'</div>'
+  +'<div class="modal-acoes"><button class="btn sec" onclick="abrirAdiantamentos(\''+lado+'\')">Voltar</button>'
+   +'<button class="btn'+(cabe?'':' sec')+'" '+(cabe?'':'disabled')+' onclick="confirmarCompensacaoAdiant()">'
+   +(cabe?('Compensar '+moeda(soma)):'Selecione os títulos')+'</button></div>';
+ var mb=document.getElementById('modalConteudo').closest('.modal');if(mb)mb.style.maxWidth='900px';
+ document.getElementById('modalBg').classList.add('show');}
+
+function _toggleTitAdiant(tid){
+ var st=window._adiantSel;if(!st)return;
+ st.titulos[tid]=!st.titulos[tid];
+ _renderCompensarAdiant();}
+
+/* ---------- a compensação ----------
+   Sem movimento de dinheiro novo: o caixa já recebeu lá atrás. */
+function confirmarCompensacaoAdiant(){try{
+ var st=window._adiantSel;if(!st)return;
+ var L=dados().lancamentos||[];
+ var A=L.find(function(x){return x.id===st.aid;});if(!A)return;
+ var saldo=adiantSaldo(A);
+ var sel=Object.keys(st.titulos).filter(function(tid){return st.titulos[tid];})
+   .map(function(tid){return L.find(function(x){return x.id===tid;});}).filter(Boolean);
+ if(!sel.length){alert('Marque ao menos um título.');return;}
+ var soma=Math.round(sel.reduce(function(s,t){return s+(+t.valor||0);},0)*100)/100;
+ if(soma>saldo+0.005){alert('A soma dos títulos ('+moeda(soma)+') passa do saldo do adiantamento ('+moeda(saldo)+').');return;}
+
+ var resta=Math.round((saldo-soma)*100)/100;
+ var total=(A.valorOrig!=null)?(+A.valorOrig||0):(+A.valor||0);
+ if(!confirm('Compensar '+moeda(soma)+' do adiantamento de '+esc(A.cliente||'—')+'?\n\n'
+  +sel.length+' título(s) serão baixados e passam a compor o resultado na competência deles.\n'
+  +'Nenhum dinheiro novo entra ou sai — o caixa já recebeu em '+_dbr(A.data)+'.\n\n'
+  +(resta>0.005?('Fica em aberto: '+moeda(resta)):'O adiantamento fica quitado.')))return;
+
+ var hoje=new Date().toISOString().slice(0,10);
+ var quem=usuariaAtivaNome();
+ A.adiantamento=adiantLado(A);
+ if(A.valorOrig==null)A.valorOrig=+A.valor||0;
+ A.adiantCompensacoes=A.adiantCompensacoes||[];
+
+ if(resta<=0.005&&sel.length){
+  /* Compensação total do saldo: o próprio movimento vira a baixa do título.
+     Não sobra lançamento de valor zero. */
+  var t0=sel[0];
+  sel.forEach(function(t){t.baixado=true;t.baixaData=A.data;t.baixaRef=A.id;t.baixaAuto='adiantamento';
+    if(t.tagConcil){t.tagConcilAnt=t.tagConcil;t.tagConcil='';}});
+  A.baixaDe=t0.id;A.conciliado=true;if(!A.conciliadoEm)A.conciliadoEm=hoje;
+  if(sel.length===1)_herdaDoTitulo(A,t0);
+  else A.categoria=t0.categoria||A.categoria;
+  A.valor=soma;A.adiantSaldo=0;A.adiantQuitado=true;
+  A.descricao='Compensação de adiantamento — '+String(t0.servico||t0.descricao||A.cliente||'');
+  A.origem=A.origem||'Compensação de adiantamento';
+  sel.forEach(function(t){A.adiantCompensacoes.push({titulo:t.id,valor:+t.valor||0,data:hoje,quem:quem});});
+ }else{
+  /* Parcial: nasce um movimento do tamanho de cada título, amarrado a ele,
+     e o adiantamento encolhe. A soma continua igual ao que entrou no banco. */
+  sel.forEach(function(t){
+   var novo={id:id(),data:A.data,dataEmissao:A.data,
+    cliente:t.cliente||A.cliente||'',
+    descricao:'Compensação de adiantamento — '+String(t.servico||t.descricao||t.cliente||''),
+    servico:t.servico||t.descricao||'',
+    categoria:t.categoria,tipo:A.tipo,valor:+t.valor||0,
+    banco:A.banco||'',unidade:A.unidade||t.unidade||'',
+    formaPagto:A.formaPagto||'',
+    status:'realizado',conciliado:true,conciliadoEm:hoje,
+    baixaDe:t.id,adiantDe:A.id,
+    origem:'Compensação de adiantamento',usuario:quem};
+   _herdaDoTitulo(novo,t);
+   dados().lancamentos.push(novo);
+   t.baixado=true;t.baixaData=A.data;t.baixaRef=novo.id;t.baixaAuto='adiantamento';
+   if(t.tagConcil){t.tagConcilAnt=t.tagConcil;t.tagConcil='';}
+   A.adiantCompensacoes.push({titulo:t.id,valor:+t.valor||0,data:hoje,quem:quem});});
+  A.valor=resta;A.adiantSaldo=resta;
+ }
+ saveApp();
+ try{render();}catch(e){console.warn(e);}
+ window._adiantSel=null;
+ alert('Compensado '+moeda(soma)+'.\n\n'+sel.length+' título(s) baixado(s).\n'
+  +(resta>0.005?('Saldo do adiantamento: '+moeda(resta)):'Adiantamento quitado.')
+  +'\n\nO caixa não mudou — o dinheiro já tinha entrado.');
+ abrirAdiantamentos(adiantLado(A)||'cliente');
+}catch(e){alert('Erro ao compensar: '+e.message);}}
+
 /* ---------- tela: Acervo padrão ---------- */
 async function abrirAcervo(){
  if(!_ehMaster()){alert('Só quem administra o sistema vê o acervo padrão.');return;}
@@ -2030,7 +2306,7 @@ function abrirAba(pg){const b=[...document.querySelectorAll('.menu-item')].find(
 /* REGRA CONTABIL: titulo (previsto) = data de VENCIMENTO (competencia) · movimento do extrato = data do extrato (caixa).
    Usar dataRef(l) em TODO filtro, agrupamento, ordenacao e comparacao com hoje. Emissao nunca e criterio de periodo. */
 /* ===== VERSAO DO PAINEL — para saber, sem adivinhar, se a tela esta atualizada ===== */
-const APP_VERSAO='2026-09-28.5';
+const APP_VERSAO='2026-09-28.6';
 function _marcaVersao(){try{
  /* versao no CABECALHO, ao lado do status da nuvem — fica visivel sem procurar */
  var bar=document.querySelector('.tb-acoes');var d=document.getElementById('appVersaoTag');
@@ -2505,6 +2781,7 @@ function renderBannerImportRuim(){var box=document.getElementById('bannerImportR
 function renderBannerVencVazio(){var box=document.getElementById('bannerVencVazio');if(!box)return;var alvo=_titulosSemVenc();if(!alvo.length){box.innerHTML='';return;}var tot=alvo.reduce(function(s,l){return s+(+l.valor||0);},0);box.innerHTML='<div style="background:#FBF3DE;border:1px solid #E4CE8F;border-radius:12px;padding:14px 16px;margin:0 0 14px;display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap"><div style="font-size:13.5px;color:#7a6320;line-height:1.5"><b>\ud83d\udcc5 '+alvo.length+' t\u00edtulo(s) em aberto sem data de vencimento \u00b7 '+moeda(tot)+'</b><br><span style="font-size:12.5px">Sem vencimento o t\u00edtulo cai no m\u00eas errado. Preencher usa a pr\u00f3pria data do t\u00edtulo (\u00e0 vista). Nada \u00e9 apagado.</span></div><button class="btn" onclick="preencherVencimentosVazios()">Preencher vencimentos</button></div>';}
 function render(){
   try{normalizarTextos();}catch(e){}
+  try{_chipAdiantamentos();}catch(e){}
   try{renderBannerCaixaDup();}catch(e){}
   try{renderBannerVinculos();}catch(e){}
   try{renderBannerVencVazio();}catch(e){}
