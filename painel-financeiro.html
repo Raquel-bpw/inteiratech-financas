@@ -2030,7 +2030,7 @@ function abrirAba(pg){const b=[...document.querySelectorAll('.menu-item')].find(
 /* REGRA CONTABIL: titulo (previsto) = data de VENCIMENTO (competencia) · movimento do extrato = data do extrato (caixa).
    Usar dataRef(l) em TODO filtro, agrupamento, ordenacao e comparacao com hoje. Emissao nunca e criterio de periodo. */
 /* ===== VERSAO DO PAINEL — para saber, sem adivinhar, se a tela esta atualizada ===== */
-const APP_VERSAO='2026-09-28.2';
+const APP_VERSAO='2026-09-28.3';
 function _marcaVersao(){try{
  /* versao no CABECALHO, ao lado do status da nuvem — fica visivel sem procurar */
  var bar=document.querySelector('.tb-acoes');var d=document.getElementById('appVersaoTag');
@@ -2127,7 +2127,18 @@ function _optsMotivoEstorno(sel){
  var o='<option value=""'+(sel?'':' selected')+'>— escolha o motivo —</option>';
  MOTIVOS_ESTORNO.forEach(function(m){o+='<option value="'+m.v+'"'+(m.v===sel?' selected':'')+'>'+esc(m.t)+'</option>';});
  return o;}
-/* Na edição, o campo só aparece quando o tipo escolhido é estorno. */
+/* Tira e põe o prefixo do motivo na descrição, sem nunca duplicar e trocando
+   o prefixo antigo quando o motivo muda. */
+function _semPrefixoEstorno(d){
+ var s=String(d==null?'':d);
+ var pres=MOTIVOS_ESTORNO.map(function(m){return m.t;}).concat(['ESTORNO','Estorno']);
+ for(var i=0;i<pres.length;i++){var p=pres[i]+' — ';if(s.indexOf(p)===0)return s.slice(p.length);if(s===pres[i])return '';}
+ return s;}
+function _comPrefixoEstorno(d,motivo){
+ var base=_semPrefixoEstorno(d);var pre=prefixoEstorno(motivo);
+ return base?(pre+' — '+base):pre;}
+
+/* Na edição e no novo lançamento, o campo só aparece quando o tipo é estorno. */
 function _toggleMotivoEstorno(){try{
  var t=(document.getElementById('eTipo')||{}).value||'';
  var b=document.getElementById('boxMotivoEstorno');if(!b)return;
@@ -3749,6 +3760,7 @@ function abrirNovoLancamento(){
     </div>
     <div class="fg-sec">Identificação</div><div class="form-grid">
     <div style="grid-column:span 3"><label>Tipo</label><select id="fTipo" onchange="lancTipoChg()"><option value="receita">Receita (entrada)</option><option value="despesa">Despesa (saída)</option><option value="transfer">Transferência entre contas</option><option value="estorno_receita">Estorno de receita (saída em receita)</option><option value="estorno_despesa">Estorno de despesa (entrada em despesa)</option></select></div>
+    <div id="wrapFMotivo" style="grid-column:span 3;display:none"><label>Motivo do estorno</label><select id="fMotivoEstorno">${_optsMotivoEstorno('')}</select></div>
     <div style="grid-column:span 3"><label>Valor (R$)</label><input type="text" inputmode="decimal" id="fValor" placeholder="0,00" onblur="this.value=fmtMoedaInput(this.value)"></div>
     <div style="grid-column:span 6"><label>Cliente ou fornecedor</label><input id="fCliente" placeholder="Nome do cliente ou fornecedor"></div>
     <div style="grid-column:span 6"><label>Descrição</label><input id="fDesc" placeholder="Ex: aluguel, fornecedor, venda de produto..."></div>
@@ -3772,6 +3784,7 @@ function lancTipoChg(){
   const sh=(idd,v)=>{const e=document.getElementById(idd);if(e)e.style.display=v?'':'none';};
   sh('wrapFCat',!isT);sh('wrapFBanco',!isT);sh('wrapFForma',!isT);sh('wrapFCartao',!isT);
   sh('wrapFDe',isT);sh('wrapFPara',isT);
+  sh('wrapFMotivo',t==='estorno_receita'||t==='estorno_despesa');
   if(isT)montarContasTransf();else atualizaCatSelect();
 }
 function montarContasTransf(){
@@ -3810,8 +3823,15 @@ function salvarLancamento(proximo){
   const _tipoSel=document.getElementById('fTipo').value;
   if(!validaEstorno(_tipoSel,document.getElementById('fCat').value,valor))return;
   const _mapa=mapeiaTipoEstorno(_tipoSel);
+  /* estorno sem motivo não entra — é o motivo que explica depois por que o dinheiro voltou */
+  let _motE='',_descF=_desc;
+  if(_mapa.estorno){
+    const _fm=document.getElementById('fMotivoEstorno');_motE=_fm?_fm.value:'';
+    if(!_motE){alert('Escolha o motivo do estorno.\n\nEle entra na descrição do lançamento e é o que explica, depois, por que esse dinheiro voltou.');if(_fm)_fm.focus();return;}
+    _descF=_comPrefixoEstorno(_desc,_motE);
+  }
   const _crt=document.getElementById('fCartao');const _cartaoId=_crt?_crt.value:'';
-  dados().lancamentos.push({id:id(),data,cliente:_cli?_cli.value.trim():'',descricao:_desc,servico:_desc,banco:document.getElementById('fBanco').value.trim(),categoria:document.getElementById('fCat').value,tipo:_mapa.tipo,estorno:_mapa.estorno,valor,status:document.getElementById('fStatus').value,unidade:uni,formaPagto:_frm?_frm.value:'',usuario:usuariaAtivaNome(),obs:document.getElementById('fObs').value.trim(),cartaoId:_cartaoId||''});
+  dados().lancamentos.push({id:id(),data,cliente:_cli?_cli.value.trim():'',descricao:_descF,servico:_descF,motivoEstorno:(_motE||undefined),banco:document.getElementById('fBanco').value.trim(),categoria:document.getElementById('fCat').value,tipo:_mapa.tipo,estorno:_mapa.estorno,valor,status:document.getElementById('fStatus').value,unidade:uni,formaPagto:_frm?_frm.value:'',usuario:usuariaAtivaNome(),obs:document.getElementById('fObs').value.trim(),cartaoId:_cartaoId||''});
   saveApp();autoBaixaCorrespondentes();saveApp();autoConciliar();
   if(proximo){
     render();
@@ -4005,9 +4025,10 @@ function confirmarEdicao(lid){const l=dados().lancamentos.find(x=>x.id===lid);if
   l.data=_dataE;l.cliente=document.getElementById('eCliente').value.trim();l.servico=_desc;l.descricao=(l.cliente?l.cliente+' — ':'')+_desc;const _mapa=mapeiaTipoEstorno(document.getElementById('eTipo').value);l.tipo=_mapa.tipo;l.estorno=_mapa.estorno;
  /* estorno sem motivo não entra: é o motivo que explica depois por que o dinheiro voltou */
  if(_mapa.estorno){var _me=document.getElementById('eMotivoEstorno');var _mv=_me?_me.value:(l.motivoEstorno||'');
-  if(!_mv){alert('Escolha o motivo do estorno.\n\nEle é o que explica, depois, por que esse dinheiro voltou.');if(_me)_me.focus();return;}
-  l.motivoEstorno=_mv;}
- else{delete l.motivoEstorno;}
+  if(!_mv){alert('Escolha o motivo do estorno.\n\nEle entra na descrição do lançamento e é o que explica, depois, por que esse dinheiro voltou.');if(_me)_me.focus();return;}
+  l.motivoEstorno=_mv;
+  l.descricao=_comPrefixoEstorno(l.descricao,_mv);l.servico=_comPrefixoEstorno(l.servico,_mv);}
+ else{delete l.motivoEstorno;l.descricao=_semPrefixoEstorno(l.descricao);l.servico=_semPrefixoEstorno(l.servico);}
  l.valor=_val;if(l.categoria!==_cat)l.catManual=true;l.categoria=_cat;if(!validaEstorno(document.getElementById('eTipo').value,l.categoria,l.valor,lid))return;const ef=document.getElementById('eForma');if(ef)l.formaPagto=ef.value;const eb=document.getElementById('eBanco');if(eb)l.banco=eb.value;const ec=document.getElementById('eCartao');if(ec)l.cartaoId=ec.value;l.status=_status;const eu=document.getElementById('eUnidade');if(eu)l.unidade=eu.value;l.dataEmissao=l.data;if(_receb){const eve=document.getElementById('eVencimento');if(eve){/* nunca gravar vencimento vazio: sem vencimento o titulo cai no mes errado */var _vv=eve.value||l.dataVencimento||l.venc||_dataE;l.dataVencimento=_vv;l.venc=_vv;}const eba=document.getElementById('eBaixaData');if(eba){l.baixaData=eba.value;if(eba.value)l.dataBaixa=eba.value;}}else{l.dataVencimento=_dataE;l.venc=_dataE;if(_conc){l.dataBaixa=_dataE;l.baixaData=_dataE;}}const etg=document.getElementById('eTag');if(etg)l.tagConcil=etg.value;l.conciliado=_conc;if(_conc){if(l.tagConcil)l.tagConcilAnt=l.tagConcil;l.tagConcil='';}else if(l.tagConcilAnt&&!l.tagConcil){l.tagConcil=l.tagConcilAnt;delete l.tagConcilAnt;}if(_conc&&!l.conciliadoEm)l.conciliadoEm=new Date().toISOString().slice(0,10);if(!_conc){delete l.conciliadoEm;delete l.conciliadoPor;}if((l.banco||'').toLowerCase().trim()==='caixa'||(l.formaPagto||'').toUpperCase()==='DINHEIRO'){l.dataBaixa=l.data;l.baixaData=l.data;l.dataVencimento=l.data;l.venc=l.data;}try{var _crc=document.getElementById('eCriarRegra');var _crt=((document.getElementById('eRegraTermo')||{}).value||'').trim();if(_crc&&_crc.checked&&_crt&&l.categoria&&l.categoria!=='A classificar'){criarRegraDe(l,_crt);}}catch(e){}saveApp();fecharModal();render();}
 function excluirLanc(lid){const l=dados().lancamentos.find(x=>x.id===lid);if(l&&l.transfRef){if(!confirm('Este lançamento faz parte de uma transferência. Excluir apaga as DUAS pernas (origem e destino). Continuar?'))return;dados().lancamentos=dados().lancamentos.filter(x=>x.transfRef!==l.transfRef);saveApp();render();return;}if(!confirm('Excluir este lançamento?'))return;dados().lancamentos=dados().lancamentos.filter(x=>x.id!==lid);saveApp();render();}
 function copiarLanc(lid){const l=dados().lancamentos.find(x=>x.id===lid);if(!l)return;if(l.transfRef){const legs=dados().lancamentos.filter(x=>x.transfRef===l.transfRef);const novoRef=id();legs.forEach(function(leg){const nv=Object.assign({},leg,{id:id(),transfRef:novoRef});delete nv.baixado;delete nv.baixaRef;delete nv.baixaData;delete nv.vencId;dados().lancamentos.push(nv);});saveApp();render();editarTransferencia(novoRef);return;}const novo=Object.assign({},l,{id:id()});delete novo.baixado;delete novo.baixaRef;delete novo.baixaData;delete novo.vencId;dados().lancamentos.push(novo);saveApp();render();editarLanc(novo.id);}
