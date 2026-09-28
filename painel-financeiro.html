@@ -606,7 +606,7 @@ body.so-leitura input[type=file]{display:none}
         <div style="display:flex;gap:8px;align-items:center"><label class=mini style="font-weight:700;color:var(--vinho)">Mês</label><select id="pendMes" onchange="mudarPendMes(this.value)" style="padding:7px 10px;border:1px solid #dcd4c4;border-radius:8px;font-family:inherit"></select></div>
       </div>
       <div class="cap">O que ainda não bateu entre o sistema e o banco. As listas aparecem só quando você clica em <b>Ver pendências</b> — no dia a dia, use a rotina de conciliação.</div>
-      <div style="display:flex;gap:10px;align-items:center;margin:10px 0 6px;flex-wrap:wrap"><button class="btn ouro" onclick="abrirConciliacaoBanco()" title="Abrir a tela para amarrar recebimentos aos títulos">🏦 Conciliação de bancos</button><button class="btn sec" onclick="reamarrarEtiquetados()" title="Casa automaticamente os recebimentos etiquetados aos títulos que chegaram, sem duplicar">🔁 Amarrar títulos que chegaram</button><button class="btn sec" id="btnVerPend" onclick="togglePendVer()" title="Mostrar ou ocultar as duas listas de pendências">👁 Ver pendências</button><button class="btn sec" onclick="ajudaConciliacao()" title="Explicação rápida: conciliar, amarrar e baixa">❓ Como funciona</button></div>
+      <div style="display:flex;gap:10px;align-items:center;margin:10px 0 6px;flex-wrap:wrap"><button class="btn ouro" onclick="abrirConciliacaoBanco()" title="Abrir a tela para amarrar recebimentos aos títulos">🏦 Conciliação de bancos</button><button class="btn ouro" onclick="abrirAdiantamentos('cliente')" title="Dinheiro que entrou ou saiu antes da nota — e a compensação com o título">💰 Adiantamentos <span id="chipAdiant2" class="mini" style="opacity:.9"></span></button><button class="btn sec" onclick="reamarrarEtiquetados()" title="Casa automaticamente os recebimentos etiquetados aos títulos que chegaram, sem duplicar">🔁 Amarrar títulos que chegaram</button><button class="btn sec" id="btnVerPend" onclick="togglePendVer()" title="Mostrar ou ocultar as duas listas de pendências">👁 Ver pendências</button><button class="btn sec" onclick="ajudaConciliacao()" title="Explicação rápida: conciliar, amarrar e baixa">❓ Como funciona</button></div>
       <div id="pendGridWrap" class="pend-grid" style="display:none;grid-template-columns:1fr 1fr;gap:18px">
         <div>
           <h3 style="font-size:14px;color:var(--vinho);margin:4px 0 2px">Atendimento sem vínculo <span id="pendRecTot" class="mini" style="color:var(--ouro)"></span></h3>
@@ -1641,13 +1641,15 @@ function _titulosParaAdiant(l){
 
 /* Chip no botão: quanto há de adiantamento em aberto, sem precisar abrir a tela. */
 function _chipAdiantamentos(){try{
- var el=document.getElementById('chipAdiant');if(!el)return;
+ var els=[document.getElementById('chipAdiant'),document.getElementById('chipAdiant2')].filter(Boolean);
+ if(!els.length)return;
  var c=adiantTotalAberto('cliente'), f=adiantTotalAberto('fornecedor');
- if(c<0.005&&f<0.005){el.textContent='';return;}
- var partes=[];
- if(c>=0.005)partes.push('clientes '+moeda(c));
- if(f>=0.005)partes.push('fornecedores '+moeda(f));
- el.textContent=' · '+partes.join(' · ');}catch(e){}}
+ var txt='';
+ if(c>=0.005||f>=0.005){var partes=[];
+  if(c>=0.005)partes.push('clientes '+moeda(c));
+  if(f>=0.005)partes.push('fornecedores '+moeda(f));
+  txt=' · '+partes.join(' · ');}
+ els.forEach(function(e){e.textContent=txt;});}catch(e){}}
 
 /* ---------- tela: adiantamentos em aberto ---------- */
 function abrirAdiantamentos(lado){
@@ -2306,7 +2308,7 @@ function abrirAba(pg){const b=[...document.querySelectorAll('.menu-item')].find(
 /* REGRA CONTABIL: titulo (previsto) = data de VENCIMENTO (competencia) · movimento do extrato = data do extrato (caixa).
    Usar dataRef(l) em TODO filtro, agrupamento, ordenacao e comparacao com hoje. Emissao nunca e criterio de periodo. */
 /* ===== VERSAO DO PAINEL — para saber, sem adivinhar, se a tela esta atualizada ===== */
-const APP_VERSAO='2026-09-28.6';
+const APP_VERSAO='2026-09-28.7';
 function _marcaVersao(){try{
  /* versao no CABECALHO, ao lado do status da nuvem — fica visivel sem procurar */
  var bar=document.querySelector('.tb-acoes');var d=document.getElementById('appVersaoTag');
