@@ -2030,7 +2030,7 @@ function abrirAba(pg){const b=[...document.querySelectorAll('.menu-item')].find(
 /* REGRA CONTABIL: titulo (previsto) = data de VENCIMENTO (competencia) · movimento do extrato = data do extrato (caixa).
    Usar dataRef(l) em TODO filtro, agrupamento, ordenacao e comparacao com hoje. Emissao nunca e criterio de periodo. */
 /* ===== VERSAO DO PAINEL — para saber, sem adivinhar, se a tela esta atualizada ===== */
-const APP_VERSAO='2026-09-28.3';
+const APP_VERSAO='2026-09-28.4';
 function _marcaVersao(){try{
  /* versao no CABECALHO, ao lado do status da nuvem — fica visivel sem procurar */
  var bar=document.querySelector('.tb-acoes');var d=document.getElementById('appVersaoTag');
@@ -2137,6 +2137,17 @@ function _semPrefixoEstorno(d){
 function _comPrefixoEstorno(d,motivo){
  var base=_semPrefixoEstorno(d);var pre=prefixoEstorno(motivo);
  return base?(pre+' — '+base):pre;}
+
+/* Ao escolher o motivo, a descrição já nasce escrita — a pessoa completa se quiser.
+   Só preenche quando o campo está vazio ou contém apenas o rótulo de outro motivo:
+   texto que a pessoa escreveu nunca é sobrescrito. */
+function _descDoMotivo(idSel,idDesc){try{
+ var s=document.getElementById(idSel),d=document.getElementById(idDesc);
+ if(!s||!d)return;
+ var r=rotuloMotivoEstorno(s.value);if(!r)return;
+ var atual=String(d.value||'').trim();
+ var soRotulo=MOTIVOS_ESTORNO.some(function(m){return m.t===atual;})||atual==='ESTORNO'||atual==='Estorno';
+ if(!atual||soRotulo)d.value=r;}catch(e){}}
 
 /* Na edição e no novo lançamento, o campo só aparece quando o tipo é estorno. */
 function _toggleMotivoEstorno(){try{
@@ -3748,7 +3759,12 @@ function origemLanc(l){if(!l)return '';if(l.origemLink)return 'Planilha de link'
 function ehAClassificar(l){return (l.categoria||'')==='A classificar'||!l.categoria;}
 function renderResumoClassificar(){const box=document.getElementById('resumoClassificar');if(!box)return;const arr=dados().lancamentos.filter(l=>visivel(l)&&ehAClassificar(l));if(!arr.length){box.innerHTML='';return;}const rec=arr.filter(l=>l.tipo==='receita').reduce((s,l)=>s+(+l.valor||0),0);const desp=arr.filter(l=>l.tipo==='despesa').reduce((s,l)=>s+(+l.valor||0),0);box.innerHTML=`<div class="card" style="border-left:4px solid var(--ouro)"><div style="display:flex;align-items:center;justify-content:space-between;gap:14px;flex-wrap:wrap"><div><h2 style="margin:0">🔶 A classificar</h2><div class="cap"><b>${arr.length}</b> lançamento(s) importado(s) sem categoria — entradas ${moeda(rec)} · saídas ${moeda(desp)}. Trate para fechar a diferença de saldo.</div></div><button class="btn ouro" onclick="verAClassificar()">Ver a classificar</button></div></div>`;}
 function verAClassificar(){abrirAba('lancamentos');setTimeout(()=>{window._filtroLanc=window._filtroLanc||{};window._filtroLanc.aClassificar=true;renderTabela();atualizaBadgeFiltroLanc();const c=document.querySelector('#pg-lancamentos');if(c)c.scrollIntoView({behavior:'smooth'});},60);}
-function atualizaCatSelect(){const ftp=document.getElementById('fTipo');const sel=document.getElementById('fCat');if(!ftp||!sel)return;const tipo=ftp.value;const est=(tipo==='estorno_receita'||tipo==='estorno_despesa');const cats=dados().categorias.filter(c=>est||c.tipo===tipo).slice().sort((a,b)=>semAc(a.nome||"").localeCompare(semAc(b.nome||""),"pt-BR"));sel.innerHTML=(est?'':'<option value="A classificar">🔶 A classificar</option>')+(cats.map(c=>`<option value="${esc(c.nome)}">${esc(c.nome)}${est?' ('+(c.tipo==='receita'?'entrada':'saída')+')':''}</option>`).join('')||'<option value="">— cadastre categorias —</option>');}
+function atualizaCatSelect(){const ftp=document.getElementById('fTipo');const sel=document.getElementById('fCat');if(!ftp||!sel)return;const tipo=ftp.value;const est=(tipo==='estorno_receita'||tipo==='estorno_despesa');
+ /* Estorno volta para a categoria DE ORIGEM: estorno de receita mostra as categorias
+    de entrada, estorno de despesa mostra as de saída. Misturar as duas fazia a pessoa
+    escolher uma categoria que a validação depois recusava. */
+ const _base=(tipo==='estorno_receita')?'receita':((tipo==='estorno_despesa')?'despesa':tipo);
+ const cats=dados().categorias.filter(c=>c.tipo===_base).slice().sort((a,b)=>semAc(a.nome||"").localeCompare(semAc(b.nome||""),"pt-BR"));sel.innerHTML=(est?'':'<option value="A classificar">🔶 A classificar</option>')+(cats.map(c=>`<option value="${esc(c.nome)}">${esc(c.nome)}</option>`).join('')||'<option value="">— cadastre categorias —</option>');}
 function preencherFiltroCat(){const sel=document.getElementById('filtCat');if(!sel)return;const atual=sel.value;sel.innerHTML='<option value="">Todas categorias</option>'+dados().categorias.slice().sort((a,b)=>semAc(a.nome||"").localeCompare(semAc(b.nome||""),"pt-BR")).map(c=>`<option value="${esc(c.nome)}">${esc(c.nome)}</option>`).join('');if(atual)sel.value=atual;}
 function abrirNovoLancamento(){
   const hasUni=(dados().unidades||[]).length>0;
@@ -3760,7 +3776,7 @@ function abrirNovoLancamento(){
     </div>
     <div class="fg-sec">Identificação</div><div class="form-grid">
     <div style="grid-column:span 3"><label>Tipo</label><select id="fTipo" onchange="lancTipoChg()"><option value="receita">Receita (entrada)</option><option value="despesa">Despesa (saída)</option><option value="transfer">Transferência entre contas</option><option value="estorno_receita">Estorno de receita (saída em receita)</option><option value="estorno_despesa">Estorno de despesa (entrada em despesa)</option></select></div>
-    <div id="wrapFMotivo" style="grid-column:span 3;display:none"><label>Motivo do estorno</label><select id="fMotivoEstorno">${_optsMotivoEstorno('')}</select></div>
+    <div id="wrapFMotivo" style="grid-column:span 3;display:none"><label>Motivo do estorno</label><select id="fMotivoEstorno" onchange="_descDoMotivo('fMotivoEstorno','fDesc')">${_optsMotivoEstorno('')}</select></div>
     <div style="grid-column:span 3"><label>Valor (R$)</label><input type="text" inputmode="decimal" id="fValor" placeholder="0,00" onblur="this.value=fmtMoedaInput(this.value)"></div>
     <div style="grid-column:span 6"><label>Cliente ou fornecedor</label><input id="fCliente" placeholder="Nome do cliente ou fornecedor"></div>
     <div style="grid-column:span 6"><label>Descrição</label><input id="fDesc" placeholder="Ex: aluguel, fornecedor, venda de produto..."></div>
@@ -3900,7 +3916,7 @@ function editarLanc(lid){
     </div>
     <div class="fg-sec">Identificação</div><div class="form-grid">
     <div style="grid-column:span 2"><label>Tipo</label><select id="eTipo" onchange="recarregaCatEdit();sincDatasLanc();_toggleMotivoEstorno()"><option value="receita" ${tipoInicial==='receita'?'selected':''}>Receita (entrada)</option><option value="despesa" ${tipoInicial==='despesa'?'selected':''}>Despesa (saída)</option><option value="estorno_receita" ${tipoInicial==='estorno_receita'?'selected':''}>Estorno de receita (saída em receita)</option><option value="estorno_despesa" ${tipoInicial==='estorno_despesa'?'selected':''}>Estorno de despesa (entrada em despesa)</option></select></div>
-    <div id="boxMotivoEstorno" style="grid-column:span 2;display:${(tipoInicial==='estorno_receita'||tipoInicial==='estorno_despesa')?'block':'none'}"><label>Motivo do estorno</label><select id="eMotivoEstorno">${_optsMotivoEstorno(l.motivoEstorno||'')}</select></div>
+    <div id="boxMotivoEstorno" style="grid-column:span 2;display:${(tipoInicial==='estorno_receita'||tipoInicial==='estorno_despesa')?'block':'none'}"><label>Motivo do estorno</label><select id="eMotivoEstorno" onchange="_descDoMotivo('eMotivoEstorno','eDesc')">${_optsMotivoEstorno(l.motivoEstorno||'')}</select></div>
     <div style="grid-column:span 4"><label>Cliente ou fornecedor</label><input id="eCliente" placeholder="Nome do cliente ou fornecedor" value="${esc(l.cliente||'')}"></div>
     <div style="grid-column:span 4"><label class="obrig">Descrição</label><input id="eDesc" value="${esc((l.servico||l.descricao)||'')}"></div>
     <div style="grid-column:span 2"><label class="obrig">Valor</label><input type="text" inputmode="decimal" id="eValor" value="${fmtMoedaInput(l.valor)}" onblur="this.value=fmtMoedaInput(this.value)"></div>
@@ -3998,7 +4014,7 @@ function confirmarEstorno(lid){var l=dados().lancamentos.find(function(x){return
  var pre=prefixoEstorno(mot);
  var clienteOrig=l.cliente||'';var descOrig=l.descricao||l.servico||'';dados().lancamentos.push({id:id(),data:ds,cliente:clienteOrig?(pre+' — '+clienteOrig):pre,descricao:pre+' — '+descOrig,servico:l.servico?(pre+' — '+l.servico):(pre+' — '+descOrig),categoria:l.categoria,banco:l.banco,unidade:l.unidade,tipo:l.tipo==='receita'?'despesa':'receita',valor:+l.valor||0,status:'realizado',estorno:true,motivoEstorno:mot,estornoDe:l.id,formaPagto:l.formaPagto||'',usuario:usuariaAtivaNome()});saveApp();fecharModal();render();alert(rotuloMotivoEstorno(mot)+' — estorno gerado em '+new Date(ds+'T00:00:00').toLocaleDateString('pt-BR')+'.');}
 
-function recarregaCatEdit(sel){const tipo=document.getElementById('eTipo').value;const est=(tipo==='estorno_receita'||tipo==='estorno_despesa');const cur=(sel!==undefined)?sel:((document.getElementById('eCat')||{}).value||'');const cats=dados().categorias.filter(x=>est||x.tipo===tipo).slice().sort((a,b)=>semAc(a.nome||"").localeCompare(semAc(b.nome||""),"pt-BR"));const achou=cats.some(x=>x.nome===cur);const ph=(!cur||cur==='A classificar'||!achou)?'<option value="" selected>— selecione a categoria —</option>':'';document.getElementById('eCat').innerHTML=ph+cats.map(x=>`<option value="${esc(x.nome)}" ${x.nome===cur?'selected':''}>${esc(x.nome)}${est?' ('+(x.tipo==='receita'?'entrada':'saída')+')':''}</option>`).join('');}
+function recarregaCatEdit(sel){const tipo=document.getElementById('eTipo').value;const est=(tipo==='estorno_receita'||tipo==='estorno_despesa');const cur=(sel!==undefined)?sel:((document.getElementById('eCat')||{}).value||'');const _base=(tipo==='estorno_receita')?'receita':((tipo==='estorno_despesa')?'despesa':tipo);const cats=dados().categorias.filter(x=>x.tipo===_base).slice().sort((a,b)=>semAc(a.nome||"").localeCompare(semAc(b.nome||""),"pt-BR"));const achou=cats.some(x=>x.nome===cur);const ph=(!cur||cur==='A classificar'||!achou)?'<option value="" selected>— selecione a categoria —</option>':'';document.getElementById('eCat').innerHTML=ph+cats.map(x=>`<option value="${esc(x.nome)}" ${x.nome===cur?'selected':''}>${esc(x.nome)}</option>`).join('');}
 function confirmarEdicao(lid){const l=dados().lancamentos.find(x=>x.id===lid);if(!l)return;
   const _val=parseValor(document.getElementById('eValor').value)||0;
   const _cat=document.getElementById('eCat').value;
