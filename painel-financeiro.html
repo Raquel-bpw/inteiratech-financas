@@ -2030,7 +2030,7 @@ function abrirAba(pg){const b=[...document.querySelectorAll('.menu-item')].find(
 /* REGRA CONTABIL: titulo (previsto) = data de VENCIMENTO (competencia) · movimento do extrato = data do extrato (caixa).
    Usar dataRef(l) em TODO filtro, agrupamento, ordenacao e comparacao com hoje. Emissao nunca e criterio de periodo. */
 /* ===== VERSAO DO PAINEL — para saber, sem adivinhar, se a tela esta atualizada ===== */
-const APP_VERSAO='2026-09-28.4';
+const APP_VERSAO='2026-09-28.5';
 function _marcaVersao(){try{
  /* versao no CABECALHO, ao lado do status da nuvem — fica visivel sem procurar */
  var bar=document.querySelector('.tb-acoes');var d=document.getElementById('appVersaoTag');
@@ -2141,13 +2141,18 @@ function _comPrefixoEstorno(d,motivo){
 /* Ao escolher o motivo, a descrição já nasce escrita — a pessoa completa se quiser.
    Só preenche quando o campo está vazio ou contém apenas o rótulo de outro motivo:
    texto que a pessoa escreveu nunca é sobrescrito. */
-function _descDoMotivo(idSel,idDesc){try{
+function _descDoMotivo(idSel,idDesc,idCli){try{
  var s=document.getElementById(idSel),d=document.getElementById(idDesc);
  if(!s||!d)return;
  var r=rotuloMotivoEstorno(s.value);if(!r)return;
+ var c=idCli?document.getElementById(idCli):null;
+ var cli=c?String(c.value||'').trim():'';
+ var novo=cli?(r+' — '+cli):r;
  var atual=String(d.value||'').trim();
- var soRotulo=MOTIVOS_ESTORNO.some(function(m){return m.t===atual;})||atual==='ESTORNO'||atual==='Estorno';
- if(!atual||soRotulo)d.value=r;}catch(e){}}
+ /* Só reescreve o que foi montado aqui. Texto que a pessoa digitou fica intocado. */
+ var ehAuto=(!atual)||(atual===window._descEstAuto)
+   ||MOTIVOS_ESTORNO.some(function(m){return m.t===atual;})||atual==='ESTORNO'||atual==='Estorno';
+ if(ehAuto){d.value=novo;window._descEstAuto=novo;}}catch(e){}}
 
 /* Na edição e no novo lançamento, o campo só aparece quando o tipo é estorno. */
 function _toggleMotivoEstorno(){try{
@@ -3767,6 +3772,7 @@ function atualizaCatSelect(){const ftp=document.getElementById('fTipo');const se
  const cats=dados().categorias.filter(c=>c.tipo===_base).slice().sort((a,b)=>semAc(a.nome||"").localeCompare(semAc(b.nome||""),"pt-BR"));sel.innerHTML=(est?'':'<option value="A classificar">🔶 A classificar</option>')+(cats.map(c=>`<option value="${esc(c.nome)}">${esc(c.nome)}</option>`).join('')||'<option value="">— cadastre categorias —</option>');}
 function preencherFiltroCat(){const sel=document.getElementById('filtCat');if(!sel)return;const atual=sel.value;sel.innerHTML='<option value="">Todas categorias</option>'+dados().categorias.slice().sort((a,b)=>semAc(a.nome||"").localeCompare(semAc(b.nome||""),"pt-BR")).map(c=>`<option value="${esc(c.nome)}">${esc(c.nome)}</option>`).join('');if(atual)sel.value=atual;}
 function abrirNovoLancamento(){
+  window._descEstAuto='';
   const hasUni=(dados().unidades||[]).length>0;
   const formas=['','DINHEIRO','PIX','CARTÃO DE CRÉDITO','CARTÃO DE DÉBITO','BOLETO','CONVÊNIO','OUTROS'];
   document.getElementById('modalConteudo').innerHTML=`<h3>Novo lançamento</h3>
@@ -3776,9 +3782,9 @@ function abrirNovoLancamento(){
     </div>
     <div class="fg-sec">Identificação</div><div class="form-grid">
     <div style="grid-column:span 3"><label>Tipo</label><select id="fTipo" onchange="lancTipoChg()"><option value="receita">Receita (entrada)</option><option value="despesa">Despesa (saída)</option><option value="transfer">Transferência entre contas</option><option value="estorno_receita">Estorno de receita (saída em receita)</option><option value="estorno_despesa">Estorno de despesa (entrada em despesa)</option></select></div>
-    <div id="wrapFMotivo" style="grid-column:span 3;display:none"><label>Motivo do estorno</label><select id="fMotivoEstorno" onchange="_descDoMotivo('fMotivoEstorno','fDesc')">${_optsMotivoEstorno('')}</select></div>
+    <div id="wrapFMotivo" style="grid-column:span 3;display:none"><label>Motivo do estorno</label><select id="fMotivoEstorno" onchange="_descDoMotivo('fMotivoEstorno','fDesc','fCliente')">${_optsMotivoEstorno('')}</select></div>
     <div style="grid-column:span 3"><label>Valor (R$)</label><input type="text" inputmode="decimal" id="fValor" placeholder="0,00" onblur="this.value=fmtMoedaInput(this.value)"></div>
-    <div style="grid-column:span 6"><label>Cliente ou fornecedor</label><input id="fCliente" placeholder="Nome do cliente ou fornecedor"></div>
+    <div style="grid-column:span 6"><label>Cliente ou fornecedor</label><input id="fCliente" placeholder="Nome do cliente ou fornecedor" onblur="_descDoMotivo('fMotivoEstorno','fDesc','fCliente')" onchange="_descDoMotivo('fMotivoEstorno','fDesc','fCliente')"></div>
     <div style="grid-column:span 6"><label>Descrição</label><input id="fDesc" placeholder="Ex: aluguel, fornecedor, venda de produto..."></div>
     </div>
     <div class="fg-sec">Classificação e conta</div><div class="form-grid">
@@ -3896,6 +3902,7 @@ function abrirParcIncompletos(){var todos=_gruposParcelas();var inc=todos.filter
  var _mb=document.getElementById('modalConteudo').closest('.modal');if(_mb)_mb.style.maxWidth='820px';
  document.getElementById('modalBg').classList.add('show');}
 function editarLanc(lid){
+  window._descEstAuto='';
   const l=dados().lancamentos.find(x=>x.id===lid);if(!l)return;
   if(l.transfRef){return editarTransferencia(l.transfRef,lid);}
   const bs=(dados().bancos||[]).filter(b=>b.ativo!==false);const bopts='<option value="">— sem banco —</option>'+bs.map(b=>`<option ${l.banco===b.nome?'selected':''}>${esc(b.nome)}</option>`).join('');const formas=['','DINHEIRO','PIX','CARTÃO DE CRÉDITO','CARTÃO DE DÉBITO','BOLETO','CONVÊNIO','OUTROS'];
@@ -3916,8 +3923,8 @@ function editarLanc(lid){
     </div>
     <div class="fg-sec">Identificação</div><div class="form-grid">
     <div style="grid-column:span 2"><label>Tipo</label><select id="eTipo" onchange="recarregaCatEdit();sincDatasLanc();_toggleMotivoEstorno()"><option value="receita" ${tipoInicial==='receita'?'selected':''}>Receita (entrada)</option><option value="despesa" ${tipoInicial==='despesa'?'selected':''}>Despesa (saída)</option><option value="estorno_receita" ${tipoInicial==='estorno_receita'?'selected':''}>Estorno de receita (saída em receita)</option><option value="estorno_despesa" ${tipoInicial==='estorno_despesa'?'selected':''}>Estorno de despesa (entrada em despesa)</option></select></div>
-    <div id="boxMotivoEstorno" style="grid-column:span 2;display:${(tipoInicial==='estorno_receita'||tipoInicial==='estorno_despesa')?'block':'none'}"><label>Motivo do estorno</label><select id="eMotivoEstorno" onchange="_descDoMotivo('eMotivoEstorno','eDesc')">${_optsMotivoEstorno(l.motivoEstorno||'')}</select></div>
-    <div style="grid-column:span 4"><label>Cliente ou fornecedor</label><input id="eCliente" placeholder="Nome do cliente ou fornecedor" value="${esc(l.cliente||'')}"></div>
+    <div id="boxMotivoEstorno" style="grid-column:span 2;display:${(tipoInicial==='estorno_receita'||tipoInicial==='estorno_despesa')?'block':'none'}"><label>Motivo do estorno</label><select id="eMotivoEstorno" onchange="_descDoMotivo('eMotivoEstorno','eDesc','eCliente')">${_optsMotivoEstorno(l.motivoEstorno||'')}</select></div>
+    <div style="grid-column:span 4"><label>Cliente ou fornecedor</label><input id="eCliente" placeholder="Nome do cliente ou fornecedor" onblur="_descDoMotivo('eMotivoEstorno','eDesc','eCliente')" onchange="_descDoMotivo('eMotivoEstorno','eDesc','eCliente')" value="${esc(l.cliente||'')}"></div>
     <div style="grid-column:span 4"><label class="obrig">Descrição</label><input id="eDesc" value="${esc((l.servico||l.descricao)||'')}"></div>
     <div style="grid-column:span 2"><label class="obrig">Valor</label><input type="text" inputmode="decimal" id="eValor" value="${fmtMoedaInput(l.valor)}" onblur="this.value=fmtMoedaInput(this.value)"></div>
     </div>
