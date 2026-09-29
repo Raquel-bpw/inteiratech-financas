@@ -1852,11 +1852,20 @@ function confirmarCompensacaoAdiant(){try{
 function _chaveDup(l){
  return _normAc(l.cliente||'')+'|'+((l.dataVencimento||l.venc||l.data||''))+'|'+((+l.valor||0).toFixed(2));}
 
-/* Quanto "lastro" o título tem. Quem tem mais, fica. */
-function _pesoTitulo(l){
+/* Quanto "lastro" o título tem. Quem tem mais, fica.
+
+   O que vale mais é TER O DINHEIRO ATRAS: um movimento de banco que existe de
+   verdade e esta ligado a este titulo. Antes bastava o campo baixaRef estar
+   preenchido, sem conferir se o movimento ainda existia — entao um titulo
+   fantasma (apontando para um recebimento que sumiu) empatava com o titulo bom
+   e a tela mandava sair o certo. A trava barrava a exclusao e a pessoa ficava
+   sem conseguir resolver. Agora referencia morta PERDE ponto em vez de ganhar. */
+function _pesoTitulo(l,L){
+ L=L||dados().lancamentos||[];
  var p=0;
- if(String(l.origem||'').trim())p+=4;          /* veio de importação, não de rotina */
- if(l.baixaRef)p+=2;                            /* está amarrado a um movimento */
+ if(_lastroDup(l,L))p+=10;                      /* o dinheiro existe e e dele */
+ else if(l.baixaRef)p-=10;                      /* aponta para um movimento que nao existe mais */
+ if(String(l.origem||'').trim())p+=4;           /* veio de importação, não de rotina */
  if(l.conciliado)p+=2;
  if(String(l.banco||'').trim())p+=1;
  var d=l.baixaData||l.dataBaixa||'';
@@ -1864,37 +1873,67 @@ function _pesoTitulo(l){
  if(/parcela\s*\d+\s*\/\s*\d+/i.test(String(l.descricao||'')+String(l.servico||'')))p+=1;
  return p;}
 
+/* o movimento de banco deste titulo, se ele existir de verdade */
+function _lastroDup(l,L){try{return movDaBaixa(l,L||dados().lancamentos||[]);}catch(e){return null;}}
+
 function gruposDuplicados(){
  var L=dados().lancamentos||[];
  var mapa={};
  L.filter(function(l){return l.status==='previsto';}).forEach(function(l){
   var k=_chaveDup(l);(mapa[k]=mapa[k]||[]).push(l);});
  return Object.keys(mapa).filter(function(k){return mapa[k].length>1;}).map(function(k){
-  var g=mapa[k].slice().sort(function(a,b){return _pesoTitulo(b)-_pesoTitulo(a);});
-  return {chave:k,fica:g[0],saem:g.slice(1),todos:g};})
+  var g=mapa[k].slice().sort(function(a,b){return _pesoTitulo(b,L)-_pesoTitulo(a,L);});
+  /* Mais de um titulo com dinheiro proprio nao e duplicidade que o sistema
+     resolva sozinho: ou o cliente pagou duas vezes, ou um pagamento cobre dois
+     servicos. Vai para o bloco de decisao, sem nada pre-marcado. */
+  var comLastro=g.filter(function(x){return !!_lastroDup(x,L);});
+  var mesmoMov=comLastro.length>1&&comLastro.every(function(x){
+    var m=_lastroDup(x,L);return m&&m.id===_lastroDup(comLastro[0],L).id;});
+  return {chave:k,fica:g[0],saem:g.slice(1),todos:g,
+    decidir:comLastro.length>1, mesmoMov:mesmoMov, nComLastro:comLastro.length};})
  .sort(function(a,b){return String(a.fica.cliente||'').localeCompare(String(b.fica.cliente||''),'pt-BR');});}
 
-function _linhaTitDup(l,ehFica,gi,ti){
- var marc=ehFica?false:(window._dupSel&&window._dupSel[l.id]!==false);
+/* marcado para sair? nos grupos de decisao o padrao e DESMARCADO */
+function _dupMarcado(lid,decidir){var s=window._dupSel||{};
+ if(s[lid]===true)return true;if(s[lid]===false)return false;return !decidir;}
+
+function _linhaTitDup(l,ehFica,decidir,L){
+ var marc=ehFica?false:_dupMarcado(l.id,decidir);
+ var m=_lastroDup(l,L);
  var motivos=[];
- if(String(l.origem||'').trim())motivos.push(esc(l.origem));else motivos.push('<b style="color:var(--rubro)">sem origem</b>');
- if(l.baixaRef)motivos.push('amarrado ao banco');
- if(l.conciliado)motivos.push('conciliado');
- if(String(l.banco||'').trim())motivos.push(esc(l.banco));
+ if(m)motivos.push('<b style="color:#2f6b4f">ligado ao dinheiro de '+esc(m.banco||'banco')+'</b>');
+ else if(l.baixaRef)motivos.push('<b style="color:var(--rubro)">o recebimento apontado não existe mais</b>');
+ else motivos.push('<span style="color:var(--rubro)">sem dinheiro ligado</span>');
+ if(String(l.origem||'').trim())motivos.push(esc(l.origem));else motivos.push('sem origem');
  var d=l.baixaData||l.dataBaixa||'';
  if(d&&d<'2000-01-01')motivos.push('<b style="color:var(--rubro)">data de baixa inválida ('+esc(d)+')</b>');
  return '<tr style="border-bottom:1px solid #F3EFE5;background:'+(ehFica?'#F2F7F4':(marc?'#FBF0EE':'transparent'))+'">'
   +'<td style="padding:7px 6px;text-align:center;width:36px">'
     +(ehFica?'<span title="Este fica" style="color:#2f6b4f;font-weight:800">✔</span>'
-           :'<input type="checkbox" '+(marc?'checked':'')+' onchange="_toggleDupSel(\''+l.id+'\')" style="width:auto">')+'</td>'
+           :'<input type="checkbox" '+(marc?'checked':'')+' onchange="_toggleDupSel(\''+l.id+'\','+(decidir?1:0)+')" style="width:auto">')+'</td>'
   +'<td class=mini style="padding:7px 6px;white-space:nowrap">'+_dbr(l.dataVencimento||l.venc||l.data||'')+'</td>'
   +'<td style="padding:7px 6px;font-size:12.5px">'+esc(String(l.descricao||l.servico||'—').slice(0,46))+'</td>'
   +'<td class=mini style="padding:7px 6px;color:var(--suave);line-height:1.5">'+motivos.join(' · ')+'</td>'
   +'<td style="padding:7px 6px;text-align:right;font-weight:700;white-space:nowrap">'+moeda(+l.valor||0)+'</td>'
-  +'<td class=mini style="padding:7px 6px;text-align:center;color:'+(ehFica?'#2f6b4f':'var(--rubro)')+';font-weight:700;white-space:nowrap">'
+  +'<td class=mini style="padding:7px 6px;text-align:center;color:'+(ehFica?'#2f6b4f':(marc?'var(--rubro)':'var(--suave)'))+';font-weight:700;white-space:nowrap">'
     +(ehFica?'FICA':(marc?'SAI':'fica'))+'</td></tr>';}
 
+function _blocoDup(g,L){
+ return '<div style="border:1px solid '+(g.decidir?'#E4CE8F':'#EDE6D8')+';border-radius:10px;margin-bottom:10px;overflow:hidden">'
+  +'<div style="background:'+(g.decidir?'#FBF3DE':'#FAF7F0')+';padding:8px 12px;font-weight:800;font-size:13px;color:var(--vinho)">'
+    +esc(g.fica.cliente||'(sem nome)')+' <span class=mini style="font-weight:600;color:var(--suave)">· '
+    +g.todos.length+' títulos iguais · '+moeda(+g.fica.valor||0)+' cada</span>'
+    +(g.decidir?'<div class=mini style="font-weight:600;color:#8a6d1f;margin-top:3px">'
+      +(g.mesmoMov?'Um único recebimento está pagando estes títulos — pode ser um atendimento com dois serviços, e aí nada deve sair.'
+                 :'Cada um tem o seu próprio recebimento no banco. Ou o cliente pagou duas vezes, ou o mesmo pagamento entrou por dois caminhos.')
+      +' Confira com quem lançou antes de excluir.</div>':'')+'</div>'
+  +'<table style="width:100%;border-collapse:collapse;font-size:13px"><tbody>'
+    +_linhaTitDup(g.fica,true,g.decidir,L)
+    +g.saem.map(function(l){return _linhaTitDup(l,false,g.decidir,L);}).join('')
+  +'</tbody></table></div>';}
+
 function abrirDuplicados(){
+ var L=dados().lancamentos||[];
  var gs=gruposDuplicados();
  window._dupSel=window._dupSel||{};
  if(!gs.length){
@@ -1904,42 +1943,46 @@ function abrirDuplicados(){
    +'<div class="modal-acoes"><button class="btn sec" onclick="fecharModal()">Fechar</button></div>';
   document.getElementById('modalBg').classList.add('show');return;}
 
+ var claros=gs.filter(function(g){return !g.decidir;});
+ var duvida=gs.filter(function(g){return g.decidir;});
  var nSai=0,vSai=0;
- gs.forEach(function(g){g.saem.forEach(function(l){if(window._dupSel[l.id]!==false){nSai++;vSai+=(+l.valor||0);}});});
+ gs.forEach(function(g){g.saem.forEach(function(l){if(_dupMarcado(l.id,g.decidir)){nSai++;vSai+=(+l.valor||0);}});});
 
- var blocos=gs.map(function(g,gi){
-  return '<div style="border:1px solid #EDE6D8;border-radius:10px;margin-bottom:10px;overflow:hidden">'
-   +'<div style="background:#FAF7F0;padding:8px 12px;font-weight:800;font-size:13px;color:var(--vinho)">'
-     +esc(g.fica.cliente||'(sem nome)')+' <span class=mini style="font-weight:600;color:var(--suave)">· '
-     +g.todos.length+' títulos iguais · '+moeda(+g.fica.valor||0)+' cada</span></div>'
-   +'<table style="width:100%;border-collapse:collapse;font-size:13px"><tbody>'
-     +_linhaTitDup(g.fica,true,gi,0)
-     +g.saem.map(function(l,ti){return _linhaTitDup(l,false,gi,ti+1);}).join('')
-   +'</tbody></table></div>';}).join('');
-
- document.getElementById('modalConteudo').innerHTML='<h3>Títulos duplicados</h3>'
+ var html='<h3>Títulos duplicados</h3>'
   +'<div class=mini style="margin:-4px 0 10px;line-height:1.7">Mesmo cliente, mesmo vencimento, mesmo valor. '
-  +'Marquei para ficar o que tem <b>lastro</b> — origem de importação, vínculo com o banco, conciliação. '
-  +'Confira linha a linha: <b>nada sai sem você marcar</b>.</div>'
+  +'<b>Fica o que está ligado ao dinheiro</b> que entrou no banco; sai o que está solto. '
+  +'Nada sai sem estar marcado, e o backup é baixado antes.</div>'
   +'<div style="background:#FBF3DE;border:1px solid #E4CE8F;border-radius:10px;padding:10px 13px;margin-bottom:12px;font-size:13px">'
    +'<b>'+gs.length+' grupo(s)</b> · marcados para sair: <b id="dupQtd">'+nSai+'</b> título(s), '
    +'<b id="dupVal">'+moeda(vSai)+'</b></div>'
-  +'<div style="max-height:46vh;overflow:auto">'+blocos+'</div>'
-  +'<div class=mini style="margin-top:10px;color:var(--suave)">Um backup em arquivo é baixado antes da exclusão. Os títulos que saem não têm movimento de banco vinculado — se algum tiver, eu aviso e não deixo excluir.</div>'
+  +'<div style="max-height:46vh;overflow:auto">';
+
+ if(claros.length)html+='<div style="font-weight:800;font-size:13px;color:var(--vinho);margin:2px 0 7px">'
+   +'✔ Resolvidos — é só confirmar <span class=mini style="font-weight:600;color:var(--suave)">('+claros.length+')</span></div>'
+   +claros.map(function(g){return _blocoDup(g,L);}).join('');
+
+ if(duvida.length)html+='<div style="font-weight:800;font-size:13px;color:#8a6d1f;margin:14px 0 7px">'
+   +'⚠ Precisam de você <span class=mini style="font-weight:600;color:var(--suave)">('+duvida.length+') — não marquei nada aqui</span></div>'
+   +duvida.map(function(g){return _blocoDup(g,L);}).join('');
+
+ html+='</div>'
+  +'<div class=mini style="margin-top:10px;color:var(--suave)">Um backup em arquivo é baixado antes da exclusão. Título ligado a um recebimento do banco não sai: eu aviso e não deixo excluir.</div>'
   +'<div class="modal-acoes"><button class="btn sec" onclick="fecharModal()">Fechar</button>'
    +'<button class="btn" onclick="confirmarExclusaoDup()">Excluir os marcados</button></div>';
+
+ document.getElementById('modalConteudo').innerHTML=html;
  var mb=document.getElementById('modalConteudo').closest('.modal');if(mb)mb.style.maxWidth='940px';
  document.getElementById('modalBg').classList.add('show');}
 
-function _toggleDupSel(lid){
+function _toggleDupSel(lid,decidir){
  window._dupSel=window._dupSel||{};
- window._dupSel[lid]=(window._dupSel[lid]===false);
+ window._dupSel[lid]=!_dupMarcado(lid,!!decidir);
  abrirDuplicados();}
 
 function confirmarExclusaoDup(){try{
  var gs=gruposDuplicados();
  var alvo=[];
- gs.forEach(function(g){g.saem.forEach(function(l){if(window._dupSel[l.id]!==false)alvo.push(l);});});
+ gs.forEach(function(g){g.saem.forEach(function(l){if(_dupMarcado(l.id,g.decidir))alvo.push(l);});});
  if(!alvo.length){alert('Nenhum título marcado para sair.');return;}
 
  /* trava: título com movimento de banco amarrado não sai sem tratar antes */
@@ -1949,9 +1992,11 @@ function confirmarExclusaoDup(){try{
     nao pegava esses e o titulo saia deixando o movimento orfao no banco. */
  var presos=alvo.filter(function(t){return !!movDaBaixa(t,L);});
  if(presos.length){
-  alert('Parei por segurança.\n\n'+presos.length+' título(s) marcado(s) ainda estão amarrados a um movimento do banco:\n\n'
-   +presos.slice(0,5).map(function(t){return '• '+(t.cliente||'')+' — '+moeda(+t.valor||0);}).join('\n')
-   +'\n\nDesfaça a baixa desses primeiro (o ↩️ na tela de parcelas), depois volte aqui.');return;}
+  alert('Parei por segurança.\n\n'+presos.length+' título(s) marcado(s) estão ligados a um recebimento que existe no banco:\n\n'
+   +presos.slice(0,5).map(function(t){var m=movDaBaixa(t,L);
+     return '• '+(t.cliente||'')+' — '+moeda(+t.valor||0)+(m?(' (dinheiro em '+(m.banco||'banco')+')'):'');}).join('\n')
+   +'\n\nSe estes são os que devem ficar, desmarque-os e marque os outros.\n'
+   +'Se realmente precisam sair, desfaça a baixa antes (o ↩️ na tela de parcelas).');return;}
 
  var total=alvo.reduce(function(s,l){return s+(+l.valor||0);},0);
  if(!confirm('Excluir '+alvo.length+' título(s) duplicado(s), somando '+moeda(total)+'?\n\n'
@@ -2468,7 +2513,7 @@ function abrirAba(pg){const b=[...document.querySelectorAll('.menu-item')].find(
 /* REGRA CONTABIL: titulo (previsto) = data de VENCIMENTO (competencia) · movimento do extrato = data do extrato (caixa).
    Usar dataRef(l) em TODO filtro, agrupamento, ordenacao e comparacao com hoje. Emissao nunca e criterio de periodo. */
 /* ===== VERSAO DO PAINEL — para saber, sem adivinhar, se a tela esta atualizada ===== */
-const APP_VERSAO='2026-09-29.1';
+const APP_VERSAO='2026-09-29.2';
 function _marcaVersao(){try{
  /* versao no CABECALHO, ao lado do status da nuvem — fica visivel sem procurar */
  var bar=document.querySelector('.tb-acoes');var d=document.getElementById('appVersaoTag');
