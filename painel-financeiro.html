@@ -1944,10 +1944,10 @@ function confirmarExclusaoDup(){try{
 
  /* trava: título com movimento de banco amarrado não sai sem tratar antes */
  var L=dados().lancamentos||[];
- var presos=alvo.filter(function(t){
-  if(!t.baixaRef)return false;
-  var m=L.find(function(x){return x.id===t.baixaRef;});
-  return !!(m&&m.baixaDe===t.id);});
+ /* olha o vinculo nos DOIS sentidos: ha titulo cujo movimento aponta para ele
+    (baixaDe) sem que o titulo aponte de volta. Olhando so o baixaRef, a trava
+    nao pegava esses e o titulo saia deixando o movimento orfao no banco. */
+ var presos=alvo.filter(function(t){return !!movDaBaixa(t,L);});
  if(presos.length){
   alert('Parei por segurança.\n\n'+presos.length+' título(s) marcado(s) ainda estão amarrados a um movimento do banco:\n\n'
    +presos.slice(0,5).map(function(t){return '• '+(t.cliente||'')+' — '+moeda(+t.valor||0);}).join('\n')
@@ -2413,6 +2413,26 @@ function perfil(){return APP.perfis.find(p=>p.id===APP.perfilAtivo);}
 function dados(){return perfil().dados;}
 function grupoDaCategoria(nomeCat){const c=dados().categorias.find(c=>c.nome===nomeCat);return c?c.grupo:'Outras Variáveis';}
 
+/* O movimento de banco que baixou este titulo, olhando os DOIS sentidos do vinculo:
+   o titulo pode apontar para o movimento (baixaRef) ou o movimento apontar para o
+   titulo (baixaDe). Titulo em dinheiro vindo do relatorio nascia so com o segundo,
+   e quem olhava apenas o baixaRef concluia que o titulo estava baixado sem lastro. */
+function movDaBaixa(t,L){try{
+  if(!t)return null;L=L||dados().lancamentos||[];
+  if(t.baixaRef){var m=L.find(function(x){return x.id===t.baixaRef;});if(m)return m;}
+  return L.find(function(x){return x.baixaDe===t.id;})||null;
+}catch(e){return null;}}
+
+/* A categoria de juros/desconto da conciliacao e gravada no lancamento pelo NOME.
+   Se a empresa renomeou ("Juros recebidos", r minusculo), gravar o nome do codigo
+   cria categoria orfa: o lancamento aponta para algo que nao existe no plano.
+   Aqui devolvemos SEMPRE a grafia que esta cadastrada na empresa. */
+function nomeCatCadastrada(padrao,tipo){try{
+  var cs=(dados().categorias||[]).filter(function(c){return semAc(c.nome||'')===semAc(padrao);});
+  if(tipo){var t=cs.find(function(c){return c.tipo===tipo;});if(t)return t.nome;}
+  return cs.length?cs[0].nome:padrao;
+}catch(e){return padrao;}}
+
 // ===================== NAV =====================
 function irPara(pages,btn){
   const arr=(pages||'').split(',');
@@ -2448,7 +2468,7 @@ function abrirAba(pg){const b=[...document.querySelectorAll('.menu-item')].find(
 /* REGRA CONTABIL: titulo (previsto) = data de VENCIMENTO (competencia) · movimento do extrato = data do extrato (caixa).
    Usar dataRef(l) em TODO filtro, agrupamento, ordenacao e comparacao com hoje. Emissao nunca e criterio de periodo. */
 /* ===== VERSAO DO PAINEL — para saber, sem adivinhar, se a tela esta atualizada ===== */
-const APP_VERSAO='2026-09-28.8';
+const APP_VERSAO='2026-09-29.1';
 function _marcaVersao(){try{
  /* versao no CABECALHO, ao lado do status da nuvem — fica visivel sem procurar */
  var bar=document.querySelector('.tb-acoes');var d=document.getElementById('appVersaoTag');
@@ -4898,8 +4918,12 @@ function confirmarImportRecebimentos(){try{
       if(!p.semCategoria){_lr.conciliado=true;_lr.conciliadoEm=p.data;}
       /* REGRA CRAVADA: dinheiro gera o título em contas a receber JÁ BAIXADO pelo caixa, com o movimento amarrado nele */
       if(!_tituloJaNaBase(p.cliente,p.valor,p.data)){
-        var _tt={id:id(),data:p.data,dataEmissao:p.data,dataVencimento:p.data,venc:p.data,dataBaixa:p.data,baixaData:p.data,baixado:true,cliente:p.cliente,descricao:_lr.descricao,servico:p.servico,categoria:p.categoria,tipo:'receita',valor:p.valor,status:'previsto',banco:'',formaPagto:p.forma,origem:'Relatório do sistema',unidade:_lr.unidade||'',usuario:usuariaAtivaNome()};
-        dados().lancamentos.push(_tt);_idsNovos.push(_tt.id);_lr.baixaDe=_tt.id;nTitCx++;
+        /* banco:_bkCx e baixaRef:_lr.id — o vinculo tem que nascer nos DOIS lados.
+           Antes o movimento apontava para o titulo (baixaDe) mas o titulo nao apontava de volta
+           e ficava sem banco: 134 titulos em dinheiro apareciam como "baixados sem banco" nas
+           conferencias, sem ser erro nenhum. O dinheiro vai para a conta de caixa da empresa. */
+        var _tt={id:id(),data:p.data,dataEmissao:p.data,dataVencimento:p.data,venc:p.data,dataBaixa:p.data,baixaData:p.data,baixado:true,cliente:p.cliente,descricao:_lr.descricao,servico:p.servico,categoria:p.categoria,tipo:'receita',valor:p.valor,status:'previsto',banco:_bkCx,formaPagto:p.forma,origem:'Relatório do sistema',unidade:_lr.unidade||'',usuario:usuariaAtivaNome()};
+        dados().lancamentos.push(_tt);_idsNovos.push(_tt.id);_lr.baixaDe=_tt.id;_tt.baixaRef=_lr.id;nTitCx++;
       }
       nReal++;
     }else{_lr.dataEmissao=p.data;_lr.dataVencimento=p.data;_lr.venc=p.data;nPrev++;}
@@ -6290,8 +6314,9 @@ function _cbSugestoes(absv,tipo){try{var L=dados().lancamentos||[];var pool=L.fi
 function cbUsarCombo(ids){window._cbMarc=new Set(ids.split(','));window._cbComJuros=false;window._cbConfirmando=false;renderCBTela();}
 function desfazerBaixaLanc(id){var L=dados().lancamentos||[];var l=L.find(function(x){return x.id===id;});if(!l)return;var m=null;if(l.baixaDe){m=l;}else if(l.baixaRef){m=L.find(function(x){return x.id===l.baixaRef;});}if(!m){alert('Este lan\u00e7amento n\u00e3o tem baixa para desfazer.');return;}if(!confirm('Desfazer a baixa?\n\nO t\u00edtulo volta para "a receber/pagar" e o movimento do banco volta para pendente (sai do saldo). Nada \u00e9 apagado.'))return;L.forEach(function(p){if(p.status==='previsto'&&p.baixaRef===m.id){p.baixado=false;delete p.baixaData;delete p.baixaRef;delete p.baixaAuto;if(p.tagConcilAnt){p.tagConcil=p.tagConcilAnt;delete p.tagConcilAnt;}}});if(typeof _removerDiferenca==='function')_removerDiferenca(m);delete m.baixaDe;m.conciliado=false;if(m.tagConcilAnt){m.tagConcil=m.tagConcilAnt;delete m.tagConcilAnt;}saveApp();fecharModal();render();if(typeof renderContas==='function')renderContas();}
 function difCatDiferenca(mtipo,dif){
-  if(mtipo==='receita')return dif>0?{cat:'Juros Recebidos',tipo:'receita'}:{cat:'Desconto Concedido',tipo:'despesa'};
-  return dif>0?{cat:'Juros Pagos',tipo:'despesa'}:{cat:'Desconto Obtido',tipo:'receita'};
+  var N=nomeCatCadastrada;
+  if(mtipo==='receita')return dif>0?{cat:N('Juros Recebidos','receita'),tipo:'receita'}:{cat:N('Desconto Concedido','despesa'),tipo:'despesa'};
+  return dif>0?{cat:N('Juros Pagos','despesa'),tipo:'despesa'}:{cat:N('Desconto Obtido','receita'),tipo:'receita'};
 }
 function _removerDiferenca(m){if(!m)return;var L=dados().lancamentos||[];for(var i=L.length-1;i>=0;i--){if(L[i].difDe===m.id)L.splice(i,1);}if(m.valorOrig!=null){m.valor=m.valorOrig;delete m.valorOrig;}delete m.difLanc;}
 function cbVincular(){
@@ -6495,7 +6520,11 @@ function renderContas(){
 }
 function limparFiltroContas(){['fcDataIni','fcDataFim','fcCliente','fcValMin','fcValMax'].forEach(function(id){var e=document.getElementById(id);if(e)e.value='';});renderContas();}
 function _dtBR(d){return d?new Date(d+'T00:00:00').toLocaleDateString('pt-BR'):'';}
-function baixarConta(pid,keep){const p=dados().lancamentos.find(l=>l.id===pid);if(!p)return;window._baixaId=pid;if(!keep)window._baixaSel=new Set();const m=acharMatch(p);const bs=(dados().bancos||[]).filter(b=>b.ativo!==false);const bopts='<option value="">— escolha o banco —</option>'+bs.map(b=>`<option value="${esc(b.nome)}"${p.banco===b.nome?' selected':''}>${esc(b.nome)}</option>`).join('');const hoje=new Date().toISOString().slice(0,10);const eRec=p.tipo==='receita';
+function baixarConta(pid,keep){const p=dados().lancamentos.find(l=>l.id===pid);if(!p)return;window._baixaId=pid;if(!keep)window._baixaSel=new Set();const m=acharMatch(p);const bs=(dados().bancos||[]).filter(b=>b.ativo!==false);
+  /* DINHEIRO ja abre com a conta de caixa da empresa escolhida. Em especie e sempre ela,
+     e sao mais de 130 recebimentos por periodo — nao faz sentido escolher um por um. */
+  const _bkPad=p.banco||(/dinheiro|esp[eé]cie/i.test(String(p.formaPagto||''))?contaCaixa():'');
+  const bopts='<option value="">— escolha o banco —</option>'+bs.map(b=>`<option value="${esc(b.nome)}"${_bkPad===b.nome?' selected':''}>${esc(b.nome)}</option>`).join('');const hoje=new Date().toISOString().slice(0,10);const eRec=p.tipo==='receita';
   const _venc=p.dataVencimento||p.data;
   const _atras=(_venc&&_venc<hoje)?Math.round((new Date(hoje)-new Date(_venc))/864e5):0;
   const _ehACl=ehAClassificar(p);
