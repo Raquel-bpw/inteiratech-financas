@@ -670,6 +670,7 @@ body.so-leitura input[type=file]{display:none}
     <div style="display:flex;gap:10px;flex-wrap:wrap;margin:0 0 14px">
       <button class="btn ouro" onclick="abrirAdiantamentos('cliente')" title="Dinheiro que entrou ou saiu antes da nota — e a compensação com o título">💰 Adiantamentos <span id="chipAdiant" class="mini" style="opacity:.9"></span></button>
       <button class="btn sec" onclick="abrirDuplicados()" title="Títulos repetidos: mesmo cliente, mesmo vencimento, mesmo valor">🧾 Títulos duplicados <span id="chipDup" class="mini" style="opacity:.85"></span></button>
+      <button class="btn sec" onclick="abrirDiario()" title="Quem fez o quê nesta empresa, com data e hora">📋 Histórico de alterações</button>
     </div>
     <div style="display:flex;gap:14px;flex-wrap:wrap;align-items:center;background:#FAF7F0;border:1px solid #EDE6D8;border-radius:9px;padding:8px 12px;font-size:11.5px;margin:0 0 12px"><b>Situação:</b><span style="display:inline-flex;align-items:center;gap:5px"><span style="width:10px;height:10px;border-radius:50%;background:#16447a;display:inline-block"></span>Confirmado (falta conciliar)</span><span style="display:inline-flex;align-items:center;gap:5px"><span style="width:10px;height:10px;border-radius:50%;background:#2f7d5b;display:inline-block"></span>Conciliado</span><span style="display:inline-flex;align-items:center;gap:5px"><span style="background:#F3E7C8;color:#8a6d1f;border:1px solid #E4CE8F;border-radius:20px;padding:1px 8px;font-size:10px;font-weight:600">🏷️ etiqueta</span>= pendência a resolver</span></div>
     <div style="display:flex;align-items:center;gap:14px;flex-wrap:wrap;margin-bottom:18px">
@@ -1849,6 +1850,281 @@ function confirmarCompensacaoAdiant(){try{
    Backup baixado antes de qualquer exclusão.
    ====================================================================== */
 
+/* ======================================================================
+   MULTIUSUÁRIA — duas ou mais pessoas na MESMA empresa ao mesmo tempo.
+
+   Antes: o painel mandava a empresa inteira como um bloco só. Se outra
+   sessao tivesse gravado nesse meio tempo, o servidor recusava e a tela
+   TRAVAVA ate recarregar — e quem recarregava perdia tudo que fez.
+
+   Agora: no lugar de travar, o painel busca a versao do servidor e
+   COMBINA lancamento por lancamento. Para cada id, fica a alteracao mais
+   recente. O que existe so de um lado entra. Exclusao deixa lapide, para
+   que um lancamento apagado por uma nao volte pela versao da outra.
+
+   E tudo que acontece fica no DIARIO: quem fez, quando, o que mudou.
+   ====================================================================== */
+
+var MU_MAX_DIARIO = 4000;      /* linhas de diario guardadas por empresa */
+var MU_MAX_LAPIDES = 8000;
+var MU_PULSO_MS = 30000;       /* de quanto em quanto busca o que a outra fez */
+
+function _muAgora(){return new Date().toISOString();}
+function _muQuem(){try{return (typeof usuariaAtivaNome==='function'&&usuariaAtivaNome())||'(sem nome)';}catch(e){return '(sem nome)';}}
+function _muHora(iso){try{return new Date(iso).toLocaleString('pt-BR');}catch(e){return String(iso||'');}}
+
+/* Campos cuja mudanca conta como alteracao de verdade. O resto (campos de
+   controle interno) muda sozinho e nao merece linha no diario. */
+var _MU_CAMPOS=['valor','data','dataVencimento','venc','categoria','banco','cliente','descricao',
+ 'servico','status','tipo','formaPagto','unidade','conciliado','baixado','baixaRef','baixaDe',
+ 'baixaData','estorno','obs','motivoEstorno','adiantSaldo','cartaoId'];
+
+function _muAssin(l){var s='';for(var i=0;i<_MU_CAMPOS.length;i++){var v=l[_MU_CAMPOS[i]];s+=(v==null?'':String(v))+'\u0001';}return s;}
+
+/* fotografia do estado atual: id -> assinatura, e id -> dados para a lapide */
+function _muFoto(){
+ var m={},info={},L=(dados().lancamentos||[]);
+ for(var i=0;i<L.length;i++){var l=L[i];if(!l||!l.id)continue;
+  m[l.id]=_muAssin(l);
+  info[l.id]={c:l.cliente||l.descricao||'',v:+l.valor||0,dt:l.data||l.dataVencimento||''};}
+ window._muInfo=info;
+ return m;}
+
+function diario(){var d=dados();if(!Array.isArray(d._diario))d._diario=[];return d._diario;}
+
+function _muRegistrar(acao,l,detalhe){
+ var D=diario();
+ D.push({q:_muAgora(),p:_muQuem(),a:acao,
+   id:(l&&l.id)||'',
+   c:(l&&(l.cliente||l.descricao||''))||'',
+   v:(l?(+l.valor||0):0),
+   dt:(l&&(l.data||l.dataVencimento||''))||'',
+   d:detalhe||''});
+ if(D.length>MU_MAX_DIARIO)D.splice(0,D.length-MU_MAX_DIARIO);}
+
+/* que tipo de alteracao foi, lendo campo a campo o que mudou */
+function _muQueMudou(assinAntes,l){
+ var a=String(assinAntes).split('\u0001'),mudou=[];
+ for(var i=0;i<_MU_CAMPOS.length;i++){
+  var v=l[_MU_CAMPOS[i]];var nv=(v==null?'':String(v));
+  if(a[i]!==nv)mudou.push({campo:_MU_CAMPOS[i],de:a[i],para:nv});}
+ return mudou;}
+
+function _muNomeDaAcao(mudou,l){
+ var nomes=mudou.map(function(m){return m.campo;});
+ var so=function(c){return nomes.length===1&&nomes[0]===c;};
+ if(so('conciliado'))return l.conciliado?'conciliou':'tirou a conciliação';
+ if(nomes.indexOf('baixado')>=0||nomes.indexOf('baixaRef')>=0)return l.baixado?'deu baixa':'desfez a baixa';
+ if(so('categoria'))return 'reclassificou';
+ if(so('valor'))return 'mudou o valor';
+ if(so('banco'))return 'mudou o banco';
+ if(nomes.indexOf('status')>=0)return 'mudou a situação';
+ return 'alterou';}
+
+function _muDetalhe(mudou){
+ return mudou.slice(0,4).map(function(m){
+  var de=(m.de===''?'(vazio)':m.de),para=(m.para===''?'(vazio)':m.para);
+  return m.campo+': '+de+' → '+para;}).join(' · ');}
+
+/* Compara a foto anterior com a de agora e carimba quem mexeu e quando.
+   Um ponto so, dentro do saveApp: pega TODA tela, inclusive as que nao
+   chamam nada especifico. */
+function muCarimbar(){try{
+ window._muInfoAnt=window._muInfo;   /* guarda os dados de quem talvez tenha sumido */
+ var agora=_muFoto();
+ var antes=window._muAnterior;
+ if(!antes){window._muAnterior=agora;return 0;}
+ var L=dados().lancamentos||[],byId={};
+ L.forEach(function(l){if(l&&l.id)byId[l.id]=l;});
+ var carimbo=_muAgora(),quem=_muQuem(),n=0;
+
+ Object.keys(agora).forEach(function(id){
+  var l=byId[id];if(!l)return;
+  if(!(id in antes)){l._em=carimbo;l._por=quem;_muRegistrar('incluiu',l,'');n++;return;}
+  if(antes[id]!==agora[id]){
+   var mudou=_muQueMudou(antes[id],l);
+   l._em=carimbo;l._por=quem;
+   _muRegistrar(_muNomeDaAcao(mudou,l),l,_muDetalhe(mudou));n++;}});
+
+ Object.keys(antes).forEach(function(id){if(!(id in agora)){_muLapide(id);n++;}});
+
+ window._muAnterior=agora;
+ return n;
+}catch(e){console.warn('muCarimbar',e);return 0;}}
+
+/* LAPIDE — sem isto, um lancamento apagado por uma pessoa volta do tumulo
+   quando a versao da outra for combinada. */
+function _muLapide(id){
+ var d=dados();if(!Array.isArray(d._excluidos))d._excluidos=[];
+ if(d._excluidos.some(function(x){return x.id===id;}))return;
+ var info=(window._muInfoAnt&&window._muInfoAnt[id])||(window._muInfo&&window._muInfo[id])||{};
+ d._excluidos.push({id:id,q:_muAgora(),p:_muQuem(),c:info.c||'',v:info.v||0});
+ _muRegistrar('excluiu',{id:id,cliente:info.c,valor:info.v},'');
+ if(d._excluidos.length>MU_MAX_LAPIDES)d._excluidos.splice(0,d._excluidos.length-MU_MAX_LAPIDES);}
+
+/* ---------------------------------------------------------------- MERGE */
+
+function _muMapaLapides(a,b){
+ var m={};
+ [(a||[]),(b||[])].forEach(function(arr){arr.forEach(function(x){
+  if(!x||!x.id)return;
+  var ja=m[x.id];
+  if(!ja||String(x.q||'')>String(ja.q||''))m[x.id]=x;});});
+ return m;}
+
+function _muTodosComId(arr){return Array.isArray(arr)&&arr.length>0&&arr.every(function(x){return x&&x.id;});}
+
+/* Combina duas listas pelo id. Vence o carimbo mais novo; empate fica com
+   o local, que e quem esta gravando agora. A lapide tira o item — a menos
+   que ele tenha sido alterado DEPOIS da exclusao (aí foi retomado). */
+function _muMesclarLista(loc,srv,lapides){
+ var out={},ordem=[];
+ var por=function(arr,ehLocal){(arr||[]).forEach(function(it){
+  if(!it||!it.id)return;
+  var lap=lapides&&lapides[it.id];
+  if(lap&&!(it._em&&String(it._em)>String(lap.q||'')))return;
+  var a=out[it.id];
+  if(!a){out[it.id]=it;ordem.push(it.id);return;}
+  var ea=String(a._em||''),eb=String(it._em||'');
+  if(eb>ea||(eb===ea&&ehLocal))out[it.id]=it;});};
+ por(srv,false);por(loc,true);
+ return ordem.map(function(id){return out[id];});}
+
+var _MU_COLECOES=['lancamentos','categorias','bancos','cartoes','servicos','regras',
+ 'orcamentos','vencimentos','unidades','empresas','tags','validacoes'];
+
+function _muMesclarDados(loc,srv){
+ loc=loc||{};srv=srv||{};
+ var lapides=_muMapaLapides(loc._excluidos,srv._excluidos);
+
+ /* base: o lado cuja CONFIGURACAO foi mexida por ultimo */
+ var cfgLoc=String(loc._cfgEm||''),cfgSrv=String(srv._cfgEm||'');
+ var base={},fonte=(cfgLoc>=cfgSrv)?loc:srv;
+ Object.keys(srv).forEach(function(k){base[k]=srv[k];});
+ Object.keys(fonte).forEach(function(k){base[k]=fonte[k];});
+
+ _MU_COLECOES.forEach(function(k){
+  var a=loc[k],b=srv[k];
+  if(!Array.isArray(a)&&!Array.isArray(b))return;
+  a=Array.isArray(a)?a:[];b=Array.isArray(b)?b:[];
+  if(!a.length){base[k]=b;return;}
+  if(!b.length){base[k]=a;return;}
+  if(_muTodosComId(a)&&_muTodosComId(b))base[k]=_muMesclarLista(a,b,(k==='lancamentos')?lapides:null);
+  else base[k]=(cfgLoc>=cfgSrv)?a:b;});
+
+ /* diario: junta os dois, ordena no tempo e corta */
+ var D=[].concat(Array.isArray(srv._diario)?srv._diario:[],Array.isArray(loc._diario)?loc._diario:[]);
+ var vistos={};
+ D=D.filter(function(x){var k=String(x.q)+'|'+String(x.p)+'|'+String(x.a)+'|'+String(x.id);
+   if(vistos[k])return false;vistos[k]=1;return true;});
+ D.sort(function(x,y){return String(x.q||'').localeCompare(String(y.q||''));});
+ if(D.length>MU_MAX_DIARIO)D=D.slice(D.length-MU_MAX_DIARIO);
+ base._diario=D;
+
+ base._excluidos=Object.keys(lapides).map(function(id){return lapides[id];});
+ return base;}
+
+function muMesclarAPP(loc,srv){
+ if(!srv||!srv.perfis||!srv.perfis.length)return loc;
+ if(!loc||!loc.perfis||!loc.perfis.length)return srv;
+ var out={},i;
+ Object.keys(srv).forEach(function(k){out[k]=srv[k];});
+ Object.keys(loc).forEach(function(k){if(k!=='perfis')out[k]=loc[k];});
+ var porId={};srv.perfis.forEach(function(p){if(p&&p.id)porId[p.id]=p;});
+ out.perfis=loc.perfis.map(function(p){
+  var s=porId[p.id];if(!s)return p;
+  var np={};Object.keys(s).forEach(function(k){np[k]=s[k];});
+  Object.keys(p).forEach(function(k){if(k!=='dados')np[k]=p[k];});
+  np.dados=_muMesclarDados(p.dados,s.dados);
+  delete porId[p.id];
+  return np;});
+ Object.keys(porId).forEach(function(id){out.perfis.push(porId[id]);});  /* empresa criada do outro lado */
+ return out;}
+
+/* marque quando uma tela de CONFIGURACAO muda (plano de contas, bancos,
+   servicos, preferencias) — e o que decide de quem sao as configuracoes
+   quando os dois lados mexeram. */
+function muMarcarConfig(){try{dados()._cfgEm=_muAgora();dados()._cfgPor=_muQuem();}catch(e){}}
+
+/* ------------------------------------------------- aviso do que chegou */
+
+function _muDiferencaResumo(antesLen,depoisLen,quem){
+ if(depoisLen>antesLen)return quem+' incluiu '+(depoisLen-antesLen)+' lançamento(s)';
+ if(depoisLen<antesLen)return quem+' excluiu '+(antesLen-depoisLen)+' lançamento(s)';
+ return 'Atualizado com o que '+quem+' fez agora';}
+
+function muAviso(txt){try{
+ var d=document.getElementById('muToast');
+ if(!d){d=document.createElement('div');d.id='muToast';
+  d.style.cssText='position:fixed;right:18px;bottom:18px;z-index:9999;background:#2F6B4F;color:#fff;'
+   +'padding:11px 16px;border-radius:10px;font-size:13px;font-weight:600;max-width:340px;'
+   +'box-shadow:0 6px 20px rgba(0,0,0,.18);line-height:1.5';
+  document.body.appendChild(d);}
+ d.textContent=txt;d.style.display='block';
+ clearTimeout(window._muToastT);
+ window._muToastT=setTimeout(function(){d.style.display='none';},6000);
+}catch(e){}}
+
+/* ------------------------------------------- tela: histórico de alterações */
+
+function abrirDiario(){
+ var D=diario().slice().reverse();
+ var pessoas={};D.forEach(function(x){pessoas[x.p||'?']=(pessoas[x.p||'?']||0)+1;});
+ var f=(window._muFiltro||'').toLowerCase();
+ var vis=D.filter(function(x){if(!f)return true;
+  return (String(x.p||'')+' '+String(x.c||'')+' '+String(x.a||'')+' '+String(x.d||'')).toLowerCase().indexOf(f)>=0;});
+
+ var cor=function(a){
+  if(/exclu/.test(a))return 'var(--rubro)';
+  if(/inclu/.test(a))return '#2f6b4f';
+  if(/concili|baixa/.test(a))return 'var(--vinho)';
+  return 'var(--suave)';};
+
+ var linhas=vis.slice(0,400).map(function(x){
+  return '<tr style="border-bottom:1px solid #F3EFE5">'
+   +'<td class=mini style="padding:6px;white-space:nowrap;color:var(--suave)">'+esc(_muHora(x.q))+'</td>'
+   +'<td style="padding:6px;font-weight:700;white-space:nowrap">'+esc(x.p||'—')+'</td>'
+   +'<td style="padding:6px;font-weight:700;color:'+cor(x.a||'')+';white-space:nowrap">'+esc(x.a||'')+'</td>'
+   +'<td style="padding:6px;font-size:12.5px">'+esc(String(x.c||'').slice(0,46))+'</td>'
+   +'<td style="padding:6px;text-align:right;white-space:nowrap">'+moeda(+x.v||0)+'</td>'
+   +'<td class=mini style="padding:6px;color:var(--suave)">'+esc(String(x.d||'').slice(0,70))+'</td></tr>';}).join('');
+
+ document.getElementById('modalConteudo').innerHTML='<h3>Histórico de alterações</h3>'
+  +'<div class=mini style="margin:-4px 0 10px;line-height:1.7">Tudo que foi feito nesta empresa, com quem fez e quando. '
+  +'Inclusão, exclusão, conciliação, baixa e mudança de valor ou categoria.</div>'
+  +'<div style="background:#FAF7F0;border:1px solid #EDE6D8;border-radius:10px;padding:9px 13px;margin-bottom:10px;font-size:13px">'
+   +Object.keys(pessoas).map(function(p){return '<b>'+esc(p)+'</b>: '+pessoas[p];}).join(' &nbsp;·&nbsp; ')
+   +' &nbsp;·&nbsp; <span class=mini style="color:var(--suave)">'+D.length+' registro(s)</span></div>'
+  +'<input id="muBusca" placeholder="Filtrar por pessoa, cliente ou ação…" value="'+esc(window._muFiltro||'')+'" '
+   +'oninput="window._muFiltro=this.value;clearTimeout(window._muBT);window._muBT=setTimeout(abrirDiario,350)" '
+   +'style="margin-bottom:10px">'
+  +'<div style="max-height:52vh;overflow:auto"><table style="width:100%;border-collapse:collapse;font-size:13px">'
+   +'<thead><tr style="background:var(--vinho);color:#fff;font-size:11.5px">'
+   +'<th style="padding:7px 6px;text-align:left">Quando</th><th style="padding:7px 6px;text-align:left">Quem</th>'
+   +'<th style="padding:7px 6px;text-align:left">O que fez</th><th style="padding:7px 6px;text-align:left">Lançamento</th>'
+   +'<th style="padding:7px 6px;text-align:right">Valor</th><th style="padding:7px 6px;text-align:left">Detalhe</th></tr></thead>'
+   +'<tbody>'+(linhas||'<tr><td colspan="6" style="padding:14px;color:var(--suave)">Nada registrado ainda.</td></tr>')+'</tbody></table></div>'
+  +(vis.length>400?'<div class=mini style="margin-top:8px;color:var(--suave)">Mostrando os 400 mais recentes de '+vis.length+'. Use o filtro para achar o resto.</div>':'')
+  +'<div class="modal-acoes"><button class="btn sec" onclick="exportarDiario()">Baixar em CSV</button>'
+   +'<button class="btn" onclick="fecharModal()">Fechar</button></div>';
+ var mb=document.getElementById('modalConteudo').closest('.modal');if(mb)mb.style.maxWidth='1020px';
+ document.getElementById('modalBg').classList.add('show');}
+
+function exportarDiario(){
+ var D=diario();
+ var esc2=function(v){v=(v==null?'':String(v));return /[;"\n]/.test(v)?('"'+v.replace(/"/g,'""')+'"'):v;};
+ var txt='Quando;Quem;O que fez;Lancamento;Valor;Data do lancamento;Detalhe\n'
+  +D.map(function(x){return [_muHora(x.q),x.p,x.a,x.c,(+x.v||0).toFixed(2).replace('.',','),x.dt,x.d].map(esc2).join(';');}).join('\n');
+ baixar('﻿'+txt,'historico_'+(_nomeEmpresaAberta?(_nomeEmpresaAberta()||'empresa'):'empresa').replace(/[^A-Za-z0-9]/g,'_')
+  +'_'+new Date().toISOString().slice(0,10)+'.csv','text/csv;charset=utf-8');}
+
+/* --------------------------------------------------- quem fez por último */
+
+function muSeloDoLancamento(l){
+ if(!l||!l._por)return '';
+ return '<span class=mini style="color:var(--suave)">'+esc(l._por)+' · '+esc(_muHora(l._em))+'</span>';}
+
+
 function _chaveDup(l){
  return _normAc(l.cliente||'')+'|'+((l.dataVencimento||l.venc||l.data||''))+'|'+((+l.valor||0).toFixed(2));}
 
@@ -2336,6 +2612,7 @@ async function abrirTenant(tid){try{
   try{montarBarraNuvem();}catch(e){console.warn('montarBarraNuvem',e);}
   _aplicarSomenteLeitura();_limparLocalOutrasEmpresas();
   /* NAO grava ao abrir: abrir a empresa subia a versao e derrubava a sessao de quem ja estava dentro */
+  try{window._muAnterior=_muFoto();muPulso();}catch(e){console.warn('multiusuaria',e);}
   return true;}catch(e){alert('Erro ao abrir: '+e.message);return false;}}
 let _cloudT=null;
 function cloudSave(now){if(!cloudOn()||!window._cloudReady||!_tenant)return;
@@ -2343,8 +2620,77 @@ function cloudSave(now){if(!cloudOn()||!window._cloudReady||!_tenant)return;
   if(!_mesmaEmpresa()){var _te=document.getElementById('cloudStatus');if(_te)_te.textContent='⛔ gravação bloqueada';
     console.warn('cloudSave bloqueado: APP._tenantId('+APP._tenantId+') != _tenant('+_tenant+')');
     alert('Parei a gravação por segurança.\n\nOs dados carregados na tela são de outra empresa. Nada foi gravado.\n\nFeche e abra a empresa de novo.');return;}
-  if(_readonly){const t0=document.getElementById('cloudStatus');if(t0)t0.textContent='🔒 somente leitura';return;}clearTimeout(_cloudT);const go=async()=>{const t=document.getElementById('cloudStatus');try{const{data,error}=await sb.rpc('tenant_salvar',{p_tenant:_tenant,p_data:APP,p_expected:_tver});if(error){if(t)t.textContent='⚠ erro ao salvar';console.warn(error);return;}if(data===-1){if(t)t.textContent='⚠ salvo por outra pessoa';avisarConflito();return;}_tver=data;if(t)t.textContent='☁ salvo '+new Date().toLocaleTimeString('pt-BR');}catch(e){if(t)t.textContent='⚠ erro ao salvar';console.warn(e);}};now?go():(_cloudT=setTimeout(go,1500));}
-function saveApp(){if(_tenant&&!_readonly&&_mesmaEmpresa()){try{localStorage.setItem(KEY+'_'+_tenant,JSON.stringify(APP));}catch(e){}}cloudSave();}
+  if(_readonly){const t0=document.getElementById('cloudStatus');if(t0)t0.textContent='🔒 somente leitura';return;}
+  clearTimeout(_cloudT);
+  var go=function(){_muGravar();};
+  now?go():(_cloudT=setTimeout(go,1200));}
+
+/* Grava COMBINANDO em vez de travar. Se o servidor recusar porque outra
+   sessao gravou, busca a versao dela, junta lancamento por lancamento e
+   tenta de novo. Nunca mais "nao esta salvando". */
+async function _muGravar(){
+  if(window._muGravando){window._muPendente=true;return;}
+  window._muGravando=true;
+  var t=document.getElementById('cloudStatus');
+  try{
+    for(var tent=0;tent<4;tent++){
+      var r=await sb.rpc('tenant_salvar',{p_tenant:_tenant,p_data:APP,p_expected:_tver});
+      if(r.error){if(t)t.textContent='⚠ erro ao salvar';console.warn(r.error);return;}
+      if(r.data!==-1){_tver=r.data;if(t)t.textContent='☁ salvo '+new Date().toLocaleTimeString('pt-BR');return;}
+      if(t)t.textContent='⇅ combinando com a outra sessão…';
+      var ok=await _muPuxarEMesclar(true);
+      if(!ok){if(t)t.textContent='⚠ não consegui combinar — tentando de novo';break;}
+    }
+    setTimeout(function(){try{cloudSave(true);}catch(e){}},2500);
+  }catch(e){if(t)t.textContent='⚠ erro ao salvar';console.warn(e);}
+  finally{
+    window._muGravando=false;
+    if(window._muPendente){window._muPendente=false;setTimeout(function(){try{cloudSave(true);}catch(e){}},200);}
+  }}
+
+function _muUltimoOutro(){try{var eu=_muQuem(),D=diario();
+  for(var i=D.length-1;i>=0;i--){if(D[i].p&&D[i].p!==eu)return D[i].p;}
+  return 'a outra pessoa';}catch(e){return 'a outra pessoa';}}
+
+/* Busca o que esta no servidor e junta com o que esta na tela. */
+async function _muPuxarEMesclar(vindoDoSave){
+  try{
+    var c=await sb.rpc('carregar_empresa',{p_tenant:_tenant});
+    if(c.error)return false;
+    var reg=(c.data&&c.data[0])||null;
+    if(!reg)return false;
+    if(!vindoDoSave&&(reg.version||0)===_tver)return true;      /* nada novo */
+    var antes=(dados().lancamentos||[]).length;
+    APP=muMesclarAPP(APP,reg.data);
+    APP._tenantId=_tenant;
+    _tver=reg.version||0;
+    window._muAnterior=_muFoto();   /* o que veio da outra nao e alteracao minha */
+    try{localStorage.setItem(KEY+'_'+_tenant,JSON.stringify(APP));}catch(e){}
+    var depois=(dados().lancamentos||[]).length;
+    try{render();if(typeof renderContas==='function')renderContas();}catch(e){console.warn(e);}
+    if(antes!==depois||!vindoDoSave)muAviso(_muDiferencaResumo(antes,depois,_muUltimoOutro()));
+    return true;
+  }catch(e){console.warn('puxar',e);return false;}}
+
+/* De tempos em tempos traz o que a outra pessoa fez, sem precisar salvar. */
+function muPulso(){
+  clearInterval(window._muPulsoT);
+  window._muPulsoT=setInterval(function(){
+    try{
+      if(document.hidden)return;
+      if(window._muGravando)return;
+      if(!cloudOn()||!window._cloudReady||!_tenant)return;
+      var mb=document.getElementById('modalBg');
+      if(mb&&mb.classList.contains('show'))return;   /* nao mexe com a tela aberta */
+      _muPuxarEMesclar(false);
+    }catch(e){}
+  },MU_PULSO_MS);}
+
+function saveApp(){
+  if(_tenant&&!_readonly&&_mesmaEmpresa()){
+    try{muCarimbar();}catch(e){console.warn('carimbo',e);}
+    try{localStorage.setItem(KEY+'_'+_tenant,JSON.stringify(APP));}catch(e){}}
+  cloudSave();}
 let _conflitoAberto=false;
 /* Antes: "Cancelar" deixava a versão desatualizada para sempre — a tela continuava
    respondendo e NADA mais chegava na nuvem. Agora não existe caminho que perca
@@ -2513,7 +2859,7 @@ function abrirAba(pg){const b=[...document.querySelectorAll('.menu-item')].find(
 /* REGRA CONTABIL: titulo (previsto) = data de VENCIMENTO (competencia) · movimento do extrato = data do extrato (caixa).
    Usar dataRef(l) em TODO filtro, agrupamento, ordenacao e comparacao com hoje. Emissao nunca e criterio de periodo. */
 /* ===== VERSAO DO PAINEL — para saber, sem adivinhar, se a tela esta atualizada ===== */
-const APP_VERSAO='2026-09-29.2';
+const APP_VERSAO='2026-10-02.1';
 function _marcaVersao(){try{
  /* versao no CABECALHO, ao lado do status da nuvem — fica visivel sem procurar */
  var bar=document.querySelector('.tb-acoes');var d=document.getElementById('appVersaoTag');
