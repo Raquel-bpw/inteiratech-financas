@@ -2125,6 +2125,63 @@ function muSeloDoLancamento(l){
  return '<span class=mini style="color:var(--suave)">'+esc(l._por)+' · '+esc(_muHora(l._em))+'</span>';}
 
 
+
+/* ======================================================================
+   TRAVA DO MESMO LANCAMENTO — duas pessoas no mesmo lancamento ao mesmo
+   tempo nao pode. Quem chegou primeiro edita; a segunda ve o aviso com o
+   nome de quem esta dentro e volta depois.
+
+   A trava mora no servidor (tabela edicoes_abertas) porque as sessoes nao
+   se enxergam de outro jeito. Ela expira sozinha poucos minutos depois de
+   a tela ser fechada, para que uma aba fechada no X nao trave o lancamento
+   para sempre. Se a consulta falhar, a tela ABRE do mesmo jeito: travar
+   alguem por causa de uma falha de rede seria pior que o problema.
+   ====================================================================== */
+
+var _muTravaAtual=null;
+
+async function muTravar(lancId){
+ try{
+  if(!cloudOn()||!_tenant||!lancId)return {ok:true};
+  var r=await sb.rpc('edicao_abrir',{p_tenant:_tenant,p_lanc:String(lancId),p_quem:_muQuem()});
+  if(r.error){console.warn('trava',r.error);return {ok:true};}
+  var row=(r.data&&r.data[0])||null;
+  if(row&&row.ok===false)return {ok:false,dono:row.dono||'outra pessoa',desde:row.desde_em};
+  _muTravaAtual=String(lancId);
+  clearInterval(window._muTravaT);
+  window._muTravaT=setInterval(function(){
+   try{if(_muTravaAtual)sb.rpc('edicao_pulsar',{p_tenant:_tenant,p_lanc:_muTravaAtual});}catch(e){}},45000);
+  return {ok:true};
+ }catch(e){console.warn('trava',e);return {ok:true};}}
+
+function muDestravar(){
+ try{clearInterval(window._muTravaT);
+  if(_muTravaAtual&&_tenant&&cloudOn())sb.rpc('edicao_fechar',{p_tenant:_tenant,p_lanc:_muTravaAtual});
+ }catch(e){}
+ _muTravaAtual=null;}
+
+function _muDesdeQuando(iso){
+ try{var m=Math.max(0,Math.round((Date.now()-new Date(iso).getTime())/60000));
+  return m<1?'agora há pouco':('há '+m+' minuto'+(m>1?'s':''));}catch(e){return '';}}
+
+function muAvisoTravado(dono,desde){
+ alert('Lançamento sendo acessado por '+dono+'.\n\n'
+  +'Ela abriu '+_muDesdeQuando(desde)+' e ainda está com a tela aberta. '
+  +'Para não atropelar o trabalho dela, não vou abrir este lançamento para alteração agora.\n\n'
+  +'Fale com a '+dono+' e volte quando ela terminar. A trava sai sozinha poucos minutos depois que a tela dela for fechada.');}
+
+/* as telas que ALTERAM um lancamento passam pela trava antes de abrir */
+async function editarLanc(lid){
+ var t=await muTravar(lid);
+ if(!t.ok){muAvisoTravado(t.dono,t.desde);return;}
+ return _editarLancDireto(lid);}
+
+async function baixarConta(pid,keep){
+ if(!keep){var t=await muTravar(pid);
+  if(!t.ok){muAvisoTravado(t.dono,t.desde);return;}}
+ return _baixarContaDireto(pid,keep);}
+
+
 function _chaveDup(l){
  return _normAc(l.cliente||'')+'|'+((l.dataVencimento||l.venc||l.data||''))+'|'+((+l.valor||0).toFixed(2));}
 
@@ -2859,7 +2916,7 @@ function abrirAba(pg){const b=[...document.querySelectorAll('.menu-item')].find(
 /* REGRA CONTABIL: titulo (previsto) = data de VENCIMENTO (competencia) · movimento do extrato = data do extrato (caixa).
    Usar dataRef(l) em TODO filtro, agrupamento, ordenacao e comparacao com hoje. Emissao nunca e criterio de periodo. */
 /* ===== VERSAO DO PAINEL — para saber, sem adivinhar, se a tela esta atualizada ===== */
-const APP_VERSAO='2026-10-02.1';
+const APP_VERSAO='2026-10-02.2';
 function _marcaVersao(){try{
  /* versao no CABECALHO, ao lado do status da nuvem — fica visivel sem procurar */
  var bar=document.querySelector('.tb-acoes');var d=document.getElementById('appVersaoTag');
@@ -4736,7 +4793,7 @@ function abrirParcIncompletos(){var todos=_gruposParcelas();var inc=todos.filter
  document.getElementById('modalConteudo').innerHTML='<h3>Parcelamentos incompletos</h3><div class=mini style="margin:-4px 0 10px">'+inc.length+' cliente(s) com parcelas faltando. A contagem considera os títulos que existem por vencimento, mesmo sem o texto "parcela N/M".</div>'+avisoDup+'<div style="overflow-x:auto;max-height:60vh"><table style="width:100%;font-size:12.5px;border-collapse:collapse"><thead><tr><th style="text-align:left;padding:5px 8px">Cliente</th><th style="text-align:left;padding:5px 8px">Tipo</th><th style="text-align:left;padding:5px 8px">Parcelas</th><th style="text-align:left;padding:5px 8px">Situação</th><th></th></tr></thead><tbody>'+rows+'</tbody></table></div><div class="modal-acoes"><button class="btn sec" onclick="fecharModal()">Fechar</button></div>';
  var _mb=document.getElementById('modalConteudo').closest('.modal');if(_mb)_mb.style.maxWidth='820px';
  document.getElementById('modalBg').classList.add('show');}
-function editarLanc(lid){
+function _editarLancDireto(lid){
   window._descEstAuto='';
   const l=dados().lancamentos.find(x=>x.id===lid);if(!l)return;
   if(l.transfRef){return editarTransferencia(l.transfRef,lid);}
@@ -4890,7 +4947,7 @@ function confirmarEdicao(lid){const l=dados().lancamentos.find(x=>x.id===lid);if
  l.valor=_val;if(l.categoria!==_cat)l.catManual=true;l.categoria=_cat;if(!validaEstorno(document.getElementById('eTipo').value,l.categoria,l.valor,lid))return;const ef=document.getElementById('eForma');if(ef)l.formaPagto=ef.value;const eb=document.getElementById('eBanco');if(eb)l.banco=eb.value;const ec=document.getElementById('eCartao');if(ec)l.cartaoId=ec.value;l.status=_status;const eu=document.getElementById('eUnidade');if(eu)l.unidade=eu.value;l.dataEmissao=l.data;if(_receb){const eve=document.getElementById('eVencimento');if(eve){/* nunca gravar vencimento vazio: sem vencimento o titulo cai no mes errado */var _vv=eve.value||l.dataVencimento||l.venc||_dataE;l.dataVencimento=_vv;l.venc=_vv;}const eba=document.getElementById('eBaixaData');if(eba){l.baixaData=eba.value;if(eba.value)l.dataBaixa=eba.value;}}else{l.dataVencimento=_dataE;l.venc=_dataE;if(_conc){l.dataBaixa=_dataE;l.baixaData=_dataE;}}const etg=document.getElementById('eTag');if(etg)l.tagConcil=etg.value;l.conciliado=_conc;if(_conc){if(l.tagConcil)l.tagConcilAnt=l.tagConcil;l.tagConcil='';}else if(l.tagConcilAnt&&!l.tagConcil){l.tagConcil=l.tagConcilAnt;delete l.tagConcilAnt;}if(_conc&&!l.conciliadoEm)l.conciliadoEm=new Date().toISOString().slice(0,10);if(!_conc){delete l.conciliadoEm;delete l.conciliadoPor;}if((l.banco||'').toLowerCase().trim()==='caixa'||(l.formaPagto||'').toUpperCase()==='DINHEIRO'){l.dataBaixa=l.data;l.baixaData=l.data;l.dataVencimento=l.data;l.venc=l.data;}try{var _crc=document.getElementById('eCriarRegra');var _crt=((document.getElementById('eRegraTermo')||{}).value||'').trim();if(_crc&&_crc.checked&&_crt&&l.categoria&&l.categoria!=='A classificar'){criarRegraDe(l,_crt);}}catch(e){}saveApp();fecharModal();render();}
 function excluirLanc(lid){const l=dados().lancamentos.find(x=>x.id===lid);if(l&&l.transfRef){if(!confirm('Este lançamento faz parte de uma transferência. Excluir apaga as DUAS pernas (origem e destino). Continuar?'))return;dados().lancamentos=dados().lancamentos.filter(x=>x.transfRef!==l.transfRef);saveApp();render();return;}if(!confirm('Excluir este lançamento?'))return;dados().lancamentos=dados().lancamentos.filter(x=>x.id!==lid);saveApp();render();}
 function copiarLanc(lid){const l=dados().lancamentos.find(x=>x.id===lid);if(!l)return;if(l.transfRef){const legs=dados().lancamentos.filter(x=>x.transfRef===l.transfRef);const novoRef=id();legs.forEach(function(leg){const nv=Object.assign({},leg,{id:id(),transfRef:novoRef});delete nv.baixado;delete nv.baixaRef;delete nv.baixaData;delete nv.vencId;dados().lancamentos.push(nv);});saveApp();render();editarTransferencia(novoRef);return;}const novo=Object.assign({},l,{id:id()});delete novo.baixado;delete novo.baixaRef;delete novo.baixaData;delete novo.vencId;dados().lancamentos.push(novo);saveApp();render();editarLanc(novo.id);}
-function fecharModal(){document.getElementById('modalBg').classList.remove('show');var _mc=document.getElementById('modalConteudo');if(_mc){var _mm=_mc.closest('.modal');if(_mm)_mm.style.maxWidth='';}}
+function fecharModal(){try{muDestravar();}catch(e){}document.getElementById('modalBg').classList.remove('show');var _mc=document.getElementById('modalConteudo');if(_mc){var _mm=_mc.closest('.modal');if(_mm)_mm.style.maxWidth='';}}
 
 // ===================== CATEGORIAS =====================
 /* Oferece os grupos oficiais do sistema + os que a empresa já usa. Antes só listava
@@ -6911,7 +6968,7 @@ function renderContas(){
 }
 function limparFiltroContas(){['fcDataIni','fcDataFim','fcCliente','fcValMin','fcValMax'].forEach(function(id){var e=document.getElementById(id);if(e)e.value='';});renderContas();}
 function _dtBR(d){return d?new Date(d+'T00:00:00').toLocaleDateString('pt-BR'):'';}
-function baixarConta(pid,keep){const p=dados().lancamentos.find(l=>l.id===pid);if(!p)return;window._baixaId=pid;if(!keep)window._baixaSel=new Set();const m=acharMatch(p);const bs=(dados().bancos||[]).filter(b=>b.ativo!==false);
+function _baixarContaDireto(pid,keep){const p=dados().lancamentos.find(l=>l.id===pid);if(!p)return;window._baixaId=pid;if(!keep)window._baixaSel=new Set();const m=acharMatch(p);const bs=(dados().bancos||[]).filter(b=>b.ativo!==false);
   /* DINHEIRO ja abre com a conta de caixa da empresa escolhida. Em especie e sempre ela,
      e sao mais de 130 recebimentos por periodo — nao faz sentido escolher um por um. */
   const _bkPad=p.banco||(/dinheiro|esp[eé]cie/i.test(String(p.formaPagto||''))?contaCaixa():'');
