@@ -2943,7 +2943,7 @@ function abrirAba(pg){const b=[...document.querySelectorAll('.menu-item')].find(
 /* REGRA CONTABIL: titulo (previsto) = data de VENCIMENTO (competencia) · movimento do extrato = data do extrato (caixa).
    Usar dataRef(l) em TODO filtro, agrupamento, ordenacao e comparacao com hoje. Emissao nunca e criterio de periodo. */
 /* ===== VERSAO DO PAINEL — para saber, sem adivinhar, se a tela esta atualizada ===== */
-const APP_VERSAO='2026-10-02.3';
+const APP_VERSAO='2026-10-02.4';
 function _marcaVersao(){try{
  /* versao no CABECALHO, ao lado do status da nuvem — fica visivel sem procurar */
  var bar=document.querySelector('.tb-acoes');var d=document.getElementById('appVersaoTag');
@@ -4139,8 +4139,7 @@ function contaFiltrosExt(){var f=window._filtroExt||{};var n=0;['tipo','status',
 function atualizaBadgeFiltroExtrato(){var b=document.getElementById('btnFiltrarExt');if(!b)return;var n=contaFiltrosExt();b.innerHTML=n?('🔍 Filtrar ('+n+')'):'🔍 Filtrar';}
 function aplicarAtalhoFiltroExtrato(kind){var f=window._filtroExt=window._filtroExt||{};if(kind==='aclassificar')f.aClassificar=!f.aClassificar;else if(kind==='semcliente')f.semCliente=!f.semCliente;else if(kind==='entradas')f.tipo=(f.tipo==='receita')?'':'receita';else if(kind==='saidas')f.tipo=(f.tipo==='despesa')?'':'despesa';renderFluxo();abrirFiltroExtrato();}
 function abrirFiltroExtrato(){var f=window._filtroExt=window._filtroExt||{};var _mmf=document.getElementById('modalConteudo').closest('.modal');if(_mmf)_mmf.style.maxWidth='560px';var _cst='padding:6px 8px;font-size:13px';
-  var cats=(dados().categorias||[]).slice().sort(function(a,b){return (a.nome||'').localeCompare(b.nome||'');});
-  var catOpts='<option value="">Todas categorias</option>'+cats.map(function(c){return '<option value="'+esc(c.nome)+'"'+(f.categoria===c.nome?' selected':'')+'>'+esc(c.nome)+'</option>';}).join('');
+  var catOpts=montarCatOpts('',f.categoria,'Todas categorias');
   var bancos=(dados().bancos||[]).filter(function(b){return b.ativo!==false;});
   var bancoOpts='<option value="">Todos os bancos</option>'+bancos.map(function(b){return '<option value="'+esc(b.nome)+'"'+(f.banco===b.nome?' selected':'')+'>'+esc(b.nome)+'</option>';}).join('');
   document.getElementById('modalConteudo').innerHTML='<h3>Filtrar extrato</h3>'
@@ -4596,8 +4595,7 @@ function atualizaBadgeFiltroLanc(){const b=document.getElementById('btnFiltrarLa
 function abrirFiltroLanc(){
   window._filtroLanc=window._filtroLanc||{};var _mmfl=document.getElementById('modalConteudo').closest('.modal');if(_mmfl)_mmfl.style.maxWidth='820px';
   const f=window._filtroLanc;
-  const cats=(dados().categorias||[]).slice().sort((a,b)=>semAc(a.nome||"").localeCompare(semAc(b.nome||""),"pt-BR"));
-  const catOpts='<option value="">Todas categorias</option>'+cats.map(c=>`<option value="${esc(c.nome)}" ${f.categoria===c.nome?'selected':''}>${esc(c.nome)}</option>`).join('');
+  const catOpts=montarCatOpts('',f.categoria,'Todas categorias');
   const bancos=(dados().bancos||[]).filter(b=>b.ativo!==false);
   const bancoOpts='<option value="">Todos os bancos</option>'+bancos.map(b=>`<option value="${esc(b.nome)}" ${f.banco===b.nome?'selected':''}>${esc(b.nome)}</option>`).join('');
   document.getElementById('modalConteudo').innerHTML=`<h3>Filtrar lançamentos</h3>
@@ -4678,13 +4676,42 @@ function origemLanc(l){if(!l)return '';if(l.origemLink)return 'Planilha de link'
 function ehAClassificar(l){return (l.categoria||'')==='A classificar'||!l.categoria;}
 function renderResumoClassificar(){const box=document.getElementById('resumoClassificar');if(!box)return;const arr=dados().lancamentos.filter(l=>visivel(l)&&ehAClassificar(l));if(!arr.length){box.innerHTML='';return;}const rec=arr.filter(l=>l.tipo==='receita').reduce((s,l)=>s+(+l.valor||0),0);const desp=arr.filter(l=>l.tipo==='despesa').reduce((s,l)=>s+(+l.valor||0),0);box.innerHTML=`<div class="card" style="border-left:4px solid var(--ouro)"><div style="display:flex;align-items:center;justify-content:space-between;gap:14px;flex-wrap:wrap"><div><h2 style="margin:0">🔶 A classificar</h2><div class="cap"><b>${arr.length}</b> lançamento(s) importado(s) sem categoria — entradas ${moeda(rec)} · saídas ${moeda(desp)}. Trate para fechar a diferença de saldo.</div></div><button class="btn ouro" onclick="verAClassificar()">Ver a classificar</button></div></div>`;}
 function verAClassificar(){abrirAba('lancamentos');setTimeout(()=>{window._filtroLanc=window._filtroLanc||{};window._filtroLanc.aClassificar=true;renderTabela();atualizaBadgeFiltroLanc();const c=document.querySelector('#pg-lancamentos');if(c)c.scrollIntoView({behavior:'smooth'});},60);}
+/* ======================================================================
+   UM lugar so monta a lista de categorias — antes eram seis, cada um com a
+   sua ordem. A regra agora e uma:
+
+   . agrupada pelo GRUPO, escrito em MAIUSCULA. Grupo e cabecalho, nao opcao:
+     nao da para lancar nele, o proprio navegador nao deixa selecionar.
+   . dentro do grupo, as categorias em ordem alfabetica.
+   . sem o numero do plano. Era heranca da planilha de Excel e nao entra em
+     nenhum calculo — so atrapalhava a ordem na tela.
+   ====================================================================== */
+function montarCatOpts(tipo,selecionada,placeholder){
+ var C=(dados().categorias||[]).filter(function(c){return !tipo||c.tipo===tipo;});
+ var porGrupo={};
+ C.forEach(function(c){var g=String(c.grupo||'SEM GRUPO').toUpperCase();(porGrupo[g]=porGrupo[g]||[]).push(c);});
+ var gs=Object.keys(porGrupo).sort(function(a,b){return semAc(a).localeCompare(semAc(b),'pt-BR');});
+ var out=(placeholder===false)?'':('<option value="">'+esc(placeholder||'— selecione a categoria —')+'</option>');
+ gs.forEach(function(g){
+  var itens=porGrupo[g].slice().sort(function(a,b){return semAc(a.nome||'').localeCompare(semAc(b.nome||''),'pt-BR');});
+  out+='<optgroup label="'+esc(g)+'">';
+  itens.forEach(function(c){
+   out+='<option value="'+esc(c.nome)+'"'+((selecionada&&c.nome===selecionada)?' selected':'')+'>'+esc(c.nome)+'</option>';});
+  out+='</optgroup>';});
+ /* categoria gravada que nao existe mais no plano nao pode sumir calada da tela */
+ if(selecionada&&selecionada!=='A classificar'&&!C.some(function(c){return c.nome===selecionada;}))
+  out+='<optgroup label="FORA DO PLANO DE CONTAS — CONFIRA"><option value="'+esc(selecionada)+'" selected>'+esc(selecionada)+'</option></optgroup>';
+ return out;}
+
 function atualizaCatSelect(){const ftp=document.getElementById('fTipo');const sel=document.getElementById('fCat');if(!ftp||!sel)return;const tipo=ftp.value;const est=(tipo==='estorno_receita'||tipo==='estorno_despesa');
  /* Estorno volta para a categoria DE ORIGEM: estorno de receita mostra as categorias
     de entrada, estorno de despesa mostra as de saída. Misturar as duas fazia a pessoa
     escolher uma categoria que a validação depois recusava. */
  const _base=(tipo==='estorno_receita')?'receita':((tipo==='estorno_despesa')?'despesa':tipo);
- const cats=dados().categorias.filter(c=>c.tipo===_base).slice().sort((a,b)=>semAc(a.nome||"").localeCompare(semAc(b.nome||""),"pt-BR"));sel.innerHTML=(est?'':'<option value="A classificar">🔶 A classificar</option>')+(cats.map(c=>`<option value="${esc(c.nome)}">${esc(c.nome)}</option>`).join('')||'<option value="">— cadastre categorias —</option>');}
-function preencherFiltroCat(){const sel=document.getElementById('filtCat');if(!sel)return;const atual=sel.value;sel.innerHTML='<option value="">Todas categorias</option>'+dados().categorias.slice().sort((a,b)=>semAc(a.nome||"").localeCompare(semAc(b.nome||""),"pt-BR")).map(c=>`<option value="${esc(c.nome)}">${esc(c.nome)}</option>`).join('');if(atual)sel.value=atual;}
+ var _temCat=(dados().categorias||[]).some(c=>c.tipo===_base);
+ sel.innerHTML=(est?'':'<option value="A classificar">🔶 A classificar</option>')
+  +(_temCat?montarCatOpts(_base,'',false):'<option value="">— cadastre categorias —</option>');}
+function preencherFiltroCat(){const sel=document.getElementById('filtCat');if(!sel)return;const atual=sel.value;sel.innerHTML=montarCatOpts('',atual,'Todas categorias');if(atual)sel.value=atual;}
 function abrirNovoLancamento(){
   window._descEstAuto='';
   const hasUni=(dados().unidades||[]).length>0;
@@ -4940,7 +4967,9 @@ function confirmarEstorno(lid){var l=dados().lancamentos.find(function(x){return
  var pre=prefixoEstorno(mot);
  var clienteOrig=l.cliente||'';var descOrig=l.descricao||l.servico||'';dados().lancamentos.push({id:id(),data:ds,cliente:clienteOrig?(pre+' — '+clienteOrig):pre,descricao:pre+' — '+descOrig,servico:l.servico?(pre+' — '+l.servico):(pre+' — '+descOrig),categoria:l.categoria,banco:l.banco,unidade:l.unidade,tipo:l.tipo==='receita'?'despesa':'receita',valor:+l.valor||0,status:'realizado',estorno:true,motivoEstorno:mot,estornoDe:l.id,formaPagto:l.formaPagto||'',usuario:usuariaAtivaNome()});saveApp();fecharModal();render();alert(rotuloMotivoEstorno(mot)+' — estorno gerado em '+new Date(ds+'T00:00:00').toLocaleDateString('pt-BR')+'.');}
 
-function recarregaCatEdit(sel){const tipo=document.getElementById('eTipo').value;const est=(tipo==='estorno_receita'||tipo==='estorno_despesa');const cur=(sel!==undefined)?sel:((document.getElementById('eCat')||{}).value||'');const _base=(tipo==='estorno_receita')?'receita':((tipo==='estorno_despesa')?'despesa':tipo);const cats=dados().categorias.filter(x=>x.tipo===_base).slice().sort((a,b)=>semAc(a.nome||"").localeCompare(semAc(b.nome||""),"pt-BR"));const achou=cats.some(x=>x.nome===cur);const ph=(!cur||cur==='A classificar'||!achou)?'<option value="" selected>— selecione a categoria —</option>':'';document.getElementById('eCat').innerHTML=ph+cats.map(x=>`<option value="${esc(x.nome)}" ${x.nome===cur?'selected':''}>${esc(x.nome)}</option>`).join('');}
+function recarregaCatEdit(sel){const tipo=document.getElementById('eTipo').value;const est=(tipo==='estorno_receita'||tipo==='estorno_despesa');const cur=(sel!==undefined)?sel:((document.getElementById('eCat')||{}).value||'');const _base=(tipo==='estorno_receita')?'receita':((tipo==='estorno_despesa')?'despesa':tipo);const cats=dados().categorias.filter(x=>x.tipo===_base);const achou=cats.some(x=>x.nome===cur);
+ const ph=(!cur||cur==='A classificar'||!achou)?'<option value="" selected>— selecione a categoria —</option>':'';
+ document.getElementById('eCat').innerHTML=ph+montarCatOpts(_base,cur,false);}
 /* O tipo "Transferência entre contas" existia só ao CRIAR lançamento. Quem
    lançasse uma transferência como receita comum não tinha como corrigir — era
    o caso dos Resgates e Aplicações do Nubank, R$ 40 mil entrando como receita.
@@ -5040,14 +5069,16 @@ function _optGrupos(){return _gruposDisponiveis().map(function(g){
 function atualizaGrupoSelect(){const dl=document.getElementById('gruposList');if(!dl)return;dl.innerHTML=_optGrupos();}
 function abrirCategoria(cid){const cs=dados().categorias||[];const c=cid?cs.find(x=>x.id===cid):null;window._editCatId=cid||'';const v=k=>c&&c[k]?String(c[k]).replace(/"/g,'&quot;'):'';const dl=_optGrupos();
   document.getElementById('modalConteudo').innerHTML=`<h3>${c?'Editar categoria':'Nova categoria'}</h3><div class="form-grid">
-    <div style="grid-column:span 2"><label>Número</label><input id="cNum" placeholder="Ex: 3.3.29" value="${v('numero')}"></div>
     <div style="grid-column:span 4"><label>Nome</label><input id="cNome" placeholder="Ex: Energia Elétrica" value="${v('nome')}"></div>
     <div style="grid-column:span 6"><label>Descrição (o que lançar aqui)</label><input id="cDesc" placeholder="Ex: contas de luz das unidades" value="${v('descricao')}"></div>
     <div style="grid-column:span 2"><label>Tipo</label><select id="cTipo"><option value="despesa"${c&&c.tipo==='despesa'?' selected':''}>Despesa</option><option value="receita"${c&&c.tipo==='receita'?' selected':''}>Receita</option></select></div>
     <div style="grid-column:span 4"><label>Grupo</label><input id="cGrupo" list="gruposList" placeholder="Ex: DESPESAS ADMINISTRATIVAS" value="${v('grupo')}"><datalist id="gruposList">${dl}</datalist></div>
     </div><div class="modal-acoes"><button class="btn sec" onclick="fecharModal()">Cancelar</button><button class="btn" onclick="salvarCategoria()">Salvar categoria</button></div>`;
   document.getElementById('modalBg').classList.add('show');}
-function salvarCategoria(){const g=i=>{const e=document.getElementById(i);return e?e.value.trim():'';};const nome=g('cNome');if(!nome){alert('Informe o nome.');return;}dados().categorias=dados().categorias||[];const cid=window._editCatId;const rec={numero:g('cNum'),nome,descricao:g('cDesc'),tipo:g('cTipo'),grupo:g('cGrupo')};
+function salvarCategoria(){const g=i=>{const e=document.getElementById(i);return e?e.value.trim():'';};const nome=g('cNome');if(!nome){alert('Informe o nome.');return;}dados().categorias=dados().categorias||[];const cid=window._editCatId;/* o numero saiu da tela. Nao entra mais no rec para nao apagar o que ja existe
+     nas categorias antigas — ele simplesmente deixou de ser usado. */
+  const rec={nome,descricao:g('cDesc'),tipo:g('cTipo'),grupo:g('cGrupo')};
+  try{muMarcarConfig();}catch(e){}
   if(cid){const c=dados().categorias.find(x=>x.id===cid);if(c){const antigo=c.nome;Object.assign(c,rec);marcarEditadoNaEmpresa(c);if(antigo!==nome){dados().lancamentos.forEach(l=>{if(l.categoria===antigo)l.categoria=nome;});(dados().orcamentos||[]).forEach(o=>{if(o.categoria===antigo)o.categoria=nome;});}}}
   else{if(dados().categorias.some(x=>x.nome.toLowerCase()===nome.toLowerCase())){alert('Já existe uma categoria com esse nome.');return;}rec.id=id();rec._org='empresa';dados().categorias.push(rec);}
   saveApp();fecharModal();render();}
@@ -5075,25 +5106,9 @@ function abrirRelatorio(titulo,sub,corpo){const ea=empresaAtiva();const marca=(e
 function relatorioServicos(){const ss=dados().servicos||[];if(!ss.length){alert('Cadastre ou importe os serviços primeiro.');return;}const pais=ss.filter(s=>!s.pai);let corpo='<p style="font-size:12.5px;color:#555">Prezada cliente, confira abaixo o catálogo de serviços e as categorias. Assinale na última coluna o que estiver errado ou o que precisa ajustar.</p>';pais.forEach(p=>{const filhos=ss.filter(x=>x.pai===p.id);corpo+=`<h3>${esc(p.nome)}${p.categoria?' — '+esc(p.categoria):''}</h3><table><thead><tr><th style="width:44%">Serviço</th><th>Tipo</th><th>Categoria (plano de contas)</th><th style="width:20%">Validação / ajuste</th></tr></thead><tbody>`+(filhos.length?filhos:[]).map(f=>`<tr><td>${esc(f.nome)}</td><td>${esc(f.tipo||'')}</td><td>${esc(f.categoria||'')}</td><td></td></tr>`).join('')+(filhos.length?'':'<tr><td colspan="4" style="color:#999">Sem filhos cadastrados.</td></tr>')+`</tbody></table>`;});abrirRelatorio('Catálogo de Serviços — validação da cliente','Confira os nomes e as categorias e assinale ajustes',corpo);}
 function relatorioRegras(){const rs=dados().regras||[];if(!rs.length){alert('Nenhuma regra cadastrada ainda.');return;}let corpo='<p style="font-size:12.5px;color:#555">Equipe: estas são as regras que categorizam os lançamentos automaticamente. Revisem e apontem correções na última coluna (descrições escritas de forma diferente, categoria errada, etc.).</p><table><thead><tr><th>Se a descrição contém</th><th>Tipo</th><th>Banco</th><th>Categoria destino</th><th style="width:22%">Correção da equipe</th></tr></thead><tbody>'+rs.map(r=>`<tr><td><b>${esc(r.contem||'')}</b></td><td>${esc(r.tipo||'qualquer')}</td><td>${esc(r.banco||'qualquer')}</td><td>${esc(r.categoria||'')}</td><td></td></tr>`).join('')+'</tbody></table>';abrirRelatorio('Relatório de Regras — análise e correção','Para a equipe revisar e corrigir',corpo);}
 function abrirServico(sid){const ss=dados().servicos||[];const s=sid?ss.find(x=>x.id===sid):null;window._editServId=sid||'';const v=k=>s&&s[k]?String(s[k]).replace(/"/g,'&quot;'):'';
-  /* Serviço é sempre coisa que a empresa VENDE: aqui entram só as categorias de
-     RECEITA. E na ordem do plano de contas, agrupadas por grupo — antes era ordem
-     alfabética do nome, que jogava "9.1 Juros recebidos" antes de "1.1 Consultas". */
-  const _ordNum=function(c){return String(c.numero||'zzz').split('.').map(function(x){return ('000'+String(x).trim()).slice(-4);}).join('.');};
-  const cats=(dados().categorias||[]).filter(function(c){return c.tipo==='receita';}).slice()
-    .sort(function(a,b){var ga=String(a.grupo||''),gb=String(b.grupo||'');
-      if(ga!==gb)return semAc(ga).localeCompare(semAc(gb),'pt-BR');
-      return _ordNum(a).localeCompare(_ordNum(b));});
-  let catOpts='<option value="">— escolha a categoria —</option>',_grpAt='';
-  cats.forEach(function(c){
-    var g=String(c.grupo||'Sem grupo');
-    if(g!==_grpAt){if(_grpAt)catOpts+='</optgroup>';_grpAt=g;catOpts+='<optgroup label="'+esc(g)+'">';}
-    catOpts+='<option value="'+esc(c.nome)+'"'+((s&&s.categoria===c.nome)?' selected':'')+'>'+(c.numero?esc(c.numero)+' · ':'')+esc(c.nome)+'</option>';});
-  if(_grpAt)catOpts+='</optgroup>';
-  /* categoria antiga que não é de receita não pode sumir calada: fica visível e marcada */
-  if(s&&s.categoria&&!cats.some(function(c){return c.nome===s.categoria;}))
-    catOpts+='<optgroup label="Fora do padrão — confira"><option value="'+esc(s.categoria)+'" selected>'+esc(s.categoria)+'</option></optgroup>';
-  const pais=ss.filter(x=>!x.pai&&x.id!==sid);
-  const paiOpts='<option value="">— nenhum (este é um serviço pai) —</option>'+pais.map(p=>`<option value="${p.id}"${s&&s.pai===p.id?' selected':''}>${esc(p.nome)}</option>`).join('');
+  /* Serviço é sempre coisa que a empresa VENDE: só categorias de RECEITA,
+     agrupadas pelo grupo em maiúscula e em ordem alfabética dentro dele. */
+  const catOpts=montarCatOpts('receita',(s&&s.categoria)||'','— escolha a categoria —');
   document.getElementById('modalConteudo').innerHTML=`<h3>${s?'Editar serviço':'Novo serviço'}</h3><div class="form-grid">
     <div style="grid-column:span 4"><label>Nome do serviço / produto</label><input id="sNome" placeholder="Ex: BERA (com sedação)" value="${v('nome')}"></div>
     <div style="grid-column:span 2"><label>Tipo</label><select id="sTipo"><option${s&&s.tipo==='Serviço'?' selected':''}>Serviço</option><option${s&&s.tipo==='Produto'?' selected':''}>Produto</option><option${s&&s.tipo==='Aparelho'?' selected':''}>Aparelho</option></select></div>
@@ -7104,8 +7119,7 @@ function _baixarContaDireto(pid,keep){const p=dados().lancamentos.find(l=>l.id==
   const _venc=p.dataVencimento||p.data;
   const _atras=(_venc&&_venc<hoje)?Math.round((new Date(hoje)-new Date(_venc))/864e5):0;
   const _ehACl=ehAClassificar(p);
-  const _cats=(dados().categorias||[]).filter(c=>c.tipo===p.tipo).slice().sort((a,b)=>semAc(a.nome||"").localeCompare(semAc(b.nome||""),"pt-BR"));
-  const _catOpts=_cats.map(c=>`<option value="${esc(c.nome)}"${p.categoria===c.nome?' selected':''}>${esc(c.nome)}</option>`).join('');
+  const _catOpts=montarCatOpts(p.tipo,p.categoria,false);
   let matchHtml='';if(m){matchHtml=`<div class="alerta ok" style="margin:8px 0"><span>✅</span><div>Encontrei no extrato: <b>${moeda(m.valor)}</b>${m.data?' em '+new Date(m.data+'T00:00:00').toLocaleDateString('pt-BR'):''}${m.banco?' · '+m.banco:''}. <button class="btn peq" onclick="confirmarBaixaMatch()" style="margin-left:6px">Vincular a este</button></div></div>`;}
   var _mbx=document.getElementById('modalConteudo').closest('.modal');if(_mbx)_mbx.style.maxWidth='720px';
   var _av=Math.abs(+p.valor||0);var _cands=dados().lancamentos.filter(function(x){return x.status!=='previsto'&&x.tipo===p.tipo&&!x.baixaDe&&x.data&&x.id!==p.id;});_cands.forEach(function(x){x.__mv=Math.abs(Math.abs(+x.valor||0)-_av)<0.005;});_cands.sort(function(a,b){if(a.__mv!==b.__mv)return a.__mv?-1:1;return (b.data||'').localeCompare(a.data||'');});var _sel=window._baixaSel||new Set();var _soma=0;_sel.forEach(function(mid){var mm=dados().lancamentos.find(function(x){return x.id===mid;});if(mm)_soma+=Math.abs(+mm.valor||0);});var _dif=Math.round((_av-_soma)*100)/100;var _okv=Math.abs(_dif)<0.005&&_sel.size>0;
