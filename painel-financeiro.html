@@ -2173,13 +2173,38 @@ function muAvisoTravado(dono,desde){
 /* as telas que ALTERAM um lancamento passam pela trava antes de abrir */
 async function editarLanc(lid){
  var t=await muTravar(lid);
- if(!t.ok){muAvisoTravado(t.dono,t.desde);return;}
- return _editarLancDireto(lid);}
+ var r=_editarLancDireto(lid);
+ /* ocupado: a tela ABRE, mas so para ver. Bloquear ate a visualizacao seria pior —
+    muitas vezes a pessoa so quer conferir um valor antes de falar com a outra. */
+ if(!t.ok)setTimeout(function(){_muModoLeitura(t.dono,t.desde);},30);
+ return r;}
+
+/* deixa o modal aberto somente para leitura, com a faixa dizendo quem esta dentro */
+function _muModoLeitura(dono,desde){try{
+ var box=document.getElementById('modalConteudo');if(!box)return;
+ if(document.getElementById('muFaixaTrava'))return;
+ var faixa=document.createElement('div');
+ faixa.id='muFaixaTrava';
+ faixa.style.cssText='background:#FBF3DE;border:1px solid #E4CE8F;border-radius:10px;'
+  +'padding:11px 14px;margin:0 0 13px;font-size:13px;line-height:1.65;color:#8a6d1f';
+ faixa.innerHTML='<b>🔒 Lançamento sendo acessado por '+esc(dono||'outra pessoa')+'</b><br>'
+  +'Ela abriu '+esc(_muDesdeQuando(desde))+' e ainda está com a tela aberta. '
+  +'Você pode ver, mas não alterar enquanto ela estiver dentro.<br>'
+  +'<span style="opacity:.85">Fale com ela e volte depois. Libera sozinho poucos minutos depois que ela fechar.</span>';
+ var h=box.querySelector('h3');
+ if(h&&h.nextSibling)box.insertBefore(faixa,h.nextSibling);else box.insertBefore(faixa,box.firstChild);
+ [].slice.call(box.querySelectorAll('input,select,textarea,button')).forEach(function(e){
+  var oc=String(e.getAttribute('onclick')||'');
+  if(/fecharModal/.test(oc))return;
+  e.disabled=true;e.style.opacity='.55';e.style.cursor='not-allowed';});
+}catch(e){console.warn('modo leitura',e);}}
 
 async function baixarConta(pid,keep){
- if(!keep){var t=await muTravar(pid);
-  if(!t.ok){muAvisoTravado(t.dono,t.desde);return;}}
- return _baixarContaDireto(pid,keep);}
+ if(keep)return _baixarContaDireto(pid,keep);
+ var t=await muTravar(pid);
+ var r=_baixarContaDireto(pid,keep);
+ if(!t.ok)setTimeout(function(){_muModoLeitura(t.dono,t.desde);},30);
+ return r;}
 
 
 function _chaveDup(l){
@@ -2694,9 +2719,9 @@ async function _muGravar(){
       var r=await sb.rpc('tenant_salvar',{p_tenant:_tenant,p_data:APP,p_expected:_tver});
       if(r.error){if(t)t.textContent='⚠ erro ao salvar';console.warn(r.error);return;}
       if(r.data!==-1){_tver=r.data;if(t)t.textContent='☁ salvo '+new Date().toLocaleTimeString('pt-BR');return;}
-      if(t)t.textContent='⇅ combinando com a outra sessão…';
+      /* combinar e rotina interna: nao vira recado na tela */
       var ok=await _muPuxarEMesclar(true);
-      if(!ok){if(t)t.textContent='⚠ não consegui combinar — tentando de novo';break;}
+      if(!ok)break;
     }
     setTimeout(function(){try{cloudSave(true);}catch(e){}},2500);
   }catch(e){if(t)t.textContent='⚠ erro ao salvar';console.warn(e);}
@@ -2725,7 +2750,9 @@ async function _muPuxarEMesclar(vindoDoSave){
     try{localStorage.setItem(KEY+'_'+_tenant,JSON.stringify(APP));}catch(e){}
     var depois=(dados().lancamentos||[]).length;
     try{render();if(typeof renderContas==='function')renderContas();}catch(e){console.warn(e);}
-    if(antes!==depois||!vindoDoSave)muAviso(_muDiferencaResumo(antes,depois,_muUltimoOutro()));
+    /* so avisa quando algo realmente entrou ou saiu. Sincronizar e rotina:
+       nao precisa aparecer na tela a cada meio minuto. */
+    if(antes!==depois)muAviso(_muDiferencaResumo(antes,depois,_muUltimoOutro()));
     return true;
   }catch(e){console.warn('puxar',e);return false;}}
 
@@ -2916,7 +2943,7 @@ function abrirAba(pg){const b=[...document.querySelectorAll('.menu-item')].find(
 /* REGRA CONTABIL: titulo (previsto) = data de VENCIMENTO (competencia) · movimento do extrato = data do extrato (caixa).
    Usar dataRef(l) em TODO filtro, agrupamento, ordenacao e comparacao com hoje. Emissao nunca e criterio de periodo. */
 /* ===== VERSAO DO PAINEL — para saber, sem adivinhar, se a tela esta atualizada ===== */
-const APP_VERSAO='2026-10-02.2';
+const APP_VERSAO='2026-10-02.3';
 function _marcaVersao(){try{
  /* versao no CABECALHO, ao lado do status da nuvem — fica visivel sem procurar */
  var bar=document.querySelector('.tb-acoes');var d=document.getElementById('appVersaoTag');
@@ -4814,7 +4841,7 @@ function _editarLancDireto(lid){
     <div style="grid-column:span 2"><label>Situação</label><select id="eStatus"><option value="realizado" ${l.status!=='previsto'?'selected':''}>Realizado</option><option value="previsto" ${l.status==='previsto'?'selected':''}>Previsto</option></select></div>
     </div>
     <div class="fg-sec">Identificação</div><div class="form-grid">
-    <div style="grid-column:span 2"><label>Tipo</label><select id="eTipo" onchange="recarregaCatEdit();sincDatasLanc();_toggleMotivoEstorno()"><option value="receita" ${tipoInicial==='receita'?'selected':''}>Receita (entrada)</option><option value="despesa" ${tipoInicial==='despesa'?'selected':''}>Despesa (saída)</option><option value="estorno_receita" ${tipoInicial==='estorno_receita'?'selected':''}>Estorno de receita (saída em receita)</option><option value="estorno_despesa" ${tipoInicial==='estorno_despesa'?'selected':''}>Estorno de despesa (entrada em despesa)</option></select></div>
+    <div style="grid-column:span 2"><label>Tipo</label><select id="eTipo" onchange="_tipoEditChg(this)"><option value="receita" ${tipoInicial==='receita'?'selected':''}>Receita (entrada)</option><option value="despesa" ${tipoInicial==='despesa'?'selected':''}>Despesa (saída)</option><option value="transfer">Transferência entre contas</option><option value="estorno_receita" ${tipoInicial==='estorno_receita'?'selected':''}>Estorno de receita (saída em receita)</option><option value="estorno_despesa" ${tipoInicial==='estorno_despesa'?'selected':''}>Estorno de despesa (entrada em despesa)</option></select></div>
     <div id="boxMotivoEstorno" style="grid-column:span 2;display:${(tipoInicial==='estorno_receita'||tipoInicial==='estorno_despesa')?'block':'none'}"><label>Motivo do estorno</label><select id="eMotivoEstorno" onchange="_descDoMotivo('eMotivoEstorno','eDesc','eCliente')">${_optsMotivoEstorno(l.motivoEstorno||'')}</select></div>
     <div style="grid-column:span 4"><label>Cliente ou fornecedor</label><input id="eCliente" placeholder="Nome do cliente ou fornecedor" onblur="_descDoMotivo('eMotivoEstorno','eDesc','eCliente')" onchange="_descDoMotivo('eMotivoEstorno','eDesc','eCliente')" value="${esc(l.cliente||'')}"></div>
     <div style="grid-column:span 4"><label class="obrig">Descrição</label><input id="eDesc" value="${esc((l.servico||l.descricao)||'')}"></div>
@@ -4914,7 +4941,56 @@ function confirmarEstorno(lid){var l=dados().lancamentos.find(function(x){return
  var clienteOrig=l.cliente||'';var descOrig=l.descricao||l.servico||'';dados().lancamentos.push({id:id(),data:ds,cliente:clienteOrig?(pre+' — '+clienteOrig):pre,descricao:pre+' — '+descOrig,servico:l.servico?(pre+' — '+l.servico):(pre+' — '+descOrig),categoria:l.categoria,banco:l.banco,unidade:l.unidade,tipo:l.tipo==='receita'?'despesa':'receita',valor:+l.valor||0,status:'realizado',estorno:true,motivoEstorno:mot,estornoDe:l.id,formaPagto:l.formaPagto||'',usuario:usuariaAtivaNome()});saveApp();fecharModal();render();alert(rotuloMotivoEstorno(mot)+' — estorno gerado em '+new Date(ds+'T00:00:00').toLocaleDateString('pt-BR')+'.');}
 
 function recarregaCatEdit(sel){const tipo=document.getElementById('eTipo').value;const est=(tipo==='estorno_receita'||tipo==='estorno_despesa');const cur=(sel!==undefined)?sel:((document.getElementById('eCat')||{}).value||'');const _base=(tipo==='estorno_receita')?'receita':((tipo==='estorno_despesa')?'despesa':tipo);const cats=dados().categorias.filter(x=>x.tipo===_base).slice().sort((a,b)=>semAc(a.nome||"").localeCompare(semAc(b.nome||""),"pt-BR"));const achou=cats.some(x=>x.nome===cur);const ph=(!cur||cur==='A classificar'||!achou)?'<option value="" selected>— selecione a categoria —</option>':'';document.getElementById('eCat').innerHTML=ph+cats.map(x=>`<option value="${esc(x.nome)}" ${x.nome===cur?'selected':''}>${esc(x.nome)}</option>`).join('');}
+/* O tipo "Transferência entre contas" existia só ao CRIAR lançamento. Quem
+   lançasse uma transferência como receita comum não tinha como corrigir — era
+   o caso dos Resgates e Aplicações do Nubank, R$ 40 mil entrando como receita.
+   Agora a edição converte: este lançamento vira uma das pernas, a outra nasce
+   com o mesmo valor, e a tela de transferência abre para escolher as contas. */
+function _tipoEditChg(sel){
+ var av=document.getElementById('eAvisoTransf');
+ if(sel&&sel.value==='transfer'){
+  if(!av){av=document.createElement('div');av.id='eAvisoTransf';
+   av.style.cssText='grid-column:span 6;background:#FBF3DE;border:1px solid #E4CE8F;border-radius:10px;padding:10px 13px;font-size:12.5px;line-height:1.6;color:#8a6d1f';
+   av.innerHTML='<b>Ao salvar, este lançamento vira uma transferência entre contas.</b><br>'
+    +'O outro lado é criado com o mesmo valor e a tela abre para você escolher de qual conta saiu e para qual entrou. '
+    +'Transferência não é receita nem despesa: é dinheiro andando dentro da própria empresa.';
+   var g=sel.closest('.form-grid');if(g)g.appendChild(av);}
+  return;}
+ if(av)av.remove();
+ try{recarregaCatEdit();}catch(e){}
+ try{sincDatasLanc();}catch(e){}
+ try{_toggleMotivoEstorno();}catch(e){}}
+
+function converterEmTransferencia(lid){try{
+ var L=dados().lancamentos||[];var l=L.find(function(x){return x.id===lid;});if(!l)return;
+ if(l.transfRef){fecharModal();return editarTransferencia(l.transfRef,lid);}
+ if(!confirm('Transformar este lançamento em transferência entre contas?\n\n'
+  +(l.cliente||l.descricao||'')+' — '+moeda(+l.valor||0)+'\n\n'
+  +'Ele deixa de contar como '+(l.tipo==='receita'?'receita':'despesa')+' e passa a ser dinheiro andando entre contas da empresa. '
+  +'O outro lado é criado com o mesmo valor, e você escolhe as contas na tela seguinte.'))return;
+ try{garantirCategoriaTransf();}catch(e){}
+ var ref='tr'+id();
+ var ehEntrada=(l.tipo==='receita');
+ var outro={id:id(),data:l.data,dataEmissao:l.data,valor:+l.valor||0,
+   banco:'',unidade:l.unidade||'',status:l.status||'realizado',
+   descricao:String(l.descricao||'Transferência entre contas'),servico:String(l.servico||''),
+   categoria:'Transferência entre contas',
+   tipo:ehEntrada?'despesa':'receita',
+   transfRef:ref,transfLado:ehEntrada?'saida':'entrada',
+   cliente:'',formaPagto:'',conciliado:false,usuario:usuariaAtivaNome()};
+ l.categoria='Transferência entre contas';
+ l.transfRef=ref;l.transfLado=ehEntrada?'entrada':'saida';
+ l.cliente='';l.formaPagto='';delete l.estorno;
+ L.push(outro);
+ saveApp();
+ fecharModal();
+ try{render();}catch(e){}
+ editarTransferencia(ref,l.id);
+}catch(e){alert('Não consegui converter: '+e.message);}}
+
 function confirmarEdicao(lid){const l=dados().lancamentos.find(x=>x.id===lid);if(!l)return;
+  /* virou transferência entre contas: sai do fluxo normal e vai para a tela própria */
+  if(((document.getElementById('eTipo')||{}).value)==='transfer')return converterEmTransferencia(lid);
   const _val=parseValor(document.getElementById('eValor').value)||0;
   const _cat=document.getElementById('eCat').value;
   const _desc=document.getElementById('eDesc').value.trim();
@@ -4999,8 +5075,23 @@ function abrirRelatorio(titulo,sub,corpo){const ea=empresaAtiva();const marca=(e
 function relatorioServicos(){const ss=dados().servicos||[];if(!ss.length){alert('Cadastre ou importe os serviços primeiro.');return;}const pais=ss.filter(s=>!s.pai);let corpo='<p style="font-size:12.5px;color:#555">Prezada cliente, confira abaixo o catálogo de serviços e as categorias. Assinale na última coluna o que estiver errado ou o que precisa ajustar.</p>';pais.forEach(p=>{const filhos=ss.filter(x=>x.pai===p.id);corpo+=`<h3>${esc(p.nome)}${p.categoria?' — '+esc(p.categoria):''}</h3><table><thead><tr><th style="width:44%">Serviço</th><th>Tipo</th><th>Categoria (plano de contas)</th><th style="width:20%">Validação / ajuste</th></tr></thead><tbody>`+(filhos.length?filhos:[]).map(f=>`<tr><td>${esc(f.nome)}</td><td>${esc(f.tipo||'')}</td><td>${esc(f.categoria||'')}</td><td></td></tr>`).join('')+(filhos.length?'':'<tr><td colspan="4" style="color:#999">Sem filhos cadastrados.</td></tr>')+`</tbody></table>`;});abrirRelatorio('Catálogo de Serviços — validação da cliente','Confira os nomes e as categorias e assinale ajustes',corpo);}
 function relatorioRegras(){const rs=dados().regras||[];if(!rs.length){alert('Nenhuma regra cadastrada ainda.');return;}let corpo='<p style="font-size:12.5px;color:#555">Equipe: estas são as regras que categorizam os lançamentos automaticamente. Revisem e apontem correções na última coluna (descrições escritas de forma diferente, categoria errada, etc.).</p><table><thead><tr><th>Se a descrição contém</th><th>Tipo</th><th>Banco</th><th>Categoria destino</th><th style="width:22%">Correção da equipe</th></tr></thead><tbody>'+rs.map(r=>`<tr><td><b>${esc(r.contem||'')}</b></td><td>${esc(r.tipo||'qualquer')}</td><td>${esc(r.banco||'qualquer')}</td><td>${esc(r.categoria||'')}</td><td></td></tr>`).join('')+'</tbody></table>';abrirRelatorio('Relatório de Regras — análise e correção','Para a equipe revisar e corrigir',corpo);}
 function abrirServico(sid){const ss=dados().servicos||[];const s=sid?ss.find(x=>x.id===sid):null;window._editServId=sid||'';const v=k=>s&&s[k]?String(s[k]).replace(/"/g,'&quot;'):'';
-  const cats=dados().categorias.slice().sort((a,b)=>semAc(a.nome||"").localeCompare(semAc(b.nome||""),"pt-BR"));
-  const catOpts='<option value="">— escolha a categoria —</option>'+cats.map(c=>`<option value="${esc(c.nome)}"${s&&s.categoria===c.nome?' selected':''}>${c.numero?c.numero+' · ':''}${esc(c.nome)}</option>`).join('');
+  /* Serviço é sempre coisa que a empresa VENDE: aqui entram só as categorias de
+     RECEITA. E na ordem do plano de contas, agrupadas por grupo — antes era ordem
+     alfabética do nome, que jogava "9.1 Juros recebidos" antes de "1.1 Consultas". */
+  const _ordNum=function(c){return String(c.numero||'zzz').split('.').map(function(x){return ('000'+String(x).trim()).slice(-4);}).join('.');};
+  const cats=(dados().categorias||[]).filter(function(c){return c.tipo==='receita';}).slice()
+    .sort(function(a,b){var ga=String(a.grupo||''),gb=String(b.grupo||'');
+      if(ga!==gb)return semAc(ga).localeCompare(semAc(gb),'pt-BR');
+      return _ordNum(a).localeCompare(_ordNum(b));});
+  let catOpts='<option value="">— escolha a categoria —</option>',_grpAt='';
+  cats.forEach(function(c){
+    var g=String(c.grupo||'Sem grupo');
+    if(g!==_grpAt){if(_grpAt)catOpts+='</optgroup>';_grpAt=g;catOpts+='<optgroup label="'+esc(g)+'">';}
+    catOpts+='<option value="'+esc(c.nome)+'"'+((s&&s.categoria===c.nome)?' selected':'')+'>'+(c.numero?esc(c.numero)+' · ':'')+esc(c.nome)+'</option>';});
+  if(_grpAt)catOpts+='</optgroup>';
+  /* categoria antiga que não é de receita não pode sumir calada: fica visível e marcada */
+  if(s&&s.categoria&&!cats.some(function(c){return c.nome===s.categoria;}))
+    catOpts+='<optgroup label="Fora do padrão — confira"><option value="'+esc(s.categoria)+'" selected>'+esc(s.categoria)+'</option></optgroup>';
   const pais=ss.filter(x=>!x.pai&&x.id!==sid);
   const paiOpts='<option value="">— nenhum (este é um serviço pai) —</option>'+pais.map(p=>`<option value="${p.id}"${s&&s.pai===p.id?' selected':''}>${esc(p.nome)}</option>`).join('');
   document.getElementById('modalConteudo').innerHTML=`<h3>${s?'Editar serviço':'Novo serviço'}</h3><div class="form-grid">
@@ -5017,11 +5108,44 @@ function excluirServico(sid){const _s=(dados().servicos||[]).find(x=>x.id===sid)
   if(_s){const uso=(dados().lancamentos||[]).filter(l=>(l.servico||'')===_s.nome).length;
     if(_travaExclusao(uso,'O serviço "'+_s.nome+'"','Troque o serviço desses lançamentos primeiro.'))return;}
   const filhos=(dados().servicos||[]).filter(x=>x.pai===sid).length;if(filhos){if(!confirm('Este serviço tem '+filhos+' filho(s). Excluir mesmo assim? Os filhos ficam sem pai.'))return;dados().servicos.forEach(x=>{if(x.pai===sid)x.pai='';});}else{if(!confirm('Excluir este serviço?'))return;}dados().servicos=(dados().servicos||[]).filter(x=>x.id!==sid);saveApp();render();renderServicos();}
+function _totalDoServico(nome){
+ var n=normServ(nome||'');if(!n)return 0;
+ var t=0;(dados().lancamentos||[]).forEach(function(l){
+  if(l.status!=='realizado')return;
+  if(normServ(l.servico||'')!==n)return;
+  t+=(+l.valor||0);});
+ return Math.round(t*100)/100;}
+
+function _totalDosFilhos(pid){
+ var ss=dados().servicos||[],t=0;
+ ss.filter(function(x){return x.pai===pid;}).forEach(function(f){t+=_totalDoServico(f.nome);});
+ return Math.round(t*100)/100;}
+
 function renderServicos(){const box=document.getElementById('servicosLista');if(!box)return;const ss=dados().servicos||[];const z=document.getElementById('servicosVazio');if(z)z.style.display=ss.length?'none':'block';if(!ss.length){box.innerHTML='';return;}
   const pais=ss.filter(s=>!s.pai);
-  const filhoLinha=f=>`<div class="cat-linha" style="padding-left:22px"><span class="cat-nome">${esc(f.nome)}${f.tipo&&f.tipo!=='Serviço'?` <span class="pill">${esc(f.tipo)}</span>`:''}${f.categoria?` <span class=mini style="color:var(--suave)">· ${esc(f.categoria)}</span>`:''}</span><button class="btn sec peq" onclick="abrirServico('${f.id}')">Editar</button> <button class="btn-ico" onclick="excluirServico('${f.id}')">🗑️</button></div>`;
-  let html='';pais.forEach(p=>{const filhos=ss.filter(x=>x.pai===p.id);html+=`<div class="cat-grupo"><div class="cat-grupo-h"><span style="width:11px;height:11px;border-radius:50%;background:var(--ouro)"></span>${esc(p.nome)}${p.categoria?` <span class=mini style="color:var(--vinho);font-weight:600">· ${esc(p.categoria)}</span>`:''}<span class="cat-count">${filhos.length} filho(s)</span><span style="margin-left:8px;white-space:nowrap"><button class="btn sec peq" onclick="abrirServico('${p.id}')">Editar</button> <button class="btn-ico" onclick="excluirServico('${p.id}')">🗑️</button></span></div>${filhos.map(filhoLinha).join('')||'<div class="cat-linha" style="padding-left:22px"><span class=mini style="color:var(--suave)">Sem filhos ainda.</span></div>'}</div>`;});
+  const filhoLinha=f=>{
+    const tot=_totalDoServico(f.nome);
+    return `<div class="cat-linha" style="padding-left:22px"><span class="cat-nome">${esc(f.nome)}${f.tipo&&f.tipo!=='Serviço'?` <span class="pill">${esc(f.tipo)}</span>`:''}${f.categoria?` <span class=mini style="color:var(--suave)">· ${esc(f.categoria)}</span>`:''}</span>`
+      +`<span class=mini style="margin-left:auto;padding-right:10px;color:${tot?'var(--vinho)':'var(--suave)'};font-weight:${tot?'700':'400'};white-space:nowrap">${tot?moeda(tot):'—'}</span>`
+      +`<button class="btn sec peq" onclick="abrirServico('${f.id}')">Editar</button> <button class="btn-ico" onclick="excluirServico('${f.id}')">🗑️</button></div>`;};
+  let html='';pais.forEach(p=>{
+    const filhos=ss.filter(x=>x.pai===p.id);
+    const tot=_totalDosFilhos(p.id);
+    /* O pai é a SOMA dos filhos. Ele não recebe lançamento: a classificação
+       automática da importação só procura entre os filhos. */
+    html+=`<div class="cat-grupo"><div class="cat-grupo-h"><span style="width:11px;height:11px;border-radius:50%;background:var(--ouro)"></span>${esc(p.nome)}`
+      +`${p.categoria?` <span class=mini style="color:var(--vinho);font-weight:600">· ${esc(p.categoria)}</span>`:''}`
+      +`<span class="cat-count">${filhos.length} serviço(s)</span>`
+      +`<span style="margin-left:auto;padding-right:10px;text-align:right;white-space:nowrap">`
+        +`<b style="color:var(--vinho);font-size:13.5px">${moeda(tot)}</b>`
+        +`<br><span class=mini style="color:var(--suave);font-weight:400">soma dos serviços abaixo</span></span>`
+      +`<span style="white-space:nowrap"><button class="btn sec peq" onclick="abrirServico('${p.id}')">Editar</button> <button class="btn-ico" onclick="excluirServico('${p.id}')">🗑️</button></span></div>`
+      +`${filhos.map(filhoLinha).join('')||'<div class="cat-linha" style="padding-left:22px"><span class=mini style="color:var(--suave)">Nenhum serviço dentro deste grupo ainda.</span></div>'}</div>`;});
+  html+='<div class=mini style="margin-top:10px;color:var(--suave);line-height:1.7">'
+    +'O <b>serviço pai</b> é só o agrupador: ele não recebe lançamento e o valor dele é a soma dos serviços de dentro. '
+    +'Para criar um, deixe o campo <b>Serviço pai</b> em “nenhum”. O total mostrado é o realizado de todo o período.</div>';
   box.innerHTML=html;}
+
 function excluirCategoria(cid){const c=dados().categorias.find(x=>x.id===cid);if(!c)return;const uso=dados().lancamentos.filter(l=>l.categoria===c.nome).length;if(uso>0){alert(`Esta categoria está em ${uso} lançamento(s). Reclassifique antes de excluir.`);return;}if(!confirm('Excluir categoria?'))return;dados().categorias=dados().categorias.filter(x=>x.id!==cid);saveApp();render();}
 function lerCategoriasArq(ev){const f=ev.target.files[0];if(!f)return;const ext=f.name.split('.').pop().toLowerCase();window._catRows=null;window._catLinhas=null;document.getElementById('catPreview').innerHTML='';document.getElementById('catMap').style.display='none';document.getElementById('catPdfTipo').style.display='none';
   if(ext==='pdf'){const r=new FileReader();r.onload=async e=>{try{window._catLinhas=await pdfLinhas(e.target.result);document.getElementById('catPdfTipo').style.display='block';}catch(x){alert('Não consegui ler o PDF: '+((x&&x.message)||x));}};r.readAsArrayBuffer(f);return;}
@@ -5421,7 +5545,11 @@ function _guardarServico(servico,categoria){
  var nome=String(servico||'').trim();if(!nome||!categoria||categoria==='A classificar')return false;
  dados().servicos=dados().servicos||[];
  var ja=(dados().servicos||[]).find(function(x){return normServ(x.nome||'')===normServ(nome);});
- if(ja){ja.categoria=categoria;if(!ja.pai){var p0=_paiImportacao();ja.pai=p0;}return true;}
+ if(ja){ja.categoria=categoria;
+  /* NUNCA mexe no campo pai de um serviço que já existe. Antes, se o nome batesse
+     com um serviço PAI, ele era rebaixado a filho de "Classificados na importação"
+     — o grupo sumia da tela e os filhos dele ficavam órfãos. */
+  return true;}
  dados().servicos.push({id:id(),nome:nome,tipo:'Serviço',categoria:categoria,pai:_paiImportacao()});
  return true;}
 function _paiImportacao(){
