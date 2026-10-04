@@ -2944,7 +2944,7 @@ function abrirAba(pg){const b=[...document.querySelectorAll('.menu-item')].find(
 /* REGRA CONTABIL: titulo (previsto) = data de VENCIMENTO (competencia) · movimento do extrato = data do extrato (caixa).
    Usar dataRef(l) em TODO filtro, agrupamento, ordenacao e comparacao com hoje. Emissao nunca e criterio de periodo. */
 /* ===== VERSAO DO PAINEL — para saber, sem adivinhar, se a tela esta atualizada ===== */
-const APP_VERSAO='2026-10-04.1';
+const APP_VERSAO='2026-10-04.2';
 function _marcaVersao(){try{
  /* versao no CABECALHO, ao lado do status da nuvem — fica visivel sem procurar */
  var bar=document.querySelector('.tb-acoes');var d=document.getElementById('appVersaoTag');
@@ -3196,6 +3196,37 @@ function renderBannerCaixaSemTitulo(){var box=document.getElementById('bannerCai
    escreve a mesma transação com texto diferente a cada exportação e o
    movimento entrava de novo. Esta tela é de CONFERÊNCIA: nada sai da base sem
    você marcar e confirmar, e o backup é baixado antes. ===== */
+/* Dois movimentos no mesmo dia, com o mesmo valor e na mesma conta NÃO são
+   necessariamente o mesmo movimento: dois pacientes pagando R$ 450 no mesmo dia
+   geram exatamente esse par, e os dois são legítimos. Esta função decide se vem
+   marcado para sair ou se fica para você conferir. Documento manda sobre nome. */
+var _MD_PARAR=('transf pix enviada recebida recebido pagamento boleto pago paciente clinica conta '
+ +'agencia banco transferencia para pela cred recebimento ltda dos das com sem referente compra '
+ +'aparelho aparelhos auditivo auditivos revisao avaliacao exame exames completa adulto infantil '
+ +'teste remocao cerumen imitanciometria processamento zumbido tontura sessoes terapias diferenca '
+ +'conciliacao juros recebidos venda parcela efetuado plataforma usada economica federal nubank '
+ +'cora servicos artigos caixa fono care sicredi aurium antonio prado coop pioneira serrana').split(' ');
+function _mdPalavras(s){
+ var t=semAc(String(s||'')).toLowerCase().match(/[a-z]{4,}/g)||[],o={};
+ t.forEach(function(w){if(_MD_PARAR.indexOf(w)<0)o[w]=1;});
+ return Object.keys(o);}
+function _mdDocs(s){return String(s||'').match(/\d{3}\.\d{3}\.\d{3}-\d{2}|\d{2}\.\d{3}\.\d{3}\/\d{4}-\d{2}/g)||[];}
+function _mesmaTransacao(a,b){
+ var da=_mdDocs(a.descricao),db=_mdDocs(b.descricao);
+ if(da.length&&db.length){
+  var bate=da.some(function(x){return db.indexOf(x)>=0;});
+  return bate?{dup:true,motivo:'mesmo CPF/CNPJ'}:{dup:false,motivo:'CPF/CNPJ diferentes — são duas pessoas'};}
+ var reimp=(!a._em)!==(!b._em);   /* um entrou agora e o outro já estava */
+ var pa=_mdPalavras(a.descricao),pb=_mdPalavras(b.descricao);
+ if(pa.length&&pb.length){
+  var inter=pa.filter(function(w){return pb.indexOf(w)>=0;}).length;
+  var uniao={};pa.concat(pb).forEach(function(w){uniao[w]=1;});
+  var jac=inter/Object.keys(uniao).length;
+  if(jac>=0.5)return {dup:true,motivo:'mesmo nome'};
+  if(reimp&&jac>=0.34)return {dup:true,motivo:'nome parecido e um deles entrou numa reimportação'};
+  return {dup:false,motivo:'nomes diferentes — provavelmente duas transações'};}
+ if(reimp)return {dup:true,motivo:'um deles entrou numa reimportação'};
+ return {dup:false,motivo:'sem nome para comparar'};}
 function _movDuplicados(){
  var L=dados().lancamentos||[],g={};
  L.forEach(function(l){
@@ -3215,31 +3246,41 @@ function _movDuplicados(){
    if(String(l.categoria||'')&&l.categoria!=='A classificar')p+=1;
    return p;};
   var ord=arr.slice().sort(function(a,b){return peso(b)-peso(a);});
-  out.push({fica:ord[0],sobra:ord.slice(1)});});
- out.sort(function(a,b){return (+b.fica.valor||0)-(+a.fica.valor||0);});
+  var base=ord[0];
+  var sobra=ord.slice(1).map(function(l){var r=_mesmaTransacao(base,l);return {l:l,dup:r.dup,motivo:r.motivo};});
+  out.push({fica:base,sobra:sobra});});
+ /* o que o sistema tem certeza vem primeiro */
+ out.sort(function(a,b){
+  var ca=a.sobra.filter(function(s){return s.dup;}).length,cb=b.sobra.filter(function(s){return s.dup;}).length;
+  if((ca>0)!==(cb>0))return cb>0?1:-1;
+  return (+b.fica.valor||0)-(+a.fica.valor||0);});
  return out;}
 function abrirMovDuplicados(){try{
  var gs=_movDuplicados();
  if(!gs.length){alert('Nenhum movimento repetido. Nada a limpar.');return;}
- var nTot=0,vTot=0;gs.forEach(function(g){nTot+=g.sobra.length;g.sobra.forEach(function(l){vTot+=Math.abs(+l.valor||0);});});
- var linhas=gs.map(function(g,gi){
+ var nDup=0,vDup=0,nConf=0,vConf=0;
+ gs.forEach(function(g){g.sobra.forEach(function(s){
+  var v=Math.abs(+s.l.valor||0);
+  if(s.dup){nDup++;vDup+=v;}else{nConf++;vConf+=v;}});});
+ var linhas=gs.map(function(g){
   var f=g.fica;
   var cab='<tr style="background:var(--vinho-fog)"><td colspan=5 style="padding:6px 8px;font-size:12px"><b>'+esc(_dbr(f.data))+' &middot; '+moeda(Math.abs(+f.valor||0))+' &middot; '+esc(f.banco||'(sem conta)')+'</b> &mdash; '+(f.tipo==='receita'?'entrada':'saída')+'</td></tr>';
   var mantem='<tr><td style="padding:5px 8px;width:30px"></td><td class=mini style="padding:5px 8px"><b style="color:var(--verde)">FICA</b></td>'
    +'<td class=mini style="padding:5px 8px">'+esc(String(f.descricao||'—').slice(0,60))+'</td>'
    +'<td class=mini style="padding:5px 8px">'+esc(f.categoria||'')+'</td>'
    +'<td class=mini style="padding:5px 8px;color:var(--suave)">'+(f.baixaDe?'tem título amarrado':(f.conciliado?'conciliado':''))+'</td></tr>';
-  var outros=g.sobra.map(function(l,si){
-   return '<tr><td style="padding:5px 8px"><input type="checkbox" checked data-mdid="'+esc(l.id)+'"></td>'
-    +'<td class=mini style="padding:5px 8px;color:var(--rubro)"><b>sai</b></td>'
+  var outros=g.sobra.map(function(s){var l=s.l;
+   return '<tr'+(s.dup?'':' style="background:#FBF8F0"')+'><td style="padding:5px 8px"><input type="checkbox"'+(s.dup?' checked':'')+' data-mdid="'+esc(l.id)+'"></td>'
+    +'<td class=mini style="padding:5px 8px">'+(s.dup?'<b style="color:var(--rubro)">sai</b>':'<b style="color:#8a6d1f">confira</b>')+'</td>'
     +'<td class=mini style="padding:5px 8px">'+esc(String(l.descricao||'—').slice(0,60))+'</td>'
     +'<td class=mini style="padding:5px 8px">'+esc(l.categoria||'')+'</td>'
-    +'<td class=mini style="padding:5px 8px;color:var(--suave)">'+esc(l._por?('criado por '+l._por):'da carga antiga')+(l.conciliado?' · conciliado':'')+'</td></tr>';}).join('');
+    +'<td class=mini style="padding:5px 8px;color:var(--suave)">'+esc(s.motivo)+' &middot; '+esc(l._por?('criado por '+l._por):'da carga antiga')+(l.conciliado?' · conciliado':'')+'</td></tr>';}).join('');
   return cab+mantem+outros;}).join('');
  document.getElementById('modalConteudo').innerHTML='<h3>Movimentos repetidos na base</h3>'
-  +'<div class="cap">Mesmo dia, mesmo valor, mesmo tipo e mesma conta. Vieram de arquivos importados duas vezes, quando a trava ainda comparava o texto da descrição.<br>'
-  +'<b>'+gs.length+' grupo(s) &middot; '+nTot+' movimento(s) sobrando &middot; '+moeda(vTot)+'</b><br>'
-  +'<b>Confira antes de confirmar.</b> Dois pagamentos iguais no mesmo dia são possíveis de verdade — nesse caso, desmarque a linha e ela fica. O backup é baixado no seu computador antes de qualquer remoção.</div>'
+  +'<div class="cap">Mesmo dia, mesmo valor, mesmo tipo e mesma conta. Sobra de arquivo importado duas vezes, quando a trava ainda comparava o texto da descrição.<br><br>'
+  +'<b style="color:var(--rubro)">'+nDup+' já marcado(s) para sair &middot; '+moeda(vDup)+'</b> — mesmo CPF/CNPJ, mesmo nome, ou um deles entrou numa reimportação.<br>'
+  +'<b style="color:#8a6d1f">'+nConf+' para você conferir &middot; '+moeda(vConf)+'</b> — vieram desmarcados: os nomes são diferentes, então provavelmente são duas transações de verdade. Dois pacientes pagando o mesmo valor no mesmo dia caem aqui.<br><br>'
+  +'<b>Confira linha a linha antes de confirmar.</b> O backup é baixado no seu computador antes de qualquer remoção.</div>'
   +'<div style="max-height:46vh;overflow:auto;margin-top:12px;border:1px solid #EDE6D8;border-radius:10px"><table style="width:100%;border-collapse:collapse">'+linhas+'</table></div>'
   +'<div class="modal-acoes"><button class="btn sec" onclick="fecharModal()">Cancelar</button> <button class="btn ouro" onclick="confirmarLimpezaMov()">Baixar backup e remover os marcados</button></div>';
  var mb=document.getElementById('modalConteudo').closest('.modal');if(mb)mb.style.maxWidth='900px';
@@ -3269,8 +3310,10 @@ function confirmarLimpezaMov(){try{
 }catch(e){alert('Erro: '+e.message);}}
 function renderBannerMovDup(){try{var box=document.getElementById('bannerMovDup');if(!box)return;
  var gs=_movDuplicados();if(!gs.length){box.innerHTML='';return;}
- var n=0,v=0;gs.forEach(function(g){n+=g.sobra.length;g.sobra.forEach(function(l){v+=Math.abs(+l.valor||0);});});
- box.innerHTML='<div style="background:#FBE9E7;border:1px solid #e0b4ab;border-radius:12px;padding:14px 16px;margin:0 0 14px;display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap"><div style="font-size:13.5px;color:#7A2E39;line-height:1.5"><b>🔁 '+n+' movimento(s) repetido(s) no extrato · '+moeda(v)+'</b><br><span style="font-size:12.5px">Mesmo dia, mesmo valor e mesma conta. Sobra de arquivo importado duas vezes.</span></div><button class="btn" onclick="abrirMovDuplicados()">Conferir e remover</button></div>';
+ var n=0,v=0,nc=0;gs.forEach(function(g){g.sobra.forEach(function(s){
+  if(s.dup){n++;v+=Math.abs(+s.l.valor||0);}else nc++;});});
+ if(!n&&!nc){box.innerHTML='';return;}
+ box.innerHTML='<div style="background:#FBE9E7;border:1px solid #e0b4ab;border-radius:12px;padding:14px 16px;margin:0 0 14px;display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap"><div style="font-size:13.5px;color:#7A2E39;line-height:1.5"><b>🔁 '+n+' movimento(s) repetido(s) no extrato · '+moeda(v)+'</b><br><span style="font-size:12.5px">Mesmo dia, mesmo valor e mesma conta, com o mesmo nome ou documento. Sobra de arquivo importado duas vezes.'+(nc?' Mais '+nc+' par(es) iguais no valor mas com nomes diferentes esperam a sua conferência.':'')+'</span></div><button class="btn" onclick="abrirMovDuplicados()">Conferir e remover</button></div>';
 }catch(e){}}
 
 /* ===== Títulos duplicados: mesmo cliente e valor, mesmo mês de vencimento, vindos de importações diferentes.
