@@ -489,6 +489,7 @@ body.so-leitura input[type=file]{display:none}
     <div id="bannerImportRuim"></div>
     <div id="bannerBaixaDupla"></div>
     <div id="bannerDuplicados"></div>
+    <div id="bannerMovDup"></div>
         <div id="primeirosPassos"></div>
     <div class="grid-kpi stagger">
       <div class="kpi l" title="Receita conciliada menos as despesas conciliadas do período. Só entra o que já foi conciliado."><div class="rotulo">Lucro da empresa</div><div class="valor" id="kLucro">R$ 0,00</div><div class="nota" id="kLucroNota">o que ficou para a empresa</div></div>
@@ -2943,7 +2944,7 @@ function abrirAba(pg){const b=[...document.querySelectorAll('.menu-item')].find(
 /* REGRA CONTABIL: titulo (previsto) = data de VENCIMENTO (competencia) · movimento do extrato = data do extrato (caixa).
    Usar dataRef(l) em TODO filtro, agrupamento, ordenacao e comparacao com hoje. Emissao nunca e criterio de periodo. */
 /* ===== VERSAO DO PAINEL — para saber, sem adivinhar, se a tela esta atualizada ===== */
-const APP_VERSAO='2026-10-02.5';
+const APP_VERSAO='2026-10-04.1';
 function _marcaVersao(){try{
  /* versao no CABECALHO, ao lado do status da nuvem — fica visivel sem procurar */
  var bar=document.querySelector('.tb-acoes');var d=document.getElementById('appVersaoTag');
@@ -3190,6 +3191,88 @@ alvo.forEach(function(m){
 saveApp();render();fecharModal();
 alert('Pronto! '+n+' título(s) criado(s) e amarrado(s) ao recebimento do caixa. O saldo continua o mesmo.');}catch(e){alert('Erro: '+e.message);}}
 function renderBannerCaixaSemTitulo(){var box=document.getElementById('bannerCaixaSemTitulo');if(!box)return;var alvo=_caixaSemTitulo();if(!alvo.length){box.innerHTML='';return;}var tot=alvo.reduce(function(s,l){return s+(+l.valor||0);},0);box.innerHTML='<div style="background:#EEF3FB;border:1px solid #bcd0ea;border-radius:12px;padding:14px 16px;margin:0 0 14px;display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap"><div style="font-size:13.5px;color:#2b5580;line-height:1.5"><b>💵 '+alvo.length+' recebimento(s) em dinheiro sem título · '+moeda(tot)+'</b><br><span style="font-size:12.5px">Entraram direto no caixa, antes da regra nova. Gerar o título deixa o histórico do cliente completo. O saldo não muda.</span></div><button class="btn" onclick="abrirGerarTitulosCaixa()">Gerar títulos</button></div>';}
+/* ===== Movimentos repetidos: mesmo dia, mesmo valor, mesmo tipo, mesma conta.
+   Sobra da trava antiga de importação, que comparava a descrição — o banco
+   escreve a mesma transação com texto diferente a cada exportação e o
+   movimento entrava de novo. Esta tela é de CONFERÊNCIA: nada sai da base sem
+   você marcar e confirmar, e o backup é baixado antes. ===== */
+function _movDuplicados(){
+ var L=dados().lancamentos||[],g={};
+ L.forEach(function(l){
+  if(!l||l.status==='previsto')return;
+  if(!l.data||!(+l.valor))return;
+  var k=_chaveExt(l.data,l.tipo,l.valor,l.banco);(g[k]=g[k]||[]).push(l);});
+ var out=[];
+ Object.keys(g).forEach(function(k){
+  var arr=g[k];if(arr.length<2)return;
+  /* quem fica: o que tem pagamento amarrado a um título vale mais que tudo;
+     depois o conciliado; depois o que já estava na base antes do carimbo. */
+  var peso=function(l){var p=0;
+   if(l.baixaDe)p+=8;
+   if(L.some(function(x){return x.baixaRef===l.id;}))p+=8;
+   if(l.conciliado)p+=4;
+   if(!l._em)p+=2;                       /* estava aqui antes de 02/10 */
+   if(String(l.categoria||'')&&l.categoria!=='A classificar')p+=1;
+   return p;};
+  var ord=arr.slice().sort(function(a,b){return peso(b)-peso(a);});
+  out.push({fica:ord[0],sobra:ord.slice(1)});});
+ out.sort(function(a,b){return (+b.fica.valor||0)-(+a.fica.valor||0);});
+ return out;}
+function abrirMovDuplicados(){try{
+ var gs=_movDuplicados();
+ if(!gs.length){alert('Nenhum movimento repetido. Nada a limpar.');return;}
+ var nTot=0,vTot=0;gs.forEach(function(g){nTot+=g.sobra.length;g.sobra.forEach(function(l){vTot+=Math.abs(+l.valor||0);});});
+ var linhas=gs.map(function(g,gi){
+  var f=g.fica;
+  var cab='<tr style="background:var(--vinho-fog)"><td colspan=5 style="padding:6px 8px;font-size:12px"><b>'+esc(_dbr(f.data))+' &middot; '+moeda(Math.abs(+f.valor||0))+' &middot; '+esc(f.banco||'(sem conta)')+'</b> &mdash; '+(f.tipo==='receita'?'entrada':'saída')+'</td></tr>';
+  var mantem='<tr><td style="padding:5px 8px;width:30px"></td><td class=mini style="padding:5px 8px"><b style="color:var(--verde)">FICA</b></td>'
+   +'<td class=mini style="padding:5px 8px">'+esc(String(f.descricao||'—').slice(0,60))+'</td>'
+   +'<td class=mini style="padding:5px 8px">'+esc(f.categoria||'')+'</td>'
+   +'<td class=mini style="padding:5px 8px;color:var(--suave)">'+(f.baixaDe?'tem título amarrado':(f.conciliado?'conciliado':''))+'</td></tr>';
+  var outros=g.sobra.map(function(l,si){
+   return '<tr><td style="padding:5px 8px"><input type="checkbox" checked data-mdid="'+esc(l.id)+'"></td>'
+    +'<td class=mini style="padding:5px 8px;color:var(--rubro)"><b>sai</b></td>'
+    +'<td class=mini style="padding:5px 8px">'+esc(String(l.descricao||'—').slice(0,60))+'</td>'
+    +'<td class=mini style="padding:5px 8px">'+esc(l.categoria||'')+'</td>'
+    +'<td class=mini style="padding:5px 8px;color:var(--suave)">'+esc(l._por?('criado por '+l._por):'da carga antiga')+(l.conciliado?' · conciliado':'')+'</td></tr>';}).join('');
+  return cab+mantem+outros;}).join('');
+ document.getElementById('modalConteudo').innerHTML='<h3>Movimentos repetidos na base</h3>'
+  +'<div class="cap">Mesmo dia, mesmo valor, mesmo tipo e mesma conta. Vieram de arquivos importados duas vezes, quando a trava ainda comparava o texto da descrição.<br>'
+  +'<b>'+gs.length+' grupo(s) &middot; '+nTot+' movimento(s) sobrando &middot; '+moeda(vTot)+'</b><br>'
+  +'<b>Confira antes de confirmar.</b> Dois pagamentos iguais no mesmo dia são possíveis de verdade — nesse caso, desmarque a linha e ela fica. O backup é baixado no seu computador antes de qualquer remoção.</div>'
+  +'<div style="max-height:46vh;overflow:auto;margin-top:12px;border:1px solid #EDE6D8;border-radius:10px"><table style="width:100%;border-collapse:collapse">'+linhas+'</table></div>'
+  +'<div class="modal-acoes"><button class="btn sec" onclick="fecharModal()">Cancelar</button> <button class="btn ouro" onclick="confirmarLimpezaMov()">Baixar backup e remover os marcados</button></div>';
+ var mb=document.getElementById('modalConteudo').closest('.modal');if(mb)mb.style.maxWidth='900px';
+ document.getElementById('modalBg').classList.add('show');
+}catch(e){alert('Erro: '+e.message);}}
+function confirmarLimpezaMov(){try{
+ var marc={};[].slice.call(document.querySelectorAll('[data-mdid]')).forEach(function(c){if(c.checked)marc[c.dataset.mdid]=true;});
+ var ids=Object.keys(marc);
+ if(!ids.length){alert('Nenhuma linha marcada. Nada foi removido.');return;}
+ var L=dados().lancamentos||[];
+ var alvos=L.filter(function(l){return marc[l.id];});
+ var tot=alvos.reduce(function(s,l){return s+Math.abs(+l.valor||0);},0);
+ /* um movimento que baixou um título nunca sai calado: solta o título antes */
+ var presos=alvos.filter(function(l){return l.baixaDe;}).length;
+ if(!confirm('Remover '+alvos.length+' movimento(s) repetido(s), somando '+moeda(tot)+'?\n\n'
+  +(presos?(presos+' deles estão amarrados a um título — o título volta a ficar em aberto.\n\n'):'')
+  +'O backup vai ser baixado antes.'))return;
+ try{var a=document.createElement('a');
+  a.href=URL.createObjectURL(new Blob([JSON.stringify({quando:new Date().toISOString(),removidos:alvos},null,1)],{type:'application/json'}));
+  a.download='backup_movimentos_repetidos.json';document.body.appendChild(a);a.click();a.remove();}catch(e){}
+ alvos.forEach(function(m){
+  if(m.baixaDe){var t=L.find(function(x){return x.id===m.baixaDe;});
+   if(t){delete t.baixado;delete t.baixaRef;delete t.baixaData;delete t.dataBaixa;t.status='previsto';}}});
+ dados().lancamentos=L.filter(function(l){return !marc[l.id];});
+ saveApp();fecharModal();try{render();}catch(e){}
+ alert('Pronto! '+alvos.length+' movimento(s) removido(s) · '+moeda(tot)+'.\n\nO backup foi baixado no seu computador.');
+}catch(e){alert('Erro: '+e.message);}}
+function renderBannerMovDup(){try{var box=document.getElementById('bannerMovDup');if(!box)return;
+ var gs=_movDuplicados();if(!gs.length){box.innerHTML='';return;}
+ var n=0,v=0;gs.forEach(function(g){n+=g.sobra.length;g.sobra.forEach(function(l){v+=Math.abs(+l.valor||0);});});
+ box.innerHTML='<div style="background:#FBE9E7;border:1px solid #e0b4ab;border-radius:12px;padding:14px 16px;margin:0 0 14px;display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap"><div style="font-size:13.5px;color:#7A2E39;line-height:1.5"><b>🔁 '+n+' movimento(s) repetido(s) no extrato · '+moeda(v)+'</b><br><span style="font-size:12.5px">Mesmo dia, mesmo valor e mesma conta. Sobra de arquivo importado duas vezes.</span></div><button class="btn" onclick="abrirMovDuplicados()">Conferir e remover</button></div>';
+}catch(e){}}
+
 /* ===== Títulos duplicados: mesmo cliente e valor, mesmo mês de vencimento, vindos de importações diferentes.
    Resíduo da carga direta antiga ("Extrato bancário" convivendo com a série da planilha). ===== */
 function _vencDe(l){return l.dataVencimento||l.venc||l.data||'';}
@@ -3427,6 +3510,7 @@ function render(){
   try{renderBannerImportRuim();}catch(e){}
   try{renderBannerBaixaDupla();}catch(e){}
   try{renderBannerDuplicados();}catch(e){}
+  try{renderBannerMovDup();}catch(e){}
   // topo perfil
   const p=perfil();
   const _ea=empresaAtiva();const nomeMarca=(_ea&&_ea.razaoSocial)||p.nome;
@@ -6142,28 +6226,62 @@ function previewMapaExtrato(){try{var M=window._mapExt;if(!M)return;
  else box.innerHTML=_renderPrevRegs(regs.filter(function(x){return x.data&&x.v;}),M.banco,r.saldoFin);
  _travarBotaoExt(regs,'btnConfMapa');}catch(e){}}
 
+/* ===== Confer\u00eancia de repetidos na importa\u00e7\u00e3o de extrato =====
+   ANTES: a compara\u00e7\u00e3o inclu\u00eda a DESCRI\u00c7\u00c3O (_sigLanc). O banco escreve a mesma
+   transa\u00e7\u00e3o com texto diferente a cada exporta\u00e7\u00e3o \u2014 bastava mudar um caractere
+   para a trava n\u00e3o reconhecer e o movimento entrar de novo. Foi o que duplicou
+   a base em 03 e 04/10/2026.
+   AGORA, em duas camadas:
+   1) FITID \u2014 o identificador \u00fanico que o banco d\u00e1 a cada transa\u00e7\u00e3o no OFX.
+      Com ele a confer\u00eancia \u00e9 exata, n\u00e3o importa o texto.
+   2) Sem FITID (CSV e OFX antigo), compara data + tipo + valor + conta POR
+      CONTAGEM: se o arquivo traz 3 linhas de R$ 450 no mesmo dia e a base j\u00e1
+      tem 2, entra 1. Dois pagamentos iguais no mesmo dia continuam valendo. */
+function _chaveExt(data,tipo,valor,banco){
+ return String(data||'')+'|'+String(tipo||'')+'|'+Math.round(Math.abs(+valor||0)*100)+'|'
+  +semAc(String(banco||'')).toLowerCase().trim();}
+function _fitKey(banco,fitid){
+ if(!fitid)return '';
+ return semAc(String(banco||'')).toLowerCase().trim()+'#'+String(fitid).trim().toUpperCase();}
+/* A pr\u00e9via e a grava\u00e7\u00e3o chamam ESTA fun\u00e7\u00e3o. O que voc\u00ea confere na tela \u00e9
+   exatamente o que entra \u2014 n\u00e3o existe mais uma regra na tela e outra no gravar. */
+function _conferirExtrato(regs,banco){
+ var L=dados().lancamentos||[],estoque={},fits={};
+ L.forEach(function(l){
+  if(!l||l.status==='previsto')return;
+  var k=_chaveExt(l.data,l.tipo,l.valor,l.banco);estoque[k]=(estoque[k]||0)+1;
+  var f=_fitKey(l.banco,l.fitid);if(f)fits[f]=true;});
+ return (regs||[]).map(function(x){
+  var tipo=((+x.v)<0)?'despesa':'receita';
+  var f=_fitKey(banco,x.fitid);
+  if(f&&fits[f])return {x:x,tipo:tipo,dup:true,motivo:'mesma transa\u00e7\u00e3o do banco j\u00e1 importada'};
+  var k=_chaveExt(x.data,tipo,x.v,banco);
+  if(estoque[k]>0){estoque[k]--;return {x:x,tipo:tipo,dup:true,motivo:'mesmo dia, valor e conta j\u00e1 na base'};}
+  if(f)fits[f]=true;
+  return {x:x,tipo:tipo,dup:false,motivo:''};});}
 function _renderPrevRegs(regs,banco,saldoFin){
- var jaTem=new Set((dados().lancamentos||[]).map(_sigLanc));
- var nDup=0,nEnt=0,nSai=0,tEnt=0,tSai=0;
- var linhas=regs.map(function(x){
-  var tipo=x.v<0?'despesa':'receita';
-  var sig=_sigLanc({data:x.data,tipo:tipo,valor:Math.abs(x.v),banco:banco,descricao:corrigeMoji(x.desc||'')||'-'});
-  var dup=jaTem.has(sig);if(dup)nDup++;
-  else{if(tipo==='receita'){nEnt++;tEnt+=Math.abs(x.v);}else{nSai++;tSai+=Math.abs(x.v);}}
-  return {x:x,tipo:tipo,dup:dup};});
+ var linhas=_conferirExtrato(regs,banco);
+ var nDup=0,nEnt=0,nSai=0,tEnt=0,tSai=0,tDup=0;
+ linhas.forEach(function(o){
+  if(o.dup){nDup++;tDup+=Math.abs(+o.x.v||0);return;}
+  if(o.tipo==='receita'){nEnt++;tEnt+=Math.abs(+o.x.v||0);}else{nSai++;tSai+=Math.abs(+o.x.v||0);}});
  var semDesc=linhas.filter(function(o){return !o.dup&&!String(o.x.desc||'').trim();}).length;
- var head='<div class=mini style="padding:8px 10px;background:#FAF7F0;border-bottom:1px solid #EDE6D8">'
+ var nNovas=nEnt+nSai;
+ var head='<div class=mini style="padding:10px;background:'+(nNovas?'#FAF7F0':'#FBF3DE')+';border-bottom:1px solid #EDE6D8;line-height:1.6">'
+  +'<b style="font-size:13px">'+(nNovas?('V\u00e3o entrar '+nNovas+' movimento(s)'):'Nenhum movimento novo \u2014 este arquivo j\u00e1 foi importado')+'</b><br>'
   +'<b>'+nEnt+'</b> entrada(s) '+moeda(tEnt)+' &middot; <b>'+nSai+'</b> sa&iacute;da(s) '+moeda(tSai)
-  +(nDup?' &middot; <b style="color:#8a6d1f">'+nDup+' j&aacute; existe(m)</b> e ser&atilde;o puladas':'')
+  +(nDup?' &middot; <b style="color:#8a6d1f">'+nDup+' j&aacute; est&atilde;o na base ('+moeda(tDup)+')</b> e n&atilde;o v&atilde;o entrar de novo':'')
   +(saldoFin!=null?' &middot; saldo final do arquivo: <b>'+moeda(saldoFin)+'</b>':'')+'</div>'
   +(semDesc?'<div class=mini style="padding:8px 10px;background:#FBE3E0;border-bottom:1px solid #EDE6D8;color:#7A2E39"><b>'+semDesc+' linha(s) viriam sem descri&ccedil;&atilde;o.</b> Confira a coluna de descri&ccedil;&atilde;o antes de importar.</div>':'');
- var corpo=linhas.slice(0,40).map(function(o){
-  return '<tr'+(o.dup?' style="opacity:.5"':'')+'><td class=mini>'+new Date(o.x.data+'T00:00:00').toLocaleDateString('pt-BR')+'</td>'
-   +'<td class=mini>'+esc(String(o.x.desc||'\u2014').slice(0,58))+'</td>'
+ /* as repetidas v\u00e3o para o fim da lista: o que importa ver primeiro \u00e9 o que entra */
+ var ord=linhas.slice().sort(function(a,b){return (a.dup?1:0)-(b.dup?1:0);});
+ var corpo=ord.slice(0,60).map(function(o){
+  return '<tr'+(o.dup?' style="opacity:.55;background:#FBF8F0"':'')+'><td class=mini>'+new Date(o.x.data+'T00:00:00').toLocaleDateString('pt-BR')+'</td>'
+   +'<td class=mini>'+esc(String(o.x.desc||'\u2014').slice(0,52))+'</td>'
    +'<td class=mini style="text-align:right;font-weight:700;color:'+(o.tipo==='receita'?'var(--verde)':'var(--rubro)')+'">'+(o.tipo==='receita'?'+':'\u2212')+moeda(Math.abs(o.x.v))+'</td>'
-   +'<td class=mini style="color:var(--suave)">'+(o.dup?'j&aacute; existe':'')+'</td></tr>';}).join('');
+   +'<td class=mini style="white-space:nowrap">'+(o.dup?'<b style="color:#8a6d1f">j&aacute; existe</b><br><span style="color:var(--suave);font-size:10.5px">'+esc(o.motivo)+'</span>':'<span style="color:var(--verde);font-weight:700">nova</span>')+'</td></tr>';}).join('');
  return head+'<table style="width:100%;border-collapse:collapse;font-size:12.5px"><tbody>'+corpo+'</tbody></table>'
-  +(linhas.length>40?'<div class=mini style="padding:8px 10px;color:var(--suave)">\u2026 e mais '+(linhas.length-40)+' linha(s).</div>':'');}
+  +(ord.length>60?'<div class=mini style="padding:8px 10px;color:var(--suave)">\u2026 e mais '+(ord.length-60)+' linha(s).</div>':'');}
 
 /* prévia do OFX — padrão de mercado, não precisa mapear coluna nenhuma */
 function abrirPreviaOFX(banco,regsOrig,saldoFin,arq){
@@ -6208,15 +6326,18 @@ function confirmarMapaExtrato(){try{var M=window._mapExt;if(!M)return;
 /* miolo comum: grava os movimentos, captura saldo, concilia */
 function _gravarExtrato(banco,regs,saldoFin,layoutNovo,arq,nDescartadas){
  var nR=0,nD=0,nDup=0,vR=0,vD=0,vDup=0,nClass=0;var _idsNovos=[];
- var existe=new Set((dados().lancamentos||[]).map(_sigLanc));
- regs.forEach(function(x){if(!x.data||!x.v)return;
-  var tipo=x.v<0?'despesa':'receita';
+ /* MESMA conferência que a prévia mostrou — uma função só, um resultado só. */
+ var _conf=_conferirExtrato((regs||[]).filter(function(x){return x.data&&x.v;}),banco);
+ _conf.forEach(function(o){
+  var x=o.x;
+  if(o.dup){nDup++;vDup+=Math.abs(+x.v||0);return;}
+  var tipo=o.tipo;
   var l={id:id(),data:x.data,descricao:corrigeMoji(x.desc||'')||'-',servico:'',cliente:'',banco:banco,
    categoria:'',tipo:tipo,valor:Math.abs(x.v),status:'realizado',origem:'Extrato bancário',
    unidade:(bancoUnidade(banco)||''),formaPagto:(/pix/i.test(x.desc||'')?'PIX':''),usuario:usuariaAtivaNome()};
+  if(x.fitid)l.fitid=String(x.fitid).trim();
   l.categoria=regraMatch(l)||'A classificar';
-  var sg=_sigLanc(l);if(existe.has(sg)){nDup++;vDup+=Math.abs(x.v);return;}
-  existe.add(sg);dados().lancamentos.push(l);_idsNovos.push(l.id);
+  dados().lancamentos.push(l);_idsNovos.push(l.id);
   if(l.categoria==='A classificar')nClass++;
   if(tipo==='receita'){nR++;vR+=Math.abs(x.v);}else{nD++;vD+=Math.abs(x.v);}});
  if(saldoFin!=null){
@@ -6234,7 +6355,7 @@ function _gravarExtrato(banco,regs,saldoFin,layoutNovo,arq,nDescartadas){
  imp.totalArquivo=Math.round((vR+vD+vDup)*100)/100;
  imp.criados=[{rotulo:'Entradas',qtd:nR,valor:vR},{rotulo:'Saídas',qtd:nD,valor:vD}].filter(function(b){return b.qtd;});
  imp.pulados=[];
- if(nDup)imp.pulados.push({rotulo:'Já estavam na base',qtd:nDup,valor:vDup,motivo:'mesmo dia, valor, banco e descrição — não duplicou'});
+ if(nDup)imp.pulados.push({rotulo:'Já estavam na base',qtd:nDup,valor:vDup,motivo:'mesma transação do banco, ou mesmo dia, valor e conta — não duplicou'});
  if(nDescartadas)imp.pulados.push({rotulo:'Descartadas por você na conferência',qtd:nDescartadas,valor:0,motivo:'linhas que você marcou para não entrar'});
  if(layoutNovo)imp.obsLayout=true;
  _registrarImportacao(imp);
@@ -6290,7 +6411,9 @@ function importarExtrato(ev){
     var memo=g('MEMO'),nome=g('NAME');
     var partes=[];[memo,nome].forEach(function(x){x=String(x||'').trim();
      if(!x||_ehIdentificador(x))return;if(partes.indexOf(x)<0)partes.push(x);});
-    regs.push({ri:regs.length,data:data,v:v,desc:partes.join(' \u2014 ')});});
+    /* FITID: identificador \u00fanico da transa\u00e7\u00e3o no banco. \u00c9 o que permite
+       reconhecer o mesmo movimento numa reimporta\u00e7\u00e3o, sem depender do texto. */
+    regs.push({ri:regs.length,data:data,v:v,desc:partes.join(' \u2014 '),fitid:g('FITID')});});
    var mb=raw.match(/<LEDGERBAL>[\s\S]*?<BALAMT>([^<\r\n]+)/i);if(mb)saldoFin=_numBR(mb[1]);
    ev.target.value='';
    if(!regs.length){alert('Nao encontrei movimentos neste OFX.');return;}
@@ -6311,13 +6434,19 @@ function importarExtrato(ev){
 function importarLancamentos(ev){const f=ev.target.files[0];if(!f)return;const r=new FileReader();r.onload=e=>{const o=lerCSVsimples(decodeArq(e.target.result));const H=o.header,rows=o.rows;const ix=n=>H.findIndex(h=>h.indexOf(n)>=0);
   const iData=ix('data'),iDesc=(ix('descri')>=0?ix('descri'):ix('hist')),iCat=ix('categ'),iEnt=(ix('entrada')>=0?ix('entrada'):ix('crédito')>=0?ix('crédito'):ix('credito')),iSai=(ix('saída')>=0?ix('saída'):ix('saida')>=0?ix('saida'):ix('débito')>=0?ix('débito'):ix('debito')),iBanco=ix('banco'),iVal=ix('valor');
   if(iData<0){alert('A planilha precisa ter a coluna Data. Confira o cabeçalho.');return;}
-  let nR=0,nD=0,nDup=0;const _existe=new Set((dados().lancamentos||[]).map(_sigLanc));
+  /* mesma regra do extrato: conta por dia + tipo + valor + conta, sem depender
+     da descrição, que muda de um arquivo para o outro */
+  let nR=0,nD=0,nDup=0;const _estoque={};
+  (dados().lancamentos||[]).forEach(function(l){if(!l||l.status==='previsto')return;
+    const k=_chaveExt(l.data,l.tipo,l.valor,l.banco);_estoque[k]=(_estoque[k]||0)+1;});
   rows.forEach(row=>{const data=parseData(row[iData]);if(!data)return;let tipo,valor;
     if(iEnt>=0||iSai>=0){const ent=iEnt>=0?parseValor(row[iEnt]):0;const sai=iSai>=0?parseValor(row[iSai]):0;if(ent>0){tipo='receita';valor=ent;}else if(sai>0){tipo='despesa';valor=sai;}else return;}
     else{const v=iVal>=0?parseValor(row[iVal]):0;if(!v)return;tipo=v<0?'despesa':'receita';valor=Math.abs(v);}
     const desc=corrigeMoji(iDesc>=0?(row[iDesc]||''):'');const cat=corrigeMoji(iCat>=0?(row[iCat]||''):'')||'A classificar';const banco=corrigeMoji(iBanco>=0?(row[iBanco]||''):'');
     const l={id:id(),data,descricao:desc,servico:desc,cliente:'',banco,categoria:cat,tipo,valor,status:'realizado',unidade:(bancoUnidade(banco)||''),usuario:usuariaAtivaNome()};
-    const sg=_sigLanc(l);if(_existe.has(sg)){nDup++;return;}_existe.add(sg);dados().lancamentos.push(l);
+    const sg=_chaveExt(data,tipo,valor,banco);
+    if(_estoque[sg]>0){_estoque[sg]--;nDup++;return;}
+    dados().lancamentos.push(l);
     if(tipo==='receita')nR++;else nD++;});
   saveApp();const _nb=autoConciliar()+autoBaixaCorrespondentes();saveApp();render();document.getElementById('arqLanc').value='';
   alert('Planilha importada!\nEntradas: '+nR+'\nSaídas: '+nD+(nDup?'\nJá existentes (ignorados p/ não duplicar): '+nDup:'')+(_nb?'\nConciliados automaticamente: '+_nb:''));
