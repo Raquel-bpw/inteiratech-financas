@@ -2944,7 +2944,7 @@ function abrirAba(pg){const b=[...document.querySelectorAll('.menu-item')].find(
 /* REGRA CONTABIL: titulo (previsto) = data de VENCIMENTO (competencia) · movimento do extrato = data do extrato (caixa).
    Usar dataRef(l) em TODO filtro, agrupamento, ordenacao e comparacao com hoje. Emissao nunca e criterio de periodo. */
 /* ===== VERSAO DO PAINEL — para saber, sem adivinhar, se a tela esta atualizada ===== */
-const APP_VERSAO='2026-10-04.2';
+const APP_VERSAO='2026-10-04.3';
 function _marcaVersao(){try{
  /* versao no CABECALHO, ao lado do status da nuvem — fica visivel sem procurar */
  var bar=document.querySelector('.tb-acoes');var d=document.getElementById('appVersaoTag');
@@ -5051,7 +5051,7 @@ function _editarLancDireto(lid){
     <div class="fg-sec">Datas e situação</div><div class="form-grid">
     <div id="wEmis" style="grid-column:span 2"><label class="obrig" id="lblEmis">Data de emissão</label><input type="date" id="eData" value="${l.dataEmissao||l.data||''}"></div>
     <div id="wVenc" style="grid-column:span 2"><label id="lblVenc">Data de vencimento</label><input type="date" id="eVencimento" value="${l.dataVencimento||l.venc||l.data||''}"></div>
-    <div id="wBaixa" style="grid-column:span 2"><label class="obrig">Data de baixa</label><input type="date" id="eBaixaData" value="${l.baixaData||l.dataBaixa||''}"></div>
+    <div id="wBaixa" style="grid-column:span 2"><label class="obrig">Data de baixa</label><input type="date" id="eBaixaData" value="${l.baixaData||l.dataBaixa||''}" ${(l.status==='previsto'&&l.baixado)?'disabled style="background:#F1ECE1;color:#8a7f6f"':''}>${(l.status==='previsto'&&l.baixado)?`<div class=mini style="margin-top:4px;color:#8a6d1f;line-height:1.45">Este título está baixado. Apagar a data aqui não desfaz a baixa — use o botão abaixo.<br><button type="button" class="btn sec peq" style="margin-top:5px" onclick="desfazerBaixaLanc('${lid}')">↩️ Desfazer baixa</button></div>`:''}</div>
     <div style="grid-column:span 2"><label>Situação</label><select id="eStatus"><option value="realizado" ${l.status!=='previsto'?'selected':''}>Realizado</option><option value="previsto" ${l.status==='previsto'?'selected':''}>Previsto</option></select></div>
     </div>
     <div class="fg-sec">Identificação</div><div class="form-grid">
@@ -7135,7 +7135,47 @@ function cbSelMov(id){window._cbSel=id;window._cbMarc=new Set();window._cbComJur
 function cbTogTit(id){window._cbConfirmando=false;if(!window._cbMarc)window._cbMarc=new Set();if(window._cbMarc.has(id))window._cbMarc.delete(id);else window._cbMarc.add(id);renderCBTela();}
 function _cbSugestoes(absv,tipo){try{var L=dados().lancamentos||[];var pool=L.filter(function(p){return p.status==='previsto'&&!p.baixado&&p.tipo===tipo&&/cart|link|zoop/i.test((p.formaPagto||'')+' '+(p.origem||''));});pool.sort(function(a,b){return (+a.valor)-(+b.valor);});var n=pool.length;var tol=0.05;var out=[];for(var i=0;i<n&&out.length<4;i++){for(var j=i+1;j<n&&out.length<4;j++){if(Math.abs((+pool[i].valor)+(+pool[j].valor)-absv)<=tol)out.push([pool[i],pool[j]]);}}if(out.length<4&&n<=140){for(var a=0;a<n&&out.length<4;a++){for(var b=a+1;b<n&&out.length<4;b++){var s2=(+pool[a].valor)+(+pool[b].valor);if(s2>absv+tol)continue;for(var c=b+1;c<n&&out.length<4;c++){if(Math.abs(s2+(+pool[c].valor)-absv)<=tol)out.push([pool[a],pool[b],pool[c]]);}}}}return out;}catch(e){return [];}}
 function cbUsarCombo(ids){window._cbMarc=new Set(ids.split(','));window._cbComJuros=false;window._cbConfirmando=false;renderCBTela();}
-function desfazerBaixaLanc(id){var L=dados().lancamentos||[];var l=L.find(function(x){return x.id===id;});if(!l)return;var m=null;if(l.baixaDe){m=l;}else if(l.baixaRef){m=L.find(function(x){return x.id===l.baixaRef;});}if(!m){alert('Este lan\u00e7amento n\u00e3o tem baixa para desfazer.');return;}if(!confirm('Desfazer a baixa?\n\nO t\u00edtulo volta para "a receber/pagar" e o movimento do banco volta para pendente (sai do saldo). Nada \u00e9 apagado.'))return;L.forEach(function(p){if(p.status==='previsto'&&p.baixaRef===m.id){p.baixado=false;delete p.baixaData;delete p.baixaRef;delete p.baixaAuto;if(p.tagConcilAnt){p.tagConcil=p.tagConcilAnt;delete p.tagConcilAnt;}}});if(typeof _removerDiferenca==='function')_removerDiferenca(m);delete m.baixaDe;m.conciliado=false;if(m.tagConcilAnt){m.tagConcil=m.tagConcilAnt;delete m.tagConcilAnt;}saveApp();fecharModal();render();if(typeof renderContas==='function')renderContas();}
+/* ===== Desfazer baixa =====
+   ANTES: exigia que o título tivesse baixaRef (ou o movimento tivesse baixaDe).
+   Título baixado pela planilha de parcelas, pelo relatório ou com o vínculo
+   quebrado recusava com "não tem baixa para desfazer" e ficava preso para
+   sempre — fora do contas a receber E fora da conciliação.
+   E limpava só baixaData, deixando dataBaixa para trás. */
+function _soltarTitulo(p){
+ if(!p)return;
+ p.status='previsto';p.baixado=false;
+ delete p.baixaData;delete p.dataBaixa;delete p.baixaRef;delete p.baixaAuto;
+ p.conciliado=false;delete p.conciliadoEm;delete p.conciliadoPor;
+ if(p.tagConcilAnt){p.tagConcil=p.tagConcilAnt;delete p.tagConcilAnt;}}
+function _soltarMovimento(m){
+ if(!m)return;
+ try{if(typeof _removerDiferenca==='function')_removerDiferenca(m);}catch(e){}
+ delete m.baixaDe;m.conciliado=false;
+ if(m.tagConcilAnt){m.tagConcil=m.tagConcilAnt;delete m.tagConcilAnt;}}
+/* Núcleo, sem tela. Devolve o que soltou, ou null se não havia nada. */
+function _desfazerBaixaNucleo(lid,semPerguntar){
+ var L=dados().lancamentos||[];var l=L.find(function(x){return x.id===lid;});if(!l)return null;
+ var tit=null,mov=null;
+ if(l.status==='previsto'){tit=l;mov=l.baixaRef?L.find(function(x){return x.id===l.baixaRef;}):null;}
+ else {mov=l;tit=l.baixaDe?L.find(function(x){return x.id===l.baixaDe;}):null;}
+ var temBaixa=(tit&&(tit.baixado||tit.baixaRef))||(mov&&(mov.baixaDe||mov.conciliado));
+ if(!temBaixa){alert('Este lançamento não está baixado — não há o que desfazer.');return null;}
+ if(!semPerguntar){
+  var txt='Desfazer a baixa?\n\nO título volta para "a receber/pagar" e passa a aparecer de novo na conciliação.';
+  txt+=mov?'\nO movimento do banco volta para pendente e sai do saldo.'
+          :'\nEste título foi baixado sem movimento do banco amarrado — só ele é alterado.';
+  txt+='\n\nNada é apagado.';
+  if(!confirm(txt))return null;}
+ var soltos=[];
+ if(tit){_soltarTitulo(tit);soltos.push(tit);}
+ if(mov){L.forEach(function(p){if(p.status==='previsto'&&p.baixaRef===mov.id&&p!==tit){_soltarTitulo(p);soltos.push(p);}});_soltarMovimento(mov);}
+ saveApp();
+ return {titulos:soltos,movimento:mov||null};}
+function desfazerBaixaLanc(lid){
+ var r=_desfazerBaixaNucleo(lid,false);if(!r)return;
+ try{fecharModal();}catch(e){}
+ try{render();}catch(e){}
+ try{if(typeof renderContas==='function')renderContas();}catch(e){}}
 function difCatDiferenca(mtipo,dif){
   var N=nomeCatCadastrada;
   if(mtipo==='receita')return dif>0?{cat:N('Juros Recebidos','receita'),tipo:'receita'}:{cat:N('Desconto Concedido','despesa'),tipo:'despesa'};
@@ -7168,6 +7208,14 @@ function cbExecBaixa(){
     dados().lancamentos.push(novo);m.difLanc=novo.id;m.valor=soma;
   }
   var ids=Array.from(window._cbMarc);
+  /* Título que já estava baixado por OUTRO movimento: solta a baixa antiga
+     (e o movimento antigo) antes de amarrar neste. Sem isso, dois movimentos
+     ficariam apontando para o mesmo título. */
+  ids.forEach(function(tid){var p=L.find(function(x){return x.id===tid;});
+   if(p&&(p.baixado||p.baixaRef)){
+    var antigo=p.baixaRef?L.find(function(x){return x.id===p.baixaRef;}):null;
+    if(antigo&&antigo.id!==m.id)_soltarMovimento(antigo);
+    _soltarTitulo(p);}});
   ids.forEach(function(tid){var p=L.find(function(x){return x.id===tid;});if(p){p.baixado=true;p.baixaData=m.data;p.baixaRef=m.id;p.baixaAuto='manual';if(p.tagConcil)p.tagConcilAnt=p.tagConcil;p.tagConcil='';}});
   m.baixaDe=ids[0];m.conciliado=true;if(m.tagConcil)m.tagConcilAnt=m.tagConcil;m.tagConcil='';var _hp=L.find(function(x){return x.id===ids[0];});if(ids.length===1&&_hp)_herdaDoTitulo(m,_hp);
   window._cbComJuros=false;window._cbConfirmando=false;saveApp();window._cbSel=null;window._cbMarc=new Set();renderCBTela();
@@ -7180,6 +7228,8 @@ function _cbConfHtml(msel,L,soma,dif,absv,ddPrev){
   var difBox=temDif?('<div style="border:1px solid #E9D9A9;border-radius:10px;overflow:hidden;margin-bottom:12px"><div style="background:#F6ECCF;padding:8px 11px;font-size:11px;font-weight:700;color:#7a6320;text-transform:uppercase;letter-spacing:.4px">Diferença — '+(dif>0?'multa / juros':'desconto')+'</div><table style="width:100%;border-collapse:collapse;font-size:12.5px"><tbody><tr><td style="padding:9px 11px;color:#7a6320">'+esc(ddPrev.cat)+'<div class=mini style="color:#a08a4a">'+(dif>0?'cliente pagou a mais':'cliente pagou a menos')+' · lança em '+_md+'</div></td><td style="padding:9px 11px;text-align:right;font-weight:700;color:#7a6320;white-space:nowrap">'+(dif>0?'+':'-')+moeda(Math.abs(dif))+'</td></tr></tbody></table></div>'):'';
   return '<div style="display:flex;align-items:center;gap:8px;margin-bottom:6px"><button class="btn-ico" onclick="cbCancelarConf()" title="Voltar">←</button><h3 style="margin:0;font-size:15px">Confirmar baixa</h3></div>'+
     '<div class=mini style="margin-bottom:11px">Confira antes de baixar. Ao confirmar, o título fica quitado e o dinheiro entra no saldo.</div>'+
+    (function(){var jb=selTits.filter(function(p){return p.baixado||p.baixaRef;});if(!jb.length)return '';
+     return '<div style="background:#FFF9EC;border:1px solid #E9D9A9;border-radius:10px;padding:11px 13px;margin-bottom:11px;font-size:12.5px;color:#7a6320;line-height:1.55"><b>⚠️ '+jb.length+' título(s) já estava(m) baixado(s).</b><br>Ao confirmar, a baixa anterior é desfeita e o título passa a ficar amarrado a este movimento. Se houver um movimento antigo amarrado, ele volta para pendente.<br>'+jb.map(function(p){return '· '+esc((p.cliente||p.descricao||'-').slice(0,34))+((p.baixaData||p.dataBaixa)?(' — baixado em '+new Date((p.baixaData||p.dataBaixa)+'T00:00:00').toLocaleDateString('pt-BR')):'');}).join('<br>')+'</div>';})()+
     '<div style="border:1px solid #EDE6D8;border-radius:10px;overflow:hidden;margin-bottom:6px"><div style="background:#FAF7F0;padding:8px 11px;font-size:11px;font-weight:700;color:#7A2E39;text-transform:uppercase;letter-spacing:.4px">Título(s) sendo baixado(s)</div><table style="width:100%;border-collapse:collapse;font-size:12.5px"><thead><tr style="color:#8a7f6f;font-size:11px"><th style="padding:6px 9px;text-align:left;font-weight:600">Cobrança</th><th style="padding:6px 9px;text-align:left;font-weight:600">Vence</th><th style="padding:6px 9px;text-align:right;font-weight:600">Valor</th></tr></thead><tbody>'+titLinhas+'</tbody><tfoot><tr style="font-weight:800;background:#FAF7F0"><td style="padding:8px 9px;border-top:2px solid #E4DAC8" colspan="2">Soma dos títulos</td><td style="padding:8px 9px;border-top:2px solid #E4DAC8;text-align:right">'+moeda(soma)+'</td></tr></tfoot></table></div>'+
     '<div style="text-align:center;color:#b7ab97;font-size:16px;margin:2px 0 6px">↕</div>'+
     '<div style="border:1px solid #cfe4d3;border-radius:10px;overflow:hidden;margin-bottom:12px"><div style="background:#EDF5EE;padding:8px 11px;font-size:11px;font-weight:700;color:#2f7d5b;text-transform:uppercase;letter-spacing:.4px">Vínculo — dinheiro que caiu no banco</div><table style="width:100%;border-collapse:collapse;font-size:12.5px"><tbody><tr><td style="padding:9px 9px">'+esc((msel.descricao||msel.cliente||'-').slice(0,28))+'</td><td style="padding:9px 9px;color:#8a7f6f;white-space:nowrap">'+_md+'</td><td style="padding:9px 9px;text-align:right;font-weight:700;color:#2f7d5b;white-space:nowrap">'+moeda(absv)+'</td></tr></tbody></table></div>'+
@@ -7232,7 +7282,12 @@ function renderCBTela(){
   } else {
     var absv=Math.abs(+msel.valor||0);
     var _tb=(window._cbTitBusca||'').trim().toLowerCase();
-    var cands=L.filter(function(p){return p.status==='previsto'&&!p.baixado&&p.tipo===msel.tipo;});
+    /* A lista só mostrava título em aberto. Um título já baixado — pela planilha
+       de parcelas, pelo relatório, ou por um movimento que não era este — sumia
+       daqui e não havia como trazê-lo. A caixa "mostrar também os já baixados"
+       traz de volta, marcado, e ao baixar o painel desfaz a baixa anterior. */
+    var _verBx=!!window._cbVerBaixados;
+    var cands=L.filter(function(p){return p.status==='previsto'&&p.tipo===msel.tipo&&(!p.baixado||_verBx);});
     if(_tb){cands=cands.filter(function(p){return ((p.cliente||'')+' '+(p.descricao||'')).toLowerCase().indexOf(_tb)>=0;});}
     else if(window._cbMes){cands=cands.filter(function(p){return ((p.venc||p.data||'').slice(0,7)===window._cbMes)||Math.abs((+p.valor)-absv)<0.005;});}
     cands.forEach(function(p){p.__mv=Math.abs((+p.valor)-absv)<0.005;});
@@ -7241,7 +7296,7 @@ function renderCBTela(){
     var soma=0;window._cbMarc.forEach(function(tid){var p=L.find(function(x){return x.id===tid;});if(p)soma+=(+p.valor||0);});
     var dif=Math.round((absv-soma)*100)/100;var ok=Math.abs(dif)<0.005&&window._cbMarc.size>0;
     var head='<div style="background:#FAF7F0;border:1px solid #EDE6D8;border-radius:10px;padding:11px 13px;margin-bottom:10px"><div style="display:flex;justify-content:space-between"><span class=mini>Movimento do extrato</span><b>'+(msel.tipo==='receita'?'Entrada':'Saída')+'</b></div><div style="display:flex;justify-content:space-between"><span class=mini>'+esc((msel.descricao||msel.cliente||'-').slice(0,34))+'</span><b>'+moeda(absv)+'</b></div></div>';
-    var titRows=cands.slice(0,200).map(function(p){var mk=window._cbMarc.has(p.id);var d=p.venc||p.data||'';return '<div onclick="cbTogTit(\''+p.id+'\')" style="cursor:pointer;display:flex;align-items:center;gap:9px;padding:8px 11px;border:1px solid '+(mk?'#C79A3B':'#EDE6D8')+';border-radius:9px;margin-bottom:6px;background:'+(mk?'#FBF3DE':'#fff')+'"><span style="font-size:16px">'+(mk?'☑️':'⬜')+'</span><div style="flex:1;min-width:0"><div style="font-size:12.5px;font-weight:600">'+(p.__mv?'<span style="color:#2f7d5b;font-weight:700;font-size:10.5px">✓ mesmo valor </span>':'')+esc((p.cliente||p.descricao||'-').slice(0,32))+'</div><div class=mini>vence '+(d?new Date(d+'T00:00:00').toLocaleDateString('pt-BR'):'-')+'</div></div><b style="font-size:12.5px;white-space:nowrap">'+moeda(p.valor)+'</b></div>';}).join('')||'<div class=mini style="padding:8px 0">Nenhum título '+(msel.tipo==='receita'?'a receber':'a pagar')+' em aberto para casar.</div>';
+    var titRows=cands.slice(0,200).map(function(p){var mk=window._cbMarc.has(p.id);var d=p.venc||p.data||'';return '<div onclick="cbTogTit(\''+p.id+'\')" style="cursor:pointer;display:flex;align-items:center;gap:9px;padding:8px 11px;border:1px solid '+(mk?'#C79A3B':'#EDE6D8')+';border-radius:9px;margin-bottom:6px;background:'+(mk?'#FBF3DE':'#fff')+'"><span style="font-size:16px">'+(mk?'☑️':'⬜')+'</span><div style="flex:1;min-width:0"><div style="font-size:12.5px;font-weight:600">'+(p.__mv?'<span style="color:#2f7d5b;font-weight:700;font-size:10.5px">✓ mesmo valor </span>':'')+esc((p.cliente||p.descricao||'-').slice(0,32))+'</div><div class=mini>vence '+(d?new Date(d+'T00:00:00').toLocaleDateString('pt-BR'):'-')+(p.baixado?' \u00b7 <b style="color:#8a6d1f">j\u00e1 baixado'+(p.baixaData||p.dataBaixa?(' em '+new Date((p.baixaData||p.dataBaixa)+'T00:00:00').toLocaleDateString('pt-BR')):'')+'</b>':'')+'</div></div><b style="font-size:12.5px;white-space:nowrap">'+moeda(p.valor)+'</b></div>';}).join('')||'<div class=mini style="padding:8px 0">Nenhum t\u00edtulo '+(msel.tipo==='receita'?'a receber':'a pagar')+' em aberto para casar.'+(_verBx?'':'<br>Se o t\u00edtulo j\u00e1 foi baixado antes, marque <b>mostrar tamb\u00e9m os j\u00e1 baixados</b> acima.')+'</div>';
     var somaBox='<div style="background:#FAF7F0;border:1px solid #EDE6D8;border-radius:10px;padding:10px 12px;margin-top:10px"><div style="display:flex;justify-content:space-between;font-size:13px"><span class=mini>Selecionado</span><b>'+moeda(soma)+'</b></div><div style="display:flex;justify-content:space-between;font-size:13px"><span class=mini>Movimento</span><b>'+moeda(absv)+'</b></div><div style="display:flex;justify-content:space-between;border-top:1px solid #EDE6D8;margin-top:4px;padding-top:5px;font-weight:800"><span>Diferença</span><b style="color:'+(Math.abs(dif)<0.005?'#2f7d5b':'#b04a3a')+'">'+moeda(dif)+'</b></div></div>';
     var temSel=window._cbMarc.size>0;var difOk=Math.abs(dif)<0.005;var podeDif=temSel&&!difOk&&Math.abs(dif)<=soma;var _flag=!!window._cbComJuros;var podeVinc=temSel&&(difOk||podeDif);
     var ddPrev=podeDif?difCatDiferenca(msel.tipo,dif):null;var _dtb=msel.data?new Date(msel.data+'T00:00:00').toLocaleDateString('pt-BR'):'-';
@@ -7254,7 +7309,8 @@ function renderCBTela(){
     cats.sort(function(a,b){return (a.nome||'').localeCompare(b.nome||'','pt-BR');});
     var regraNota=msel.tipo==='receita'?'Entrada sem atendimento cadastrado (aporte, transferência, rendimento). Classifique e concilie.':'Saída do banco sem título previsto (tarifa, débito avulso). Classifique e concilie direto.';
     var alt='<div style="border-top:1px dashed #ddd3c0;margin:14px 0"></div><div style="background:#FFF9EC;border:1px solid #E9D9A9;border-radius:10px;padding:12px 13px"><b style="font-size:12.5px;color:#7a6320">Não tem título para casar?</b><div class=mini style="margin:6px 0 8px">'+regraNota+'</div><button class="btn sec" style="width:100%;margin-bottom:8px" onclick="cbEditar(\''+msel.id+'\')">✏️ Abrir lançamento completo (cliente, serviço, categoria)</button><select id="cbCatAvulsa" style="width:100%;margin-bottom:8px;padding:8px 10px;border:1px solid #dcd4c4;border-radius:8px;font-family:inherit"><option value="">— escolher categoria —</option>'+cats.map(function(c){return '<option value="'+esc(c.nome)+'">'+esc(c.nome)+'</option>';}).join('')+'</select><button class="btn" style="background:#1E3A44;color:#fff" onclick="cbClassificar()">✓ Classificar e conciliar direto</button></div>';
-    var titBusca='<input placeholder="Buscar t\u00edtulo por cliente..." value="'+esc(window._cbTitBusca||'')+'" oninput="window._cbTitBusca=this.value;renderCBTela()" style="width:100%;padding:8px 10px;border:1px solid #dcd4c4;border-radius:8px;font-family:inherit;margin:2px 0 8px">';var sugBox='';if(window._cbMarc.size===0){var _sg=(typeof _cbSugestoes==='function')?_cbSugestoes(absv,msel.tipo):[];if(_sg.length){sugBox='<div style="background:#EEF3FB;border:1px solid #cddcee;border-radius:9px;padding:10px 12px;margin-bottom:10px"><b style="font-size:12.5px;color:#2b5580">\uD83D\uDCA1 O sistema achou combina\u00e7\u00f5es que somam '+moeda(absv)+':</b>'+_sg.map(function(cb){var ids=cb.map(function(x){return x.id;}).join(',');var s2=cb.reduce(function(a,x){return a+(+x.valor||0);},0);var d2=Math.round((absv-s2)*100)/100;return '<div style="display:flex;justify-content:space-between;align-items:center;gap:8px;margin-top:7px;background:#fff;border:1px solid #dbe5f0;border-radius:8px;padding:8px 10px"><div style="font-size:11.5px;line-height:1.5">'+cb.map(function(x){return esc((x.cliente||x.descricao||"-").slice(0,24))+" <b>"+moeda(x.valor)+"</b>";}).join(" + ")+' = <b>'+moeda(s2)+'</b>'+(Math.abs(d2)>=0.005?' <span style="color:#8a6d1f">(dif '+moeda(Math.abs(d2))+')</span>':'')+'</div><button class="btn peq" onclick="cbUsarCombo(\''+ids+'\')">Usar</button></div>';}).join('')+'</div>';}}    right=head+sugBox+'<div class=mini style="font-weight:700;color:#7A2E39;margin-bottom:6px">Títulos '+(msel.tipo==='receita'?'a receber':'a pagar')+' que casam</div>'+titBusca+titRows+somaBox+'<div style="margin-top:10px">'+aviso+flagBox+btn+'</div>'+alt;if(window._cbConfirmando){right=_cbConfHtml(msel,L,soma,dif,absv,ddPrev);}
+    var titBusca='<input placeholder="Buscar t\u00edtulo por cliente..." value="'+esc(window._cbTitBusca||'')+'" oninput="window._cbTitBusca=this.value;renderCBTela()" style="width:100%;padding:8px 10px;border:1px solid #dcd4c4;border-radius:8px;font-family:inherit;margin:2px 0 6px">'
+     +'<label class=mini style="display:flex;align-items:center;gap:7px;margin:0 0 9px;cursor:pointer;color:#7a6320"><input type="checkbox" '+(_verBx?'checked':'')+' onchange="window._cbVerBaixados=this.checked;renderCBTela()" style="width:auto;margin:0"> mostrar tamb\u00e9m os t\u00edtulos <b>j\u00e1 baixados</b> (a baixa antiga \u00e9 desfeita ao confirmar)</label>';var sugBox='';if(window._cbMarc.size===0){var _sg=(typeof _cbSugestoes==='function')?_cbSugestoes(absv,msel.tipo):[];if(_sg.length){sugBox='<div style="background:#EEF3FB;border:1px solid #cddcee;border-radius:9px;padding:10px 12px;margin-bottom:10px"><b style="font-size:12.5px;color:#2b5580">\uD83D\uDCA1 O sistema achou combina\u00e7\u00f5es que somam '+moeda(absv)+':</b>'+_sg.map(function(cb){var ids=cb.map(function(x){return x.id;}).join(',');var s2=cb.reduce(function(a,x){return a+(+x.valor||0);},0);var d2=Math.round((absv-s2)*100)/100;return '<div style="display:flex;justify-content:space-between;align-items:center;gap:8px;margin-top:7px;background:#fff;border:1px solid #dbe5f0;border-radius:8px;padding:8px 10px"><div style="font-size:11.5px;line-height:1.5">'+cb.map(function(x){return esc((x.cliente||x.descricao||"-").slice(0,24))+" <b>"+moeda(x.valor)+"</b>";}).join(" + ")+' = <b>'+moeda(s2)+'</b>'+(Math.abs(d2)>=0.005?' <span style="color:#8a6d1f">(dif '+moeda(Math.abs(d2))+')</span>':'')+'</div><button class="btn peq" onclick="cbUsarCombo(\''+ids+'\')">Usar</button></div>';}).join('')+'</div>';}}    right=head+sugBox+'<div class=mini style="font-weight:700;color:#7A2E39;margin-bottom:6px">Títulos '+(msel.tipo==='receita'?'a receber':'a pagar')+' que casam</div>'+titBusca+titRows+somaBox+'<div style="margin-top:10px">'+aviso+flagBox+btn+'</div>'+alt;if(window._cbConfirmando){right=_cbConfHtml(msel,L,soma,dif,absv,ddPrev);}
   }
   box.innerHTML='<div style="display:flex;justify-content:space-between;align-items:center;gap:10px;margin-bottom:10px"><h3 style="margin:0">Conciliação de bancos</h3><button class="btn-ico" onclick="fecharCBTela()" title="Fechar">✖️</button></div>'+
     '<div style="display:flex;gap:9px;align-items:center;flex-wrap:wrap;margin-bottom:10px"><label class=mini style="font-weight:700;color:#7A2E39">Banco</label><select onchange="window._cbBanco=this.value;window._cbSel=null;window._cbMarc=new Set();renderCBTela()" style="padding:7px 10px;border:1px solid #dcd4c4;border-radius:8px;font-family:inherit">'+bancoOpts+'</select>'+
@@ -7335,7 +7391,7 @@ function renderContas(){
   /* total que entrou/saiu no banco: o movimento guarda valorOrig quando houve juros/multa/desconto */
   var comp=_composicaoBaixa(l,_bxById);
   var colBanco=comp?('<b>'+moeda(comp.total)+'</b><br><span class="mini" style="color:'+(comp.dif>0?'var(--verde)':'var(--rubro)')+'">'+(comp.dif>0?'+ ':'- ')+moeda(Math.abs(comp.dif))+' '+esc(comp.rotulo)+'</span>'):(mv?moeda(+mv.valor||0):'<span class="mini" style="color:var(--suave)">—</span>');
-  return '<tr><td>'+df+'</td><td class=mini>'+esc(l.cliente||'-')+'</td><td onclick="verLanc(\''+l.id+'\')" style="cursor:pointer">'+esc(l.servico||l.descricao||'-')+'</td><td class=mini>'+esc(l.unidade||'-')+'</td><td class=mini>'+esc(bco)+'</td><td style="text-align:right;font-weight:700;color:'+(l.tipo==='receita'?'var(--verde)':'var(--rubro)')+'">'+moeda(l.valor)+'</td><td style="text-align:right;white-space:nowrap">'+colBanco+'</td><td style="text-align:right;white-space:nowrap"><button class="btn-ico" onclick="editarLanc(\''+l.id+'\')" title="Ver">\u270f\ufe0f</button></td></tr>';};
+  return '<tr><td>'+df+'</td><td class=mini>'+esc(l.cliente||'-')+'</td><td onclick="verLanc(\''+l.id+'\')" style="cursor:pointer">'+esc(l.servico||l.descricao||'-')+'</td><td class=mini>'+esc(l.unidade||'-')+'</td><td class=mini>'+esc(bco)+'</td><td style="text-align:right;font-weight:700;color:'+(l.tipo==='receita'?'var(--verde)':'var(--rubro)')+'">'+moeda(l.valor)+'</td><td style="text-align:right;white-space:nowrap">'+colBanco+'</td><td style="text-align:right;white-space:nowrap">'+((l.status==='previsto'&&l.baixado)?'<button class="btn-ico" onclick="desfazerBaixaLanc(\''+l.id+'\')" title="Desfazer a baixa \u2014 o t\u00edtulo volta para em aberto e aparece de novo na concilia\u00e7\u00e3o">\u21a9\ufe0f</button>':'')+'<button class="btn-ico" onclick="editarLanc(\''+l.id+'\')" title="Ver">\u270f\ufe0f</button></td></tr>';};
   var _tr=document.getElementById('tbodyReceb');if(_tr){_tr.innerHTML=receb.map(linhaBx).join('');document.getElementById('recebVazio').style.display=receb.length?'none':'block';}
   var _tp=document.getElementById('tbodyPago');if(_tp){_tp.innerHTML=pagos.map(linhaBx).join('');document.getElementById('pagoVazio').style.display=pagos.length?'none':'block';}
   var _est=(document.getElementById('fcEstado')||{}).value||'';function _sc(id,on){var e=document.getElementById(id);if(e)e.style.display=on?'':'none';}
