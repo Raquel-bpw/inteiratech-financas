@@ -2961,7 +2961,7 @@ function abrirAba(pg){const b=[...document.querySelectorAll('.menu-item')].find(
 /* REGRA CONTABIL: titulo (previsto) = data de VENCIMENTO (competencia) · movimento do extrato = data do extrato (caixa).
    Usar dataRef(l) em TODO filtro, agrupamento, ordenacao e comparacao com hoje. Emissao nunca e criterio de periodo. */
 /* ===== VERSAO DO PAINEL — para saber, sem adivinhar, se a tela esta atualizada ===== */
-const APP_VERSAO='2026-10-05.2';
+const APP_VERSAO='2026-10-05.3';
 function _marcaVersao(){try{
  /* versao no CABECALHO, ao lado do status da nuvem — fica visivel sem procurar */
  var bar=document.querySelector('.tb-acoes');var d=document.getElementById('appVersaoTag');
@@ -3043,6 +3043,12 @@ function ehEstorno(l){return l.estorno===true||(l.categoria||'')==='Estornos / C
    todas as planilhas exportadas. Sem isso, "por que devolvemos 50 reais para a
    cliente?" só se responde abrindo o lançamento. */
 var MOTIVOS_ESTORNO=[
+ /* Saída que voltou — faltavam, e são as mais comuns no dia a dia:
+    PIX enviado para a conta errada que o banco devolveu, e pagamento a
+    fornecedor que voltou. Sem elas o estorno de despesa ficava como "Outro". */
+ {v:'pix_devolvido', t:'Devolução de PIX'},
+ {v:'pagamento', t:'Estorno de pagamento'},
+ /* Entrada que voltou */
  {v:'troco', t:'Troco ao cliente'},
  {v:'cancelamento', t:'Cancelamento de atendimento'},
  {v:'cartao', t:'Estorno de cartão'},
@@ -3067,6 +3073,9 @@ function _semPrefixoEstorno(d){
  return s;}
 function _comPrefixoEstorno(d,motivo){
  var base=_semPrefixoEstorno(d);var pre=prefixoEstorno(motivo);
+ /* A descrição já começa dizendo a mesma coisa ("Devolução de PIX recebida"):
+    não repete o prefixo e deixa "Devolução de PIX — Devolução de PIX recebida". */
+ if(base&&String(base).toLowerCase().indexOf(String(pre).toLowerCase())===0)return base;
  return base?(pre+' — '+base):pre;}
 
 /* Ao escolher o motivo, a descrição já nasce escrita — a pessoa completa se quiser.
