@@ -2961,7 +2961,7 @@ function abrirAba(pg){const b=[...document.querySelectorAll('.menu-item')].find(
 /* REGRA CONTABIL: titulo (previsto) = data de VENCIMENTO (competencia) · movimento do extrato = data do extrato (caixa).
    Usar dataRef(l) em TODO filtro, agrupamento, ordenacao e comparacao com hoje. Emissao nunca e criterio de periodo. */
 /* ===== VERSAO DO PAINEL — para saber, sem adivinhar, se a tela esta atualizada ===== */
-const APP_VERSAO='2026-10-05.1';
+const APP_VERSAO='2026-10-05.2';
 function _marcaVersao(){try{
  /* versao no CABECALHO, ao lado do status da nuvem — fica visivel sem procurar */
  var bar=document.querySelector('.tb-acoes');var d=document.getElementById('appVersaoTag');
@@ -5271,7 +5271,78 @@ function confirmarEdicao(lid){const l=dados().lancamentos.find(x=>x.id===lid);if
   l.descricao=_comPrefixoEstorno(l.descricao,_mv);l.servico=_comPrefixoEstorno(l.servico,_mv);}
  else{delete l.motivoEstorno;l.descricao=_semPrefixoEstorno(l.descricao);l.servico=_semPrefixoEstorno(l.servico);}
  l.valor=_val;if(l.categoria!==_cat)l.catManual=true;l.categoria=_cat;if(!validaEstorno(document.getElementById('eTipo').value,l.categoria,l.valor,lid))return;const ef=document.getElementById('eForma');if(ef)l.formaPagto=ef.value;const eb=document.getElementById('eBanco');if(eb)l.banco=eb.value;const ec=document.getElementById('eCartao');if(ec)l.cartaoId=ec.value;l.status=_status;const eu=document.getElementById('eUnidade');if(eu)l.unidade=eu.value;l.dataEmissao=l.data;if(_receb){const eve=document.getElementById('eVencimento');if(eve){/* nunca gravar vencimento vazio: sem vencimento o titulo cai no mes errado */var _vv=eve.value||l.dataVencimento||l.venc||_dataE;l.dataVencimento=_vv;l.venc=_vv;}const eba=document.getElementById('eBaixaData');if(eba){l.baixaData=eba.value;if(eba.value)l.dataBaixa=eba.value;}}else{l.dataVencimento=_dataE;l.venc=_dataE;if(_conc){l.dataBaixa=_dataE;l.baixaData=_dataE;}}const etg=document.getElementById('eTag');if(etg)l.tagConcil=etg.value;l.conciliado=_conc;if(_conc){if(l.tagConcil)l.tagConcilAnt=l.tagConcil;l.tagConcil='';}else if(l.tagConcilAnt&&!l.tagConcil){l.tagConcil=l.tagConcilAnt;delete l.tagConcilAnt;}if(_conc&&!l.conciliadoEm)l.conciliadoEm=new Date().toISOString().slice(0,10);if(!_conc){delete l.conciliadoEm;delete l.conciliadoPor;}if((l.banco||'').toLowerCase().trim()==='caixa'||(l.formaPagto||'').toUpperCase()==='DINHEIRO'){l.dataBaixa=l.data;l.baixaData=l.data;l.dataVencimento=l.data;l.venc=l.data;}try{var _crc=document.getElementById('eCriarRegra');var _crt=((document.getElementById('eRegraTermo')||{}).value||'').trim();if(_crc&&_crc.checked&&_crt&&l.categoria&&l.categoria!=='A classificar'){criarRegraDe(l,_crt);}}catch(e){}saveApp();fecharModal();render();}
-function excluirLanc(lid){const l=dados().lancamentos.find(x=>x.id===lid);if(l&&l.transfRef){if(!confirm('Este lançamento faz parte de uma transferência. Excluir apaga as DUAS pernas (origem e destino). Continuar?'))return;dados().lancamentos=dados().lancamentos.filter(x=>x.transfRef!==l.transfRef);saveApp();render();return;}if(!confirm('Excluir este lançamento?'))return;dados().lancamentos=dados().lancamentos.filter(x=>x.id!==lid);saveApp();render();}
+/* ===== Excluir lançamento =====
+   ANTES: tirava o lançamento da lista e mais nada. Se ele tivesse dado baixa
+   num título, o título continuava marcado como baixado apontando para um
+   movimento que não existia mais — sumia do contas a receber e não havia como
+   achar (foi assim que nasceram os títulos de vínculo quebrado). E a diferença
+   de juros/desconto lançada junto na baixa ficava órfã na base.
+   AGORA: o título volta para "em aberto", a diferença sai junto, e a tela de
+   confirmação diz tudo isso ANTES de qualquer coisa ser apagada. */
+function _efeitosExclusao(ids){
+ var L=dados().lancamentos||[];
+ var fora={};ids.forEach(function(i){fora[i]=true;});
+ var titulos=[],difs=[],movsSoltar=[],paisDif=[];
+ var push=function(arr,x){if(x&&!fora[x.id]&&arr.indexOf(x)<0)arr.push(x);};
+ ids.forEach(function(lid){
+  var l=L.find(function(x){return x.id===lid;});if(!l)return;
+  if(l.status==='previsto'){
+   /* é um título: o movimento que o baixou volta para pendente */
+   if(l.baixaRef)push(movsSoltar,L.find(function(x){return x.id===l.baixaRef;}));
+  }else{
+   /* é um movimento do banco: solta os títulos que ele baixou */
+   L.forEach(function(pz){if(pz.status==='previsto'&&pz.baixaRef===l.id)push(titulos,pz);});
+   if(l.baixaDe){var t=L.find(function(x){return x.id===l.baixaDe;});if(t&&t.status==='previsto')push(titulos,t);}
+   /* a diferença de juros/desconto que nasceu desta baixa sai junto */
+   L.forEach(function(d){if(d.difDe===l.id)push(difs,d);});
+  }
+  /* se o que está saindo É a diferença, o movimento dono volta ao valor cheio */
+  if(l.difDe)push(paisDif,L.find(function(x){return x.id===l.difDe;}));
+ });
+ return {titulos:titulos,difs:difs,movsSoltar:movsSoltar,paisDif:paisDif};}
+
+function _textoEfeitos(ef){
+ var t=[];
+ if(ef.titulos.length)t.push('• '+ef.titulos.length+' título(s) volta(m) para "a receber/pagar" em aberto:\n   '
+   +ef.titulos.slice(0,4).map(function(x){return (x.cliente||x.descricao||'-').slice(0,32)+' '+moeda(x.valor);}).join('\n   ')
+   +(ef.titulos.length>4?('\n   e mais '+(ef.titulos.length-4)):''));
+ if(ef.difs.length)t.push('• '+ef.difs.length+' lançamento(s) de juros/desconto da baixa sai(em) junto: '
+   +moeda(ef.difs.reduce(function(s,x){return s+Math.abs(+x.valor||0);},0)));
+ if(ef.movsSoltar.length)t.push('• '+ef.movsSoltar.length+' movimento(s) do banco volta(m) para pendente (sai(em) do saldo)');
+ if(ef.paisDif.length)t.push('• '+ef.paisDif.length+' movimento(s) volta(m) ao valor cheio, sem a diferença');
+ return t.join('\n');}
+
+function _aplicarExclusao(ids){
+ var L=dados().lancamentos||[];
+ var ef=_efeitosExclusao(ids);
+ var fora={};ids.forEach(function(i){fora[i]=true;});
+ ef.difs.forEach(function(d){fora[d.id]=true;});          /* a diferença sai junto */
+ ef.paisDif.forEach(function(m){                          /* o dono volta ao valor cheio */
+  if(m.valorOrig!=null){m.valor=m.valorOrig;delete m.valorOrig;}delete m.difLanc;});
+ ef.titulos.forEach(function(t){_soltarTitulo(t);});
+ ef.movsSoltar.forEach(function(m){_soltarMovimento(m);});
+ dados().lancamentos=L.filter(function(x){return !fora[x.id];});
+ return ef;}
+
+function excluirLanc(lid){
+ var L=dados().lancamentos||[];
+ var l=L.find(function(x){return x.id===lid;});if(!l)return;
+ var ids=l.transfRef?L.filter(function(x){return x.transfRef===l.transfRef;}).map(function(x){return x.id;}):[lid];
+ var ef=_efeitosExclusao(ids);
+ var msg=l.transfRef
+   ? ('Este lançamento faz parte de uma transferência.\nExcluir apaga as DUAS pernas (origem e destino).\n')
+   : ('Excluir este lançamento?\n');
+ var det=_textoEfeitos(ef);
+ if(det)msg+='\nO que acontece junto:\n'+det+'\n';
+ msg+='\nNada mais é alterado. Continuar?';
+ if(!confirm(msg))return;
+ _aplicarExclusao(ids);
+ saveApp();
+ try{render();}catch(e){}
+ try{if(typeof renderContas==='function')renderContas();}catch(e){}
+ if(ef.titulos.length){
+  alert(ef.titulos.length+' título(s) voltou(aram) para "a receber/pagar" em aberto.\n\n'
+   +'Procure em Contas a pagar e a receber — eles estão lá, prontos para você conciliar de novo.');}}
 function copiarLanc(lid){const l=dados().lancamentos.find(x=>x.id===lid);if(!l)return;if(l.transfRef){const legs=dados().lancamentos.filter(x=>x.transfRef===l.transfRef);const novoRef=id();legs.forEach(function(leg){const nv=Object.assign({},leg,{id:id(),transfRef:novoRef});delete nv.baixado;delete nv.baixaRef;delete nv.baixaData;delete nv.vencId;dados().lancamentos.push(nv);});saveApp();render();editarTransferencia(novoRef);return;}const novo=Object.assign({},l,{id:id()});delete novo.baixado;delete novo.baixaRef;delete novo.baixaData;delete novo.vencId;dados().lancamentos.push(novo);saveApp();render();editarLanc(novo.id);}
 function fecharModal(){try{muDestravar();}catch(e){}document.getElementById('modalBg').classList.remove('show');var _mc=document.getElementById('modalConteudo');if(_mc){var _mm=_mc.closest('.modal');if(_mm)_mm.style.maxWidth='';}}
 
