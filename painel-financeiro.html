@@ -1868,7 +1868,10 @@ function confirmarCompensacaoAdiant(){try{
 
 var MU_MAX_DIARIO = 4000;      /* linhas de diario guardadas por empresa */
 var MU_MAX_LAPIDES = 8000;
-var MU_PULSO_MS = 30000;       /* de quanto em quanto busca o que a outra fez */
+var MU_PULSO_MS = 60000;       /* de quanto em quanto busca o que a outra fez.
+   Era 30s. Agora o pulso pergunta só o número da versão, então o custo caiu
+   quase a zero — mas 1 minuto já é de sobra e deixa a máquina mais leve.
+   Quem protege contra duas pessoas no mesmo lançamento é a trava, não o pulso. */
 
 function _muAgora(){return new Date().toISOString();}
 function _muQuem(){try{return (typeof usuariaAtivaNome==='function'&&usuariaAtivaNome())||'(sem nome)';}catch(e){return '(sem nome)';}}
@@ -2738,6 +2741,18 @@ function _muUltimoOutro(){try{var eu=_muQuem(),D=diario();
 /* Busca o que esta no servidor e junta com o que esta na tela. */
 async function _muPuxarEMesclar(vindoDoSave){
   try{
+    /* ANTES: chamava carregar_empresa SEMPRE e só depois conferia a versão —
+       o arquivo inteiro (1,41 MB na Aurium) já tinha descido. De 30 em 30
+       segundos, por aba, mesmo sem ninguém mexer em nada: ~169 MB por hora
+       de tráfego à toa, e era isso que deixava a tela arrastada.
+       AGORA: pergunta só o número da versão (alguns bytes) e baixa o arquivo
+       apenas quando ele mudou de verdade. */
+    if(!vindoDoSave){
+      try{
+        var v=await sb.rpc('tenant_versao',{p_tenant:_tenant});
+        if(!v.error&&v.data!=null&&Number(v.data)===Number(_tver))return true;  /* nada novo: nem baixa */
+      }catch(e){/* se a consulta leve falhar, segue pelo caminho antigo */}
+    }
     var c=await sb.rpc('carregar_empresa',{p_tenant:_tenant});
     if(c.error)return false;
     var reg=(c.data&&c.data[0])||null;
@@ -2747,6 +2762,7 @@ async function _muPuxarEMesclar(vindoDoSave){
     APP=muMesclarAPP(APP,reg.data);
     APP._tenantId=_tenant;
     _tver=reg.version||0;
+    try{_marcarDadosMudaram();}catch(e){}
     window._muAnterior=_muFoto();   /* o que veio da outra nao e alteracao minha */
     try{localStorage.setItem(KEY+'_'+_tenant,JSON.stringify(APP));}catch(e){}
     var depois=(dados().lancamentos||[]).length;
@@ -2772,6 +2788,7 @@ function muPulso(){
   },MU_PULSO_MS);}
 
 function saveApp(){
+  try{_marcarDadosMudaram();}catch(e){}
   if(_tenant&&!_readonly&&_mesmaEmpresa()){
     try{muCarimbar();}catch(e){console.warn('carimbo',e);}
     try{localStorage.setItem(KEY+'_'+_tenant,JSON.stringify(APP));}catch(e){}}
@@ -2944,7 +2961,7 @@ function abrirAba(pg){const b=[...document.querySelectorAll('.menu-item')].find(
 /* REGRA CONTABIL: titulo (previsto) = data de VENCIMENTO (competencia) · movimento do extrato = data do extrato (caixa).
    Usar dataRef(l) em TODO filtro, agrupamento, ordenacao e comparacao com hoje. Emissao nunca e criterio de periodo. */
 /* ===== VERSAO DO PAINEL — para saber, sem adivinhar, se a tela esta atualizada ===== */
-const APP_VERSAO='2026-10-04.3';
+const APP_VERSAO='2026-10-05.1';
 function _marcaVersao(){try{
  /* versao no CABECALHO, ao lado do status da nuvem — fica visivel sem procurar */
  var bar=document.querySelector('.tb-acoes');var d=document.getElementById('appVersaoTag');
@@ -3196,6 +3213,21 @@ function renderBannerCaixaSemTitulo(){var box=document.getElementById('bannerCai
    escreve a mesma transação com texto diferente a cada exportação e o
    movimento entrava de novo. Esta tela é de CONFERÊNCIA: nada sai da base sem
    você marcar e confirmar, e o backup é baixado antes. ===== */
+/* ===== Resultado guardado dos dois banners =====
+   _titulosDuplicados e _movDuplicados varriam a base inteira a cada desenho de
+   tela — 74 dos 76 ms de cada render na base da Aurium, e pior conforme a base
+   cresce. Agora o resultado fica guardado e só é refeito quando a base muda
+   de verdade (gravação, ou chegada do trabalho da outra pessoa). */
+var _calcSeq=0;
+function _marcarDadosMudaram(){_calcSeq++;}
+function _memoCalc(nome,fn){
+ var c=window['_memo_'+nome];
+ var tn=(typeof APP!=='undefined'&&APP)?APP._tenantId:'';
+ if(c&&c.seq===_calcSeq&&c.tenant===tn)return c.v;
+ var v=fn();
+ window['_memo_'+nome]={seq:_calcSeq,tenant:tn,v:v};
+ return v;}
+
 /* Dois movimentos no mesmo dia, com o mesmo valor e na mesma conta NÃO são
    necessariamente o mesmo movimento: dois pacientes pagando R$ 450 no mesmo dia
    geram exatamente esse par, e os dois são legítimos. Esta função decide se vem
@@ -3227,7 +3259,8 @@ function _mesmaTransacao(a,b){
   return {dup:false,motivo:'nomes diferentes — provavelmente duas transações'};}
  if(reimp)return {dup:true,motivo:'um deles entrou numa reimportação'};
  return {dup:false,motivo:'sem nome para comparar'};}
-function _movDuplicados(){
+function _movDuplicados(){return _memoCalc('movDup',_movDuplicadosCalc);}
+function _movDuplicadosCalc(){
  var L=dados().lancamentos||[],g={};
  L.forEach(function(l){
   if(!l||l.status==='previsto')return;
@@ -3320,7 +3353,8 @@ function renderBannerMovDup(){try{var box=document.getElementById('bannerMovDup'
    Resíduo da carga direta antiga ("Extrato bancário" convivendo com a série da planilha). ===== */
 function _vencDe(l){return l.dataVencimento||l.venc||l.data||'';}
 function _normCli(s){return String(s||'').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,'').replace(/\s+/g,' ').trim();}
-function _titulosDuplicados(){var L=dados().lancamentos||[];var out=[];
+function _titulosDuplicados(){return _memoCalc('titDup',_titulosDuplicadosCalc);}
+function _titulosDuplicadosCalc(){var L=dados().lancamentos||[];var out=[];
  /* origem irregular = veio do extrato (o extrato nao cria titulo) ou ficou sem origem */
  var ext=L.filter(function(l){return l.status==='previsto'&&!l.baixado&&!l.conciliado&&l.tipo==='receita'&&(l.origem==='Extrato bancário'||!String(l.origem||'').trim());});
  ext.forEach(function(t){
