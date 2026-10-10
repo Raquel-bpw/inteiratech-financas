@@ -2961,7 +2961,7 @@ function abrirAba(pg){const b=[...document.querySelectorAll('.menu-item')].find(
 /* REGRA CONTABIL: titulo (previsto) = data de VENCIMENTO (competencia) · movimento do extrato = data do extrato (caixa).
    Usar dataRef(l) em TODO filtro, agrupamento, ordenacao e comparacao com hoje. Emissao nunca e criterio de periodo. */
 /* ===== VERSAO DO PAINEL — para saber, sem adivinhar, se a tela esta atualizada ===== */
-const APP_VERSAO='2026-10-10.1';
+const APP_VERSAO='2026-10-10.2';
 function _marcaVersao(){try{
  /* versao no CABECALHO, ao lado do status da nuvem — fica visivel sem procurar */
  var bar=document.querySelector('.tb-acoes');var d=document.getElementById('appVersaoTag');
@@ -4064,8 +4064,58 @@ function imprimirRelatorio(){
   w.document.close();setTimeout(()=>{w.focus();w.print();},400);
 }
 function _relEmpresa(){try{var p=perfil();var d=dados();return (d&&d.cliente&&d.cliente.razaoSocial)||(p&&p.dados&&p.dados.empresas&&p.dados.empresas[0]&&p.dados.empresas[0].razaoSocial)||(p&&p.nome)||'';}catch(e){return '';}}
-function _relUniLabel(){try{var st=window._flt&&window._flt.uni;if(!st||!st.size)return 'Todas as unidades';return [].slice.call(st).map(function(v){return v||'(sem unidade)';}).join(', ');}catch(e){return 'Todas as unidades';}}
-function _relPerLabel(){try{var st=window._flt&&window._flt.per;if(!st||!st.size)return 'Todos os periodos';return [].slice.call(st).map(function(v){if((''+v).indexOf('ano-')===0)return 'Ano '+(''+v).slice(4);var pp=(''+v).split('-');if(pp.length===2){var dt=new Date(+pp[0],+pp[1]-1,1);var t=dt.toLocaleDateString('pt-BR',{month:'short',year:'numeric'});return t.charAt(0).toUpperCase()+t.slice(1);}return v;}).join(', ');}catch(e){return 'Todos os periodos';}}
+function _relUniLabel(){try{var st=window._flt&&window._flt.uni;if(!st||!st.size)return 'Todas as unidades';return Array.from(st).map(function(v){return v||'(sem unidade)';}).join(', ');}catch(e){return 'Todas as unidades';}}
+function _relPerLabel(){try{var st=window._flt&&window._flt.per;if(!st||!st.size)return 'Todos os periodos';return Array.from(st).map(function(v){if((''+v).indexOf('ano-')===0)return 'Ano '+(''+v).slice(4);var pp=(''+v).split('-');if(pp.length===2){var dt=new Date(+pp[0],+pp[1]-1,1);var t=dt.toLocaleDateString('pt-BR',{month:'short',year:'numeric'});return t.charAt(0).toUpperCase()+t.slice(1);}return v;}).join(', ');}catch(e){return 'Todos os periodos';}}
+/* ---- Cabeçalho correto dos relatórios por unidade ----
+   O nome que sai no relatório tem de ser o da EMPRESA da unidade filtrada, não o
+   da base. Cada unidade é um CNPJ diferente, e relatório com o nome errado não
+   pode ser enviado para fora. Sem filtro de unidade, mantém o nome da base. */
+function _relUnidadesSel(){
+  try{var s=window._flt&&window._flt.uni;if(!s||!s.size)return [];return Array.from(s).filter(Boolean);}
+  catch(e){return [];}
+}
+function _relEmpresasDaSelecao(){
+  var uni=_relUnidadesSel();
+  var es=(dados().empresas||[]).filter(function(e){return e&&e.unidade;});
+  if(!uni.length)return [];
+  return es.filter(function(e){return uni.indexOf(e.unidade)>=0;});
+}
+/* Razão social a exibir: a da(s) unidade(s) filtrada(s); se todas compartilham a
+   mesma razão social, aparece uma vez só. */
+function _relEmpresaTit(){
+  var sel=_relEmpresasDaSelecao();
+  if(!sel.length)return _relEmpresa();
+  var nomes=[];
+  sel.forEach(function(e){
+    var n=(e.razaoSocial||e.unidade||'').trim();
+    if(n&&nomes.indexOf(n)<0)nomes.push(n);
+  });
+  return nomes.length?nomes.join(' · '):_relEmpresa();
+}
+/* Linha de identificação: unidades e CNPJ, para quem recebe saber de qual empresa é. */
+function _relUnidadeLinha(){
+  var sel=_relEmpresasDaSelecao();
+  if(!sel.length){
+    var uni=_relUnidadesSel();
+    return uni.length?uni.join(', '):'Todas as unidades';
+  }
+  return sel.map(function(e){
+    var cnpj=(e.cnpj||'').trim();
+    return e.unidade+(cnpj?' ('+cnpj+')':'');
+  }).join(' · ');
+}
+/* Período real do demonstrativo: vem dos seletores DE e ATÉ, não do filtro lateral. */
+function _relPeriodoDemo(iniSel,fimSel){
+  try{
+    var si=document.getElementById(iniSel||'demoIni'),sf=document.getElementById(fimSel||'demoFim');
+    var a=si&&si.value?si.value:'',b=sf&&sf.value?sf.value:'';
+    if(!a&&!b)return _relPerLabel();
+    var la=a?mesLabelD(a):'',lb=b?mesLabelD(b):'';
+    var cap=function(t){return t?t.charAt(0).toUpperCase()+t.slice(1):t;};
+    if(la&&lb&&la!==lb)return cap(la)+' a '+cap(lb);
+    return cap(la||lb);
+  }catch(e){return _relPerLabel();}
+}
 function _relDataHora(){return new Date().toLocaleString('pt-BR');}
 function _relCabAOA(titulo){return [[_relEmpresa()],[titulo],['Unidade: '+_relUniLabel()+'  ·  Periodo: '+_relPerLabel()],['Gerado em '+_relDataHora()],['']];}
 function _relSlug(t){return (t||'').normalize('NFD').replace(/[̀-ͯ]/g,'').replace(/[^\w\s-]/g,'').trim().replace(/\s+/g,'_');}
@@ -4654,7 +4704,7 @@ function exportarDemonstrativo(){
 function _exportarDemoSimples(){
  const corpo=_demoAOA.map(row=>row.map(c=>(typeof c==='string'&&/^-?\d+\.\d+$/.test(c))?parseFloat(c):c));
  const ncol=(corpo[0]||[]).length;
- const aoa=_relCabAOA('Demonstrativo de Fluxo de Caixa').concat(corpo);
+ const aoa=[[_relEmpresaTit()],['Demonstrativo de Fluxo de Caixa'],[_relUnidadeLinha()+'  ·  '+_relPeriodoDemo('demoIni','demoFim')],['Gerado em '+_relDataHora()],['']].concat(corpo);
  const ws=XLSX.utils.aoa_to_sheet(aoa);_relCols(ws,ncol,38);_relFmtNum(ws);
  const wb=XLSX.utils.book_new();XLSX.utils.book_append_sheet(wb,ws,'Demonstrativo');
  XLSX.writeFile(wb,_relArqNome('Demonstrativo de Fluxo de Caixa'));
@@ -4675,8 +4725,8 @@ async function _exportarDemoBonito(EJS){
  for(var i=1;i<ncol;i++)cols.push({width:ehPct(i)?7:15});
  ws.columns=cols;
  /* ---- cabeçalho do relatório ---- */
- var meta=[_relEmpresa(),'Demonstrativo de Fluxo de Caixa',
-           'Unidade: '+_relUniLabel()+'  ·  Período: '+_relPerLabel(),
+ var meta=[_relEmpresaTit(),'Demonstrativo de Fluxo de Caixa',
+           _relUnidadeLinha()+'  ·  '+_relPeriodoDemo('demoIni','demoFim'),
            'Gerado em '+_relDataHora()];
  meta.forEach(function(t,k){
    var r=ws.addRow([t]);
@@ -4767,7 +4817,7 @@ async function _exportarDemoBonito(EJS){
  document.body.appendChild(a);a.click();
  setTimeout(function(){URL.revokeObjectURL(a.href);a.remove();},1500);
 }
-function imprimirDemonstrativo(boxId){boxId=boxId||'demoBox';const _st=boxId==='demoBox'?(window._demoStatus||'realizado'):(window._relDemoStatus||'realizado');let box=document.getElementById(boxId);if(!box||!box.innerHTML){if(boxId==='demoBox')renderDemonstrativo();else renderDemonstrativo({box:boxId,iniSel:'demoIniRel',fimSel:'demoFimRel',status:_st});box=document.getElementById(boxId);}const emp=((dados().cliente&&dados().cliente.razaoSocial)||perfil().nome||'');const per=(typeof labelFiltro==='function')?labelFiltro('per','Todos os períodos'):'';const w=window.open('','_blank');if(!w){alert('Permita pop-ups para imprimir.');return;}w.document.write('<html><head><meta charset=UTF-8><title>Demonstrativo de fluxo de caixa</title><style>@page{size:landscape;margin:12mm}:root{--vinho:#143b4d;--vinho2:#1c4d61;--vinho3:#2e86a8;--vinho-fog:#eef4f5;--ouro:#c1922f;--ouro2:#d9ab44;--ouro-claro:#f3e7cc;--suave:#8f8073;--borda:#e2ddd0;--verde:#2e7d46;--rubro:#a83535;--creme2:#eae3d5;--branco:#fff;}*{-webkit-print-color-adjust:exact;print-color-adjust:exact}body{font-family:-apple-system,BlinkMacSystemFont,\'Segoe UI\',Arial,sans-serif;color:#2b1a20;padding:0}.cab{border-bottom:2px solid #c1922f;padding-bottom:10px;margin-bottom:14px}.cab h1{font-family:Georgia,serif;color:#143b4d;font-size:20px;margin:0}.cab .s{font-size:12px;color:#888;margin-top:3px}table{border-collapse:collapse;width:100%;font-size:10.5px}td,th{padding:4px 8px}.rod{margin-top:20px;text-align:center;color:#aaa;font-size:10px;border-top:1px solid #eee;padding-top:8px}</style></head><body><div class=cab><h1>Demonstrativo de Fluxo de Caixa</h1><div class=s>'+emp+(per?' · '+per:'')+' · '+({realizado:'Realizado',previsto:'Previsto',ambos:'Realizado + Previsto'}[_st])+' · gerado em '+new Date().toLocaleString('pt-BR')+'</div></div>'+(box?box.innerHTML:'')+'<div class=rod>INTEIRA Tech · Painel Financeiro</div></body></html>');w.document.close();w.focus();setTimeout(()=>w.print(),350);}
+function imprimirDemonstrativo(boxId){boxId=boxId||'demoBox';const _st=boxId==='demoBox'?(window._demoStatus||'realizado'):(window._relDemoStatus||'realizado');let box=document.getElementById(boxId);if(!box||!box.innerHTML){if(boxId==='demoBox')renderDemonstrativo();else renderDemonstrativo({box:boxId,iniSel:'demoIniRel',fimSel:'demoFimRel',status:_st});box=document.getElementById(boxId);}const _ini=boxId==='demoBox'?'demoIni':'demoIniRel',_fim=boxId==='demoBox'?'demoFim':'demoFimRel';const emp=_relEmpresaTit();const uniL=_relUnidadeLinha();const per=_relPeriodoDemo(_ini,_fim);const w=window.open('','_blank');if(!w){alert('Permita pop-ups para imprimir.');return;}w.document.write('<html><head><meta charset=UTF-8><title>Demonstrativo de fluxo de caixa</title><style>@page{size:landscape;margin:12mm}:root{--vinho:#143b4d;--vinho2:#1c4d61;--vinho3:#2e86a8;--vinho-fog:#eef4f5;--ouro:#c1922f;--ouro2:#d9ab44;--ouro-claro:#f3e7cc;--suave:#8f8073;--borda:#e2ddd0;--verde:#2e7d46;--rubro:#a83535;--creme2:#eae3d5;--branco:#fff;}*{-webkit-print-color-adjust:exact;print-color-adjust:exact}body{font-family:-apple-system,BlinkMacSystemFont,\'Segoe UI\',Arial,sans-serif;color:#2b1a20;padding:0}.cab{border-bottom:2px solid #c1922f;padding-bottom:10px;margin-bottom:14px}.cab h1{font-family:Georgia,serif;color:#143b4d;font-size:20px;margin:0}.cab .s{font-size:12px;color:#888;margin-top:3px}table{border-collapse:collapse;width:100%;font-size:10.5px}td,th{padding:4px 8px}.rod{margin-top:20px;text-align:center;color:#aaa;font-size:10px;border-top:1px solid #eee;padding-top:8px}</style></head><body><div class=cab><h1>Demonstrativo de Fluxo de Caixa</h1><div class=s>'+emp+(uniL?' · '+uniL:'')+(per?' · '+per:'')+' · '+({realizado:'Realizado',previsto:'Previsto',ambos:'Realizado + Previsto'}[_st])+' · gerado em '+new Date().toLocaleString('pt-BR')+'</div></div>'+(box?box.innerHTML:'')+'<div class=rod>INTEIRA Tech · Painel Financeiro</div></body></html>');w.document.close();w.focus();setTimeout(()=>w.print(),350);}
 function ajudaConciliacao(){
   var box=document.getElementById('modalConteudo');if(!box)return;
   var _mb=box.closest('.modal');if(_mb)_mb.style.maxWidth='620px';
