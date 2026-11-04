@@ -2961,7 +2961,7 @@ function abrirAba(pg){const b=[...document.querySelectorAll('.menu-item')].find(
 /* REGRA CONTABIL: titulo (previsto) = data de VENCIMENTO (competencia) · movimento do extrato = data do extrato (caixa).
    Usar dataRef(l) em TODO filtro, agrupamento, ordenacao e comparacao com hoje. Emissao nunca e criterio de periodo. */
 /* ===== VERSAO DO PAINEL — para saber, sem adivinhar, se a tela esta atualizada ===== */
-const APP_VERSAO='2026-10-10.2';
+const APP_VERSAO='2026-11-04.1';
 function _marcaVersao(){try{
  /* versao no CABECALHO, ao lado do status da nuvem — fica visivel sem procurar */
  var bar=document.querySelector('.tb-acoes');var d=document.getElementById('appVersaoTag');
@@ -3274,10 +3274,14 @@ function _movDuplicadosCalc(){
  L.forEach(function(l){
   if(!l||l.status==='previsto')return;
   if(!l.data||!(+l.valor))return;
+  if(l.estorno||l.estornoDe||l.origem==='Estorno')return;   /* estorno nunca é comparado com o que estorna */
   var k=_chaveExt(l.data,l.tipo,l.valor,l.banco);(g[k]=g[k]||[]).push(l);});
  var out=[];
  Object.keys(g).forEach(function(k){
   var arr=g[k];if(arr.length<2)return;
+  /* marca "não é repetido": se todos do grupo já foram conferidos, o grupo não volta ao aviso.
+     Se entrar um movimento novo igual (reimportação), o grupo reaparece. */
+  if(arr.every(function(l){return l.repOk;}))return;
   /* quem fica: o que tem pagamento amarrado a um título vale mais que tudo;
      depois o conciliado; depois o que já estava na base antes do carimbo. */
   var peso=function(l){var p=0;
@@ -3306,7 +3310,8 @@ function abrirMovDuplicados(){try{
   if(s.dup){nDup++;vDup+=v;}else{nConf++;vConf+=v;}});});
  var linhas=gs.map(function(g){
   var f=g.fica;
-  var cab='<tr style="background:var(--vinho-fog)"><td colspan=5 style="padding:6px 8px;font-size:12px"><b>'+esc(_dbr(f.data))+' &middot; '+moeda(Math.abs(+f.valor||0))+' &middot; '+esc(f.banco||'(sem conta)')+'</b> &mdash; '+(f.tipo==='receita'?'entrada':'saída')+'</td></tr>';
+  var cab='<tr style="background:var(--vinho-fog)"><td colspan=5 style="padding:6px 8px;font-size:12px"><b>'+esc(_dbr(f.data))+' &middot; '+moeda(Math.abs(+f.valor||0))+' &middot; '+esc(f.banco||'(sem conta)')+'</b> &mdash; '+(f.tipo==='receita'?'entrada':'saída')
+   +' <button class="btn sec" style="float:right;padding:2px 10px;font-size:11.5px" onclick="marcarNaoRepetido(\''+[f.id].concat(g.sobra.map(function(s){return s.l.id;})).map(function(i){return String(i).replace(/[^A-Za-z0-9_-]/g,'');}).join(',')+'\')">Não é repetido</button></td></tr>';
   var mantem='<tr><td style="padding:5px 8px;width:30px"></td><td class=mini style="padding:5px 8px"><b style="color:var(--verde)">FICA</b></td>'
    +'<td class=mini style="padding:5px 8px">'+esc(String(f.descricao||'—').slice(0,60))+'</td>'
    +'<td class=mini style="padding:5px 8px">'+esc(f.categoria||'')+'</td>'
@@ -3327,6 +3332,14 @@ function abrirMovDuplicados(){try{
   +'<div class="modal-acoes"><button class="btn sec" onclick="fecharModal()">Cancelar</button> <button class="btn ouro" onclick="confirmarLimpezaMov()">Baixar backup e remover os marcados</button></div>';
  var mb=document.getElementById('modalConteudo').closest('.modal');if(mb)mb.style.maxWidth='900px';
  document.getElementById('modalBg').classList.add('show');
+}catch(e){alert('Erro: '+e.message);}}
+function marcarNaoRepetido(lista){try{
+ var ids={};String(lista||'').split(',').forEach(function(i){if(i)ids[i]=true;});
+ var L=dados().lancamentos||[],n=0,quem='';
+ try{quem=(typeof usuarioAtual==='function'&&usuarioAtual())||'';if(quem&&typeof quem==='object')quem=quem.nome||quem.email||'';}catch(e){quem='';}
+ L.forEach(function(l){if(ids[l.id]){l.repOk=true;l.repOkEm=new Date().toISOString();if(quem)l.repOkPor=String(quem);n++;}});
+ if(!n){alert('Nenhum lançamento encontrado para marcar.');return;}
+ saveApp();fecharModal();try{render();}catch(e){}
 }catch(e){alert('Erro: '+e.message);}}
 function confirmarLimpezaMov(){try{
  var marc={};[].slice.call(document.querySelectorAll('[data-mdid]')).forEach(function(c){if(c.checked)marc[c.dataset.mdid]=true;});
