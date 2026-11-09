@@ -412,11 +412,28 @@ body.so-leitura input[type=file]{display:none}
       <div class="sb-bloco">
         <button class="sb-grupo" onclick="toggleGrupo(this)">Financeiro<span class="sb-seta">⌄</span></button>
         <div class="sb-itens">
-          <button class="menu-item" data-pages="contas" onclick="irPara('contas',this)">Contas a pagar/receber</button>
+          <button class="menu-item" data-pages="contas" onclick="irContas('rec',this)">Contas a receber</button>
+          <button class="menu-item" data-pages="contas" onclick="irContas('pag',this)">Contas a pagar</button>
           <button class="menu-item" data-pages="lancamentos" onclick="irPara('lancamentos',this)">Lançamentos</button>
           <button class="menu-item" data-pages="conferencia" onclick="irPara('conferencia',this)">Conferência de bancos</button>
           <button class="menu-item" data-pages="cartoes" onclick="irPara('cartoes',this)">Cartão de crédito</button>
           <button class="menu-item" data-pages="importar" onclick="irPara('importar',this)">Importar</button>
+        </div>
+      </div>
+      <div class="sb-bloco">
+        <button class="sb-grupo" onclick="toggleGrupo(this)">Comissões<span class="sb-seta">⌄</span></button>
+        <div class="sb-itens">
+          <button class="menu-item" data-pages="profissionais" onclick="irPara('profissionais',this)">Profissionais e representantes</button>
+          <button class="menu-item" data-pages="comissoes" onclick="irPara('comissoes',this)">Apuração e relatório</button>
+        </div>
+      </div>
+      <div class="sb-bloco">
+        <button class="sb-grupo" onclick="toggleGrupo(this)">Cadastros<span class="sb-seta">⌄</span></button>
+        <div class="sb-itens">
+          <button class="menu-item" data-pages="servicos" onclick="irPara('servicos',this)">Serviços</button>
+          <button class="menu-item" data-pages="categorias" onclick="irPara('categorias',this)">Categorias</button>
+          <button class="menu-item" data-pages="bancos" onclick="irPara('bancos',this)">Bancos</button>
+          <button class="menu-item" data-pages="regras" onclick="irPara('regras',this)">Regras</button>
         </div>
       </div>
       <div class="sb-bloco">
@@ -430,11 +447,7 @@ body.so-leitura input[type=file]{display:none}
         <div class="sb-itens">
           <button class="menu-item" onclick="abrirChecklist()">✅ Configuração da empresa</button>
           <button class="menu-item" data-pages="cliente" onclick="irPara('cliente',this)">Empresa</button>
-          <button class="menu-item" data-pages="bancos" onclick="irPara('bancos',this)">Bancos</button>
-          <button class="menu-item" data-pages="categorias" onclick="irPara('categorias',this)">Categorias</button>
           <button class="menu-item" data-pages="orcamento" onclick="irPara('orcamento',this)">Metas</button>
-          <button class="menu-item" data-pages="servicos" onclick="irPara('servicos',this)">Serviços</button>
-          <button class="menu-item" data-pages="regras" onclick="irPara('regras',this)">Regras</button>
           <button class="menu-item" data-pages="validacao" onclick="irPara('validacao',this)">Validação</button>
           <button class="menu-item" data-pages="usuarias" onclick="irPara('usuarias',this)">Perfis</button>
           <button class="menu-item" data-pages="integracao" onclick="irPara('integracao',this)">Integração</button>
@@ -665,8 +678,8 @@ body.so-leitura input[type=file]{display:none}
 
   <!-- CONTAS A PAGAR / RECEBER -->
   <section class="pagina" id="pg-contas">
-    <div class="eyebrow">Financeiro</div>
-    <div class="titulo-pg">Contas a pagar e a <em>receber</em></div>
+    <div class="eyebrow" id="contasEyebrow">Financeiro</div>
+    <div class="titulo-pg" id="contasTitulo">Contas a pagar e a <em>receber</em></div>
     <div class="sub-pg">Tudo o que está em aberto (previsto). Quando o lançamento real correspondente entra, o painel dá baixa sozinho — sem duplicar. Você também pode incluir uma conta manualmente.</div>
     <div style="display:flex;gap:10px;flex-wrap:wrap;margin:0 0 14px">
       <button class="btn ouro" onclick="abrirAdiantamentos('cliente')" title="Dinheiro que entrou ou saiu antes da nota — e a compensação com o título">💰 Adiantamentos <span id="chipAdiant" class="mini" style="opacity:.9"></span></button>
@@ -692,7 +705,7 @@ body.so-leitura input[type=file]{display:none}
       <div style="flex:1;min-width:150px"><label class="mini">Cliente / descrição</label><br><input type="text" id="fcCliente" placeholder="buscar..." oninput="renderContas()" style="width:100%"></div>
       <div><label class="mini">Valor de (R$)</label><br><input type="number" id="fcValMin" placeholder="0,00" step="0.01" oninput="renderContas()" style="width:110px"></div>
       <div><label class="mini">até (R$)</label><br><input type="number" id="fcValMax" placeholder="0,00" step="0.01" oninput="renderContas()" style="width:110px"></div>
-      <div><label class="mini">Mostrar</label><br><select id="fcEstado" onchange="renderContas()" style="padding:7px 9px;border:1px solid #dcd4c4;border-radius:8px;font-family:inherit"><option value="">Tudo</option><option value="rec">A receber</option><option value="pag">A pagar</option><option value="receb">Recebidos</option><option value="pago">Pagos</option></select></div>
+      <div><label class="mini">Mostrar</label><br><select id="fcEstado" onchange="renderContas()" style="padding:7px 9px;border:1px solid #dcd4c4;border-radius:8px;font-family:inherit"><option value="">Tudo</option><option value="rec">A receber</option><option value="pag">A pagar</option><option value="receb">Recebidos</option><option value="pago">Pagos</option><option value="recT">Receber + Recebidos</option><option value="pagT">Pagar + Pagos</option></select></div>
       <button class="btn sec peq" onclick="limparFiltroContas()">✕ Limpar</button>
     </div></div>
     <div class="card" id="cardRec">
@@ -743,7 +756,7 @@ body.so-leitura input[type=file]{display:none}
 
   <!-- BANCOS -->
   <section class="pagina" id="pg-bancos">
-    <div class="eyebrow">Configuração</div>
+    <div class="eyebrow">Cadastros</div>
     <div class="titulo-pg">Bancos / <em>contas</em></div>
     <div class="sub-pg">As contas do cliente, com o saldo inicial — é ele que alimenta o Extrato de contas e a conferência de saldo.</div>
     <div class="card">
@@ -907,7 +920,7 @@ body.so-leitura input[type=file]{display:none}
 
   <!-- CATEGORIAS -->
   <section class="pagina" id="pg-categorias">
-    <div class="eyebrow">Configuração</div>
+    <div class="eyebrow">Cadastros</div>
     <div class="titulo-pg"><em>Categorias</em></div>
     <div class="sub-pg">As despesas são organizadas em grupos. São eles que montam o gráfico "Para onde foi o seu dinheiro".</div>
     <div class="card">
@@ -935,7 +948,7 @@ body.so-leitura input[type=file]{display:none}
 
   <!-- REGRAS -->
   <section class="pagina" id="pg-regras">
-    <div class="eyebrow">Configuração</div>
+    <div class="eyebrow">Cadastros</div>
     <div class="titulo-pg">Regras de <em>categorização</em></div>
     <div class="sub-pg">Ensine o painel a categorizar sozinho. Exemplo: tudo que tiver "RGE" na descrição é sempre Energia elétrica. As regras são aplicadas automaticamente toda vez que você importa.</div>
     <div class="card">
@@ -984,9 +997,56 @@ body.so-leitura input[type=file]{display:none}
 
   <!-- TAGS -->
 
+  <!-- PROFISSIONAIS / COMISSÕES -->
+  <section class="pagina" id="pg-profissionais">
+    <div class="eyebrow">Comissões</div>
+    <div class="titulo-pg">Profissionais e <em>representantes</em></div>
+    <div class="sub-pg">Quem recebe comissão, sobre quais serviços, com qual percentual e em que regra de pagamento. Serviço e percentual são a base: sem eles o profissional não gera comissão.</div>
+    <div class="card">
+      <div style="display:flex;gap:10px;flex-wrap:wrap;margin:0 0 14px"><button class="btn ouro" onclick="abrirProfissional()">➕ Novo profissional / representante</button></div>
+      <div id="profLegenda"></div>
+      <div style="overflow-x:auto"><table><thead><tr><th style="width:24px"></th><th>Nome</th><th>Tipo</th><th>Regra de pagamento</th><th style="text-align:center">Dia de pagamento</th><th style="text-align:center">Serviços</th><th style="text-align:right">Comissão em aberto</th><th>Situação</th><th></th></tr></thead><tbody id="profLista"></tbody></table></div>
+      <div id="profVazio" class="vazio" style="display:none">Nenhum profissional cadastrado ainda.</div>
+    </div>
+  </section>
+
+  <section class="pagina" id="pg-comissoes">
+    <div class="eyebrow">Comissões</div>
+    <div class="titulo-pg">Apuração e <em>relatório</em></div>
+    <div class="sub-pg">Escolha o período, confira as comissões geradas por profissional e, no seu ok, o painel gera um contas a pagar por profissional com a competência, o vencimento e o valor acumulado.</div>
+    <div class="card" style="padding:12px 14px"><div style="display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end">
+      <div><label class="mini">Data inicial</label><br><input type="date" id="comDe" onchange="renderComissoes()"></div>
+      <div><label class="mini">Data final</label><br><input type="date" id="comAte" onchange="renderComissoes()"></div>
+      <div style="min-width:220px"><label class="mini">Profissional</label><br><select id="comProf" onchange="renderComissoes()" style="padding:7px 9px;border:1px solid #dcd4c4;border-radius:8px;font-family:inherit;width:100%"></select></div>
+      <button class="btn sec peq" onclick="renderComissoes()">↻ Atualizar</button>
+    </div></div>
+    <div id="comResultado"></div>
+    <div class="card">
+      <h2 style="margin:0 0 4px">Previsão de comissões</h2>
+      <div class="cap">O que vai ficar devido quando os clientes com título em aberto pagarem (vencimento até a data final). Serve para planejar o caixa.</div>
+      <div id="comPrevisao"></div>
+    </div>
+    <div class="card">
+      <h2 style="margin:0 0 4px">Atendimentos sem profissional</h2>
+      <div class="cap" id="comSemProfN">—</div>
+      <div class="cap">Marque os atendimentos e escolha o profissional. Isso só define quem atendeu; a comissão sai conforme a regra e o percentual do cadastro.</div>
+      <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end;margin:6px 0 10px">
+        <div style="flex:1;min-width:180px"><label class="mini">Buscar cliente / serviço</label><br><input type="text" id="comBusca" oninput="renderComSemProf()" placeholder="buscar..." style="width:100%"></div>
+        <div style="min-width:200px"><label class="mini">Atribuir ao profissional</label><br><select id="comAtribProf" style="padding:7px 9px;border:1px solid #dcd4c4;border-radius:8px;font-family:inherit;width:100%"></select></div>
+        <button class="btn ouro peq" onclick="comAtribuir()">Atribuir aos marcados</button>
+      </div>
+      <div id="comSemProf"></div>
+    </div>
+    <div class="card">
+      <h2 style="margin:0 0 6px">Fechamentos aprovados</h2>
+      <div class="cap">Cada fechamento gerou um contas a pagar. Só dá para cancelar enquanto o título não foi pago.</div>
+      <div id="comFechLista"></div>
+    </div>
+  </section>
+
   <!-- SERVIÇOS -->
   <section class="pagina" id="pg-servicos">
-    <div class="eyebrow">Configuração</div>
+    <div class="eyebrow">Cadastros</div>
     <div class="titulo-pg"><em>Serviços</em></div>
     <div class="sub-pg">Catálogo de serviços e produtos em árvore — um serviço "pai" agrupa e soma os "filhos". Cada serviço fica dentro de uma categoria do plano de contas, detalhando a receita.</div>
     <div class="card">
@@ -1881,7 +1941,7 @@ function _muHora(iso){try{return new Date(iso).toLocaleString('pt-BR');}catch(e)
    controle interno) muda sozinho e nao merece linha no diario. */
 var _MU_CAMPOS=['valor','data','dataVencimento','venc','categoria','banco','cliente','descricao',
  'servico','status','tipo','formaPagto','unidade','conciliado','baixado','baixaRef','baixaDe',
- 'baixaData','estorno','obs','motivoEstorno','adiantSaldo','cartaoId'];
+ 'baixaData','estorno','obs','motivoEstorno','adiantSaldo','cartaoId','profId','comFechId','comPerc','comNao'];
 
 function _muAssin(l){var s='';for(var i=0;i<_MU_CAMPOS.length;i++){var v=l[_MU_CAMPOS[i]];s+=(v==null?'':String(v))+'\u0001';}return s;}
 
@@ -1995,7 +2055,7 @@ function _muMesclarLista(loc,srv,lapides){
  return ordem.map(function(id){return out[id];});}
 
 var _MU_COLECOES=['lancamentos','categorias','bancos','cartoes','servicos','regras',
- 'orcamentos','vencimentos','unidades','empresas','tags','validacoes'];
+ 'orcamentos','vencimentos','unidades','empresas','tags','validacoes','profissionais','comissoesFech'];
 
 function _muMesclarDados(loc,srv){
  loc=loc||{};srv=srv||{};
@@ -2945,6 +3005,8 @@ function irPara(pages,btn){
   if(arr.includes('tags'))renderTags();
   if(arr.includes('conciliacao'))renderConciliacao();
   if(arr.includes('contas'))renderContas();
+  if(arr.includes('profissionais'))renderProfissionais();
+  if(arr.includes('comissoes'))renderComissoes();
   if(arr.includes('cliente'))renderClienteForm();
   if(arr.includes('servicos'))renderServicos();
   if(arr.includes('bancos')){renderBancos();renderCartoes();}
@@ -2961,7 +3023,7 @@ function abrirAba(pg){const b=[...document.querySelectorAll('.menu-item')].find(
 /* REGRA CONTABIL: titulo (previsto) = data de VENCIMENTO (competencia) · movimento do extrato = data do extrato (caixa).
    Usar dataRef(l) em TODO filtro, agrupamento, ordenacao e comparacao com hoje. Emissao nunca e criterio de periodo. */
 /* ===== VERSAO DO PAINEL — para saber, sem adivinhar, se a tela esta atualizada ===== */
-const APP_VERSAO='2026-11-04.1';
+const APP_VERSAO='2026-11-09.1';
 function _marcaVersao(){try{
  /* versao no CABECALHO, ao lado do status da nuvem — fica visivel sem procurar */
  var bar=document.querySelector('.tb-acoes');var d=document.getElementById('appVersaoTag');
@@ -7729,7 +7791,7 @@ function renderContas(){
   var _tr=document.getElementById('tbodyReceb');if(_tr){_tr.innerHTML=receb.map(linhaBx).join('');document.getElementById('recebVazio').style.display=receb.length?'none':'block';}
   var _tp=document.getElementById('tbodyPago');if(_tp){_tp.innerHTML=pagos.map(linhaBx).join('');document.getElementById('pagoVazio').style.display=pagos.length?'none':'block';}
   var _est=(document.getElementById('fcEstado')||{}).value||'';function _sc(id,on){var e=document.getElementById(id);if(e)e.style.display=on?'':'none';}
-  _sc('cardRec',!_est||_est==='rec');_sc('cardPag',!_est||_est==='pag');_sc('cardReceb',!_est||_est==='receb');_sc('cardPago',!_est||_est==='pago');
+  _sc('cardRec',!_est||_est==='rec'||_est==='recT');_sc('cardPag',!_est||_est==='pag'||_est==='pagT');_sc('cardReceb',!_est||_est==='receb'||_est==='recT');_sc('cardPago',!_est||_est==='pago'||_est==='pagT');
 }
 function limparFiltroContas(){['fcDataIni','fcDataFim','fcCliente','fcValMin','fcValMax'].forEach(function(id){var e=document.getElementById(id);if(e)e.value='';});renderContas();}
 function _dtBR(d){return d?new Date(d+'T00:00:00').toLocaleDateString('pt-BR'):'';}
@@ -7792,12 +7854,489 @@ function incluirConta(){const cats=(dados().unidades||[]);
     <div style="grid-column:span 2"><label>Categoria</label><select id="icCat"></select></div>
     ${cats.length?`<div><label>Unidade</label><select id="icUnidade">${cats.map(u=>`<option>${u}</option>`).join('')}</select></div>`:''}
     </div><div class="modal-acoes"><button class="btn sec" onclick="fecharModal()">Cancelar</button><button class="btn" onclick="salvarConta()">Incluir</button></div>`;
-  document.getElementById('modalBg').classList.add('show');recarregaIcCat();}
+  document.getElementById('modalBg').classList.add('show');recarregaIcCat();if(window._contasModo==='rec'||window._contasModo==='pag'){var _it=document.getElementById('icTipo');if(_it){_it.value=(window._contasModo==='rec'?'receita':'despesa');recarregaIcCat();}}}
 function recarregaIcCat(){const tipo=document.getElementById('icTipo').value;document.getElementById('icCat').innerHTML=dados().categorias.filter(c=>c.tipo===tipo).slice().sort((a,b)=>semAc(a.nome||"").localeCompare(semAc(b.nome||""),"pt-BR")).map(c=>`<option value="${esc(c.nome)}">${esc(c.nome)}</option>`).join('');}
 function salvarConta(){const data=document.getElementById('icData').value;const valor=parseFloat(document.getElementById('icValor').value);if(!data){alert('Informe o vencimento.');return;}if(isNaN(valor)||valor<=0){alert('Informe o valor.');return;}const eu=document.getElementById('icUnidade');const emiss=((document.getElementById('icEmissao')||{}).value||'');const _reg={id:id(),data,dataVencimento:data,descricao:document.getElementById('icDesc').value.trim(),banco:'',categoria:document.getElementById('icCat').value,tipo:document.getElementById('icTipo').value,valor,status:'previsto',unidade:eu?eu.value:'',usuario:usuariaAtivaNome()};if(emiss)_reg.dataEmissao=emiss;dados().lancamentos.push(_reg);saveApp();autoConciliar();fecharModal();render();}
 function baixarTodos(tipo){const abertos=dados().lancamentos.filter(l=>l.status==='previsto'&&!l.baixado&&l.tipo===tipo&&noUnidade(l));const usados=_movsJaUsados();let n=0;
   abertos.forEach(p=>{const m=acharMatch(p,usados);if(m){usados.add(m.id);p.baixado=true;p.baixaData=(m.data||new Date().toISOString().slice(0,10));p.baixaRef=m.id;p.baixaAuto='auto';m.baixaDe=p.id;m.conciliado=true;if(!m.conciliadoEm)m.conciliadoEm=(m.data||'');n++;}});
   saveApp();render();renderContas();alert(n?(n+' conta(s) baixada(s) por correspondência.'):'Nenhuma correspondência encontrada para baixar automaticamente.');}
+
+
+// ===================== COMISSÕES =====================
+/* Profissionais/representantes -> serviços com % -> comissão gerada por venda ->
+   apuração por período -> aprovação gera UM contas a pagar por profissional.
+   A comissão "gerada" é CALCULADA na hora a partir dos lançamentos (não é gravada),
+   então se o título muda, a comissão acompanha. Só o FECHAMENTO aprovado é gravado
+   (foto do que foi pago), e daí o item sai da lista de pendentes. */
+var COM_REGRAS={
+  recebimento:'Mediante o recebimento do cliente',
+  mensal:'Mensal — vendas do período',
+  acumulado:'Acumulado — tudo em aberto até a data final'
+};
+var COM_REGRAS_AJUDA={
+  recebimento:'Só entra o que o cliente já pagou (título baixado). A data usada é a da baixa.',
+  mensal:'Entram as vendas do período escolhido, tenha o cliente pago ou não. A data usada é a da emissão.',
+  acumulado:'Entra tudo o que ainda não foi pago ao profissional até a data final, ignorando a data inicial.'
+};
+function _comBRL(v){return 'R$ '+(+v||0).toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2});}
+function _comDt(d){if(!d)return '';var p=String(d).slice(0,10).split('-');return p.length===3?p[2]+'/'+p[1]+'/'+p[0]:String(d);}
+function _comR2(v){return Math.round((+v||0)*100)/100;}
+/* Vencimento = dia de pagamento do MÊS SEGUINTE ao da data final do período.
+   Dia 31 em mês curto vira o último dia do mês. Sábado e domingo ANTECIPAM para a sexta. */
+function _comVencProx(ate,dia){
+  var p=String(ate||'').slice(0,10).split('-');if(p.length!==3||!(+dia>=1))return '';
+  var y=+p[0],m=+p[1],ny=(m===12?y+1:y),nm=(m===12?1:m+1);
+  var ult=new Date(ny,nm,0).getDate(),d=Math.min(Math.floor(+dia),ult);
+  var dt=new Date(ny,nm-1,d),w=dt.getDay();
+  if(w===6)dt.setDate(dt.getDate()-1);else if(w===0)dt.setDate(dt.getDate()-2);
+  return dt.getFullYear()+'-'+String(dt.getMonth()+1).padStart(2,'0')+'-'+String(dt.getDate()).padStart(2,'0');}
+var COM_COR={verde:'#2f7d5b',azul:'#16447a',amar:'#c1922f',verm:'#b23b3b',cinza:'#9a9a9a'};
+function _comDot(cor,tip){return '<span title="'+esc(tip||'')+'" style="width:10px;height:10px;border-radius:50%;background:'+cor+';display:inline-block;vertical-align:middle"></span>';}
+function _comLeg(itens){return '<div style="display:flex;gap:14px;flex-wrap:wrap;align-items:center;background:#FAF7F0;border:1px solid #EDE6D8;border-radius:9px;padding:8px 12px;font-size:11.5px;margin:0 0 12px"><b>Situação:</b>'+itens.map(function(i){return '<span style="display:inline-flex;align-items:center;gap:5px"><span style="width:10px;height:10px;border-radius:50%;background:'+i[0]+';display:inline-block"></span>'+i[1]+'</span>';}).join('')+'</div>';}
+var COM_LEG_ITENS=[[COM_COR.verde,'Cliente já pagou — pronta para pagar'],[COM_COR.azul,'Ainda não recebida (entra pela regra mensal ou acumulada)'],[COM_COR.amar,'Ajustada manualmente']];
+var COM_LEG_FECH=[[COM_COR.amar,'Aprovado — contas a pagar em aberto'],[COM_COR.verde,'Pago'],[COM_COR.cinza,'Cancelado']];
+var COM_LEG_PROF=[[COM_COR.verde,'Ativo, com serviços vinculados'],[COM_COR.verm,'Ativo sem serviço vinculado — não gera comissão'],[COM_COR.cinza,'Inativo']];
+function _comHoje(){return new Date().toISOString().slice(0,10);}
+function _comProfs(){var d=dados();if(!Array.isArray(d.profissionais))d.profissionais=[];return d.profissionais;}
+function _comFechs(){var d=dados();if(!Array.isArray(d.comissoesFech))d.comissoesFech=[];return d.comissoesFech;}
+function _comProf(pid){return _comProfs().find(function(p){return p.id===pid;})||null;}
+function _comPercItem(prof,l){
+  if(l.comPerc!=null&&l.comPerc!==''&&!isNaN(+l.comPerc))return +l.comPerc;
+  return _comPerc(prof,l.servico);}
+function _comPerc(prof,servico){
+  if(!prof||!servico)return null;
+  var k=semAc(servico).trim();
+  var s=(prof.servicos||[]).find(function(x){return semAc(x.servico).trim()===k;});
+  return s?(+s.perc||0):null;}
+
+/* Itens que PODEM gerar comissão: receita de venda, sem transferência/aplicação/estorno.
+   - título (status previsto): vale o título; o movimento que o quita NÃO entra de novo.
+   - movimento realizado sem título (ex.: dinheiro avulso): entra se estiver conciliado. */
+function _comItens(){
+  var L=dados().lancamentos||[],quita={};
+  L.forEach(function(t){if(!t)return;if(t.baixaRef)quita[t.baixaRef]=1;if(t.baixaDe)quita[t.id]=1;});
+  var out=[];
+  L.forEach(function(l){
+    if(!l||l.tipo!=='receita')return;
+    if(ehEstorno(l))return;
+    if(ehMovimento(l.categoria)||catForaDoLucro(l.categoria))return;
+    var titulo=(l.status==='previsto');
+    if(!titulo){if(quita[l.id])return;if(!l.conciliado)return;}
+    try{if(!_unidadePermitida(l.unidade||bancoUnidade(l.banco)))return;}catch(e){}
+    out.push({l:l,titulo:titulo,recebido:titulo?!!l.baixado:true,
+      dtVenda:(l.dataEmissao||l.data||l.dataVencimento||''),
+      dtReceb:titulo?(l.baixaData||''):(l.data||'')});
+  });
+  return out;}
+
+function _comJaFechados(){
+  var s={};
+  _comFechs().forEach(function(f){if(f.status==='cancelado')return;(f.itens||[]).forEach(function(i){s[i.lancId]=f.id;});});
+  return s;}
+
+/* Calcula o que está pendente de pagar de comissão. NÃO grava nada. */
+function comCalcular(de,ate,profFiltro){
+  var fech=_comJaFechados(),itens=_comItens();
+  var res={porProf:{},semProf:[],semPerc:[]};
+  itens.forEach(function(it){
+    var l=it.l;if(fech[l.id])return;
+    if(l.comNao===true||l.comNao==='true')return;
+    if(!l.profId){
+      var dv=it.dtVenda;
+      if((!de||dv>=de)&&(!ate||dv<=ate))res.semProf.push(it);
+      return;}
+    var prof=_comProf(l.profId);if(!prof)return;
+    if(profFiltro&&prof.id!==profFiltro)return;
+    var regra=prof.regra||'recebimento',dt,ok;
+    if(regra==='recebimento'){if(!it.recebido)return;dt=it.dtReceb;ok=(!de||dt>=de)&&(!ate||dt<=ate);}
+    else if(regra==='mensal'){dt=it.dtVenda;ok=(!de||dt>=de)&&(!ate||dt<=ate);}
+    else{dt=it.dtVenda;ok=(!ate||dt<=ate);}
+    if(!ok)return;
+    var perc=_comPercItem(prof,l);
+    if(perc===null){res.semPerc.push(it);return;}
+    if(!(perc>0))return;
+    var base=+l.valor||0,val=_comR2(base*perc/100);
+    var g=res.porProf[prof.id]||(res.porProf[prof.id]={prof:prof,itens:[],total:0,base:0});
+    g.itens.push({lancId:l.id,data:dt,cliente:l.cliente||l.descricao||'',servico:l.servico||'',base:base,perc:perc,valor:val,recebido:it.recebido,ajust:(l.comPerc!=null&&l.comPerc!=='')});
+    g.base=_comR2(g.base+base);g.total=_comR2(g.total+val);
+  });
+  Object.keys(res.porProf).forEach(function(k){res.porProf[k].itens.sort(function(a,b){return String(a.data).localeCompare(String(b.data))||String(a.cliente).localeCompare(String(b.cliente),'pt-BR');});});
+  return res;}
+
+/* PREVISÃO: títulos de receita ainda NÃO recebidos, com vencimento até a data final.
+   É a comissão que vai ficar devida quando o cliente pagar. Não depende da regra do profissional. */
+function comPrevisao(ate,profFiltro){
+  var fech=_comJaFechados(),out={};
+  _comItens().forEach(function(it){
+    var l=it.l;if(!it.titulo||it.recebido)return;
+    if(fech[l.id]||l.comNao===true||l.comNao==='true'||!l.profId)return;
+    var prof=_comProf(l.profId);if(!prof||(profFiltro&&prof.id!==profFiltro))return;
+    var venc=l.dataVencimento||l.venc||l.data||'';if(ate&&venc>ate)return;
+    var perc=_comPercItem(prof,l);if(perc===null||!(perc>0))return;
+    var base=+l.valor||0,val=_comR2(base*perc/100);
+    var g=out[prof.id]||(out[prof.id]={prof:prof,itens:[],total:0,base:0});
+    g.itens.push({lancId:l.id,data:venc,cliente:l.cliente||l.descricao||'',servico:l.servico||'',base:base,perc:perc,valor:val});
+    g.base=_comR2(g.base+base);g.total=_comR2(g.total+val);});
+  Object.keys(out).forEach(function(k){out[k].itens.sort(function(a,b){return String(a.data).localeCompare(String(b.data));});});
+  return out;}
+
+function _comGrupos(res){
+  return Object.keys(res.porProf).map(function(k){return res.porProf[k];}).sort(function(a,b){return String(a.prof.nome).localeCompare(String(b.prof.nome),'pt-BR');});}
+
+// ---------------------------------------------------------- CADASTRO
+function renderProfissionais(){
+  var box=document.getElementById('profLista');if(!box)return;
+  var ps=_comProfs().slice().sort(function(a,b){return String(a.nome).localeCompare(String(b.nome),'pt-BR');});
+  var z=document.getElementById('profVazio');if(z)z.style.display=ps.length?'none':'block';
+  if(!ps.length){box.innerHTML='';return;}
+  var pend=comCalcular('','');
+  var lg=document.getElementById('profLegenda');if(lg)lg.innerHTML=_comLeg(COM_LEG_PROF);
+  box.innerHTML=ps.map(function(p){
+    var g=pend.porProf[p.id];
+    var nSrv=(p.servicos||[]).length;
+    var dot=p.ativo===false?_comDot(COM_COR.cinza,'Inativo'):(nSrv?_comDot(COM_COR.verde,'Ativo'):_comDot(COM_COR.verm,'Sem serviço vinculado'));
+    return '<tr><td style="width:24px">'+dot+'</td><td><b>'+esc(p.nome)+'</b></td><td>'+esc(p.tipo||'Profissional')+'</td><td>'+esc(COM_REGRAS[p.regra||'recebimento']||'')+'</td>'
+      +'<td style="text-align:center">'+(p.diaPgto?('dia '+p.diaPgto):'—')+'</td>'
+      +'<td style="text-align:center">'+nSrv+'</td>'
+      +'<td style="text-align:right">'+(g?_comBRL(g.total):'—')+'</td>'
+      +'<td>'+(p.ativo===false?'<span class="mini">Inativo</span>':'Ativo')+'</td>'
+      +'<td style="white-space:nowrap"><button class="btn sec peq" onclick="abrirProfissional(\''+p.id+'\')">Abrir</button> <button class="btn sec peq" onclick="excluirProfissional(\''+p.id+'\')" title="Excluir">🗑</button></td></tr>';
+  }).join('');}
+
+function _comOptsServico(){
+  var ss=dados().servicos||[];
+  var pais=ss.filter(function(s){return !s.pai;}).sort(function(a,b){return semAc(a.nome).localeCompare(semAc(b.nome),'pt-BR');});
+  var h='<option value="">— escolha o serviço —</option>';
+  pais.forEach(function(p){
+    var fs=ss.filter(function(x){return x.pai===p.id;}).sort(function(a,b){return semAc(a.nome).localeCompare(semAc(b.nome),'pt-BR');});
+    if(fs.length){
+      h+='<optgroup label="'+esc(p.nome)+'"><option value="G:'+esc(p.id)+'">★ Todos os serviços de '+esc(p.nome)+'</option>'
+        +fs.map(function(f){return '<option value="S:'+esc(f.id)+'">'+esc(f.nome)+'</option>';}).join('')+'</optgroup>';
+    }else{h+='<option value="S:'+esc(p.id)+'">'+esc(p.nome)+'</option>';}
+  });
+  return h;}
+
+function abrirProfissional(pid){
+  var p=pid?_comProf(pid):null;
+  window._profEditId=pid||'';
+  window._profEdit={servicos:p?JSON.parse(JSON.stringify(p.servicos||[])):[]};
+  var v=function(k,d){return p&&p[k]!=null?esc(p[k]):(d||'');};
+  var regra=(p&&p.regra)||'recebimento';
+  var h='<h3>'+(p?'Profissional / representante':'Novo profissional / representante')+'</h3><div class="form-grid">'
+   +'<div style="grid-column:span 3"><label>Nome</label><input id="pfNome" value="'+v('nome')+'" placeholder="Nome completo"></div>'
+   +'<div style="grid-column:span 1"><label>Tipo</label><select id="pfTipo">'+['Profissional','Representante','Fornecedor'].map(function(t){return '<option'+(p&&p.tipo===t?' selected':'')+'>'+t+'</option>';}).join('')+'</select></div>'
+   +'<div style="grid-column:span 2"><label>CPF / CNPJ</label><input id="pfDoc" value="'+v('doc')+'"></div>'
+   +'<div style="grid-column:span 2"><label>Situação</label><select id="pfAtivo"><option value="1"'+(!p||p.ativo!==false?' selected':'')+'>Ativo</option><option value="0"'+(p&&p.ativo===false?' selected':'')+'>Inativo</option></select></div>'
+   +'<div style="grid-column:span 4"><label>Regra de pagamento da comissão</label><select id="pfRegra" onchange="_profRegraAjuda()">'+Object.keys(COM_REGRAS).map(function(k){return '<option value="'+k+'"'+(regra===k?' selected':'')+'>'+COM_REGRAS[k]+'</option>';}).join('')+'</select><div class="mini" id="pfRegraAjuda" style="margin-top:4px">'+esc(COM_REGRAS_AJUDA[regra])+'</div></div>'
+   +'<div style="grid-column:span 2"><label>Dia de pagamento da comissão</label><input type="number" id="pfDia" min="1" max="31" placeholder="ex.: 10" value="'+((p&&p.diaPgto)?esc(p.diaPgto):'')+'"><div class="mini" style="margin-top:4px">O contas a pagar vence neste dia, no mês seguinte. Fim de semana antecipa para sexta.</div></div>'
+   +'<div style="grid-column:span 2"><label>Observação</label><input id="pfObs" value="'+v('obs')+'"></div>'
+   +'</div>'
+   +'<h3 style="margin:16px 0 6px;font-size:15px">Serviços e percentual de comissão</h3>'
+   +'<div style="display:flex;gap:8px;flex-wrap:wrap;align-items:flex-end;margin-bottom:8px">'
+   +'<div style="flex:1;min-width:220px"><label class="mini">Serviço</label><br><select id="pfSrv" style="width:100%;padding:7px 9px;border:1px solid #dcd4c4;border-radius:8px;font-family:inherit">'+_comOptsServico()+'</select></div>'
+   +'<div><label class="mini">% comissão</label><br><input type="number" id="pfPerc" step="0.01" min="0" max="100" placeholder="0,00" style="width:90px"></div>'
+   +'<button class="btn sec peq" onclick="_profVincular()">➕ Vincular</button></div>'
+   +'<div id="pfSrvLista"></div>'
+   +'<div id="pfGeradas"></div>'
+   +'<div class="modal-acoes"><button class="btn sec" onclick="fecharModal()">Fechar</button><button class="btn" onclick="salvarProfissional()">Salvar</button></div>';
+  document.getElementById('modalConteudo').innerHTML=h;
+  var m=document.getElementById('modalConteudo').closest('.modal');if(m)m.style.maxWidth='860px';
+  document.getElementById('modalBg').classList.add('show');
+  _profRenderSrv();_profRenderGeradas();}
+
+function _profRegraAjuda(){var s=document.getElementById('pfRegra'),a=document.getElementById('pfRegraAjuda');if(s&&a)a.textContent=COM_REGRAS_AJUDA[s.value]||'';}
+
+function _profVincular(){
+  var sel=document.getElementById('pfSrv').value,perc=parseFloat(String(document.getElementById('pfPerc').value).replace(',','.'));
+  if(!sel){alert('Escolha o serviço.');return;}
+  if(isNaN(perc)||perc<0||perc>100){alert('Informe o percentual de comissão (de 0 a 100).');return;}
+  var ss=dados().servicos||[],nomes=[];
+  if(sel.indexOf('G:')===0){var pai=sel.slice(2);ss.forEach(function(s){if(s.pai===pai)nomes.push(s.nome);});}
+  else{var s=ss.find(function(x){return x.id===sel.slice(2);});if(s)nomes.push(s.nome);}
+  if(!nomes.length){alert('Esse grupo não tem serviços filhos cadastrados.');return;}
+  var L=window._profEdit.servicos;
+  nomes.forEach(function(n){var ex=L.find(function(x){return semAc(x.servico)===semAc(n);});if(ex)ex.perc=perc;else L.push({servico:n,perc:perc});});
+  document.getElementById('pfPerc').value='';document.getElementById('pfSrv').value='';
+  _profRenderSrv();}
+
+function _profRenderSrv(){
+  var box=document.getElementById('pfSrvLista');if(!box)return;
+  var L=window._profEdit.servicos.slice().sort(function(a,b){return semAc(a.servico).localeCompare(semAc(b.servico),'pt-BR');});
+  if(!L.length){box.innerHTML='<div class="vazio" style="padding:10px">Nenhum serviço vinculado ainda. Sem serviço e percentual, o profissional não gera comissão.</div>';return;}
+  box.innerHTML='<div style="max-height:230px;overflow:auto;border:1px solid #EDE6D8;border-radius:8px"><table><thead><tr><th>Serviço</th><th style="width:110px;text-align:right">% comissão</th><th style="width:50px"></th></tr></thead><tbody>'
+    +L.map(function(s){var i=window._profEdit.servicos.indexOf(s);
+      return '<tr><td>'+esc(s.servico)+'</td><td style="text-align:right"><input type="number" step="0.01" min="0" max="100" value="'+(+s.perc||0)+'" onchange="_profMudaPerc('+i+',this.value)" style="width:80px;text-align:right"></td><td><button class="btn sec peq" onclick="_profTiraSrv('+i+')" title="Remover">✕</button></td></tr>';}).join('')
+    +'</tbody></table></div>';}
+function _profMudaPerc(i,val){var n=parseFloat(String(val).replace(',','.'));if(isNaN(n)||n<0||n>100){alert('Percentual de 0 a 100.');_profRenderSrv();return;}window._profEdit.servicos[i].perc=n;}
+function _profTiraSrv(i){window._profEdit.servicos.splice(i,1);_profRenderSrv();}
+
+function _profRenderGeradas(){
+  var box=document.getElementById('pfGeradas');if(!box)return;
+  var pid=window._profEditId;
+  if(!pid){box.innerHTML='<div class="mini" style="margin-top:12px">Salve o cadastro para ver as comissões geradas por este profissional.</div>';return;}
+  var res=comCalcular('','',pid),g=res.porProf[pid];
+  var fs=_comFechs().filter(function(f){return f.profId===pid;}).sort(function(a,b){return String(b.criadoEm||'').localeCompare(String(a.criadoEm||''));});
+  var h='<h3 style="margin:18px 0 6px;font-size:15px">Comissões geradas</h3>';
+  h+='<div class="cap" style="margin-bottom:6px">Em aberto (ainda não aprovadas para pagamento): <b>'+(g?_comBRL(g.total):'R$ 0,00')+'</b> em '+(g?g.itens.length:0)+' lançamento(s). Segue a regra "'+esc(COM_REGRAS[(_comProf(pid).regra)||'recebimento'])+'", sem filtro de data.</div>';
+  if(g&&g.itens.length){
+    h+=_comLeg(COM_LEG_ITENS)+'<div style="max-height:200px;overflow:auto;border:1px solid #EDE6D8;border-radius:8px"><table><thead><tr><th style="width:24px"></th><th>Data</th><th>Cliente</th><th>Serviço</th><th style="text-align:right">Base</th><th style="text-align:right">%</th><th style="text-align:right">Comissão</th></tr></thead><tbody>'
+      +g.itens.slice(0,200).map(function(i){var dot=i.ajust?_comDot(COM_COR.amar,'Ajustada manualmente'):(i.recebido?_comDot(COM_COR.verde,'Cliente já pagou'):_comDot(COM_COR.azul,'Ainda não recebida'));return '<tr><td>'+dot+'</td><td>'+_comDt(i.data)+'</td><td>'+esc(i.cliente)+'</td><td>'+esc(i.servico)+'</td><td style="text-align:right">'+_comBRL(i.base)+'</td><td style="text-align:right">'+i.perc.toLocaleString('pt-BR')+'%</td><td style="text-align:right">'+_comBRL(i.valor)+'</td></tr>';}).join('')
+      +'</tbody></table></div>'+(g.itens.length>200?'<div class="mini">Mostrando 200 de '+g.itens.length+'.</div>':'');}
+  if(fs.length){
+    var L=dados().lancamentos||[];
+    h+='<div class="cap" style="margin:12px 0 6px">Fechamentos já aprovados</div>'+_comLeg(COM_LEG_FECH)+'<table><thead><tr><th style="width:24px"></th><th>Período</th><th>Competência</th><th>Vencimento</th><th style="text-align:right">Total</th><th>Situação</th></tr></thead><tbody>'
+      +fs.map(function(f){var t=L.find(function(x){return x.id===f.tituloId;});
+        var sit=f.status==='cancelado'?'Cancelado':(t&&t.baixado?'Pago':'A pagar');
+        return '<tr><td>'+_comDot(f.status==='cancelado'?COM_COR.cinza:(t&&t.baixado?COM_COR.verde:COM_COR.amar),sit)+'</td><td>'+_comDt(f.de)+' a '+_comDt(f.ate)+'</td><td>'+_comDt(f.competencia)+'</td><td>'+_comDt(f.vencimento)+'</td><td style="text-align:right">'+_comBRL(f.total)+'</td><td>'+sit+'</td></tr>';}).join('')
+      +'</tbody></table>';}
+  box.innerHTML=h;}
+
+function salvarProfissional(){
+  var nome=(document.getElementById('pfNome').value||'').trim();
+  if(!nome){alert('Informe o nome.');return;}
+  var _dv=(document.getElementById('pfDia').value||'').trim();
+  if(_dv!==''&&!(parseInt(_dv,10)>=1&&parseInt(_dv,10)<=31)){alert('O dia de pagamento deve ser de 1 a 31.');return;}
+  var pid=window._profEditId;
+  var dup=_comProfs().find(function(x){return semAc(x.nome)===semAc(nome)&&x.id!==pid;});
+  if(dup&&!confirm('Já existe "'+dup.nome+'" cadastrado. Salvar mesmo assim?'))return;
+  var rec={nome:nome,tipo:document.getElementById('pfTipo').value,doc:(document.getElementById('pfDoc').value||'').trim(),
+    ativo:document.getElementById('pfAtivo').value==='1',regra:document.getElementById('pfRegra').value,diaPgto:(function(){var n=parseInt(document.getElementById('pfDia').value,10);return (n>=1&&n<=31)?n:'';})(),
+    obs:(document.getElementById('pfObs').value||'').trim(),servicos:window._profEdit.servicos.map(function(s){return {servico:s.servico,perc:+s.perc||0};}),_em:_muAgora()};
+  if(pid){var p=_comProf(pid);if(p)Object.assign(p,rec);}
+  else{rec.id=id();_comProfs().push(rec);}
+  try{muMarcarConfig();}catch(e){}
+  saveApp();fecharModal();renderProfissionais();}
+
+function excluirProfissional(pid){
+  var p=_comProf(pid);if(!p)return;
+  var uso=(dados().lancamentos||[]).filter(function(l){return l.profId===pid;}).length;
+  var fe=_comFechs().filter(function(f){return f.profId===pid;}).length;
+  if(uso||fe){alert('"'+p.nome+'" tem '+uso+' lançamento(s) e '+fe+' fechamento(s) vinculados. Não dá para excluir sem perder o histórico de comissão. Marque como Inativo.');return;}
+  if(!confirm('Excluir "'+p.nome+'"?'))return;
+  dados().profissionais=_comProfs().filter(function(x){return x.id!==pid;});
+  try{muMarcarConfig();}catch(e){}
+  saveApp();renderProfissionais();}
+
+// ---------------------------------------------------------- APURAÇÃO
+function _comPeriodoPadrao(){
+  var n=new Date(),y=n.getFullYear(),m=n.getMonth();
+  var ini=new Date(y,m,1),fim=new Date(y,m+1,0);
+  var f=function(d){return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');};
+  return {de:f(ini),ate:f(fim)};}
+
+function renderComissoes(){
+  var de=document.getElementById('comDe'),ate=document.getElementById('comAte');if(!de||!ate)return;
+  if(!de.value&&!ate.value){var pp=_comPeriodoPadrao();de.value=pp.de;ate.value=pp.ate;}
+  var sel=document.getElementById('comProf'),cur=sel.value;
+  sel.innerHTML='<option value="">Todos os profissionais</option>'+_comProfs().filter(function(p){return p.ativo!==false;}).sort(function(a,b){return String(a.nome).localeCompare(String(b.nome),'pt-BR');}).map(function(p){return '<option value="'+esc(p.id)+'"'+(cur===p.id?' selected':'')+'>'+esc(p.nome)+'</option>';}).join('');
+  var res=comCalcular(de.value,ate.value,sel.value);
+  window._comUlt={res:res,de:de.value,ate:ate.value};
+  var gs=_comGrupos(res),tot=0,box=document.getElementById('comResultado');
+  gs.forEach(function(g){tot=_comR2(tot+g.total);});
+  var h='';
+  if(!_comProfs().length){h='<div class="card"><div class="vazio" style="display:block">Nenhum profissional cadastrado. Cadastre em <b>Comissões › Profissionais e representantes</b>.</div></div>';}
+  else if(!gs.length){h='<div class="card"><div class="vazio" style="display:block">Nenhuma comissão a pagar neste período para a seleção atual.</div></div>';}
+  else{
+    h+='<div class="card">'+_comLeg(COM_LEG_ITENS)+'<div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px;margin-bottom:10px"><h2 style="margin:0">Comissões do período</h2><div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn sec peq" onclick="comRelatorio()">🖨 Relatório</button><button class="btn sec peq" onclick="comExcel()">📊 Excel</button><button class="btn ouro" onclick="comAprovar()">✔ Aprovar e gerar contas a pagar</button></div></div>';
+    gs.forEach(function(g){
+      h+='<h3 style="margin:16px 0 4px;font-size:15px;color:#143b4d">'+esc(g.prof.nome)+' <span class="mini" style="font-weight:400">· '+esc(COM_REGRAS[g.prof.regra||'recebimento'])+'</span></h3>'
+        +'<div style="overflow-x:auto"><table><thead><tr><th style="width:24px"></th><th>Data</th><th>Cliente</th><th>Serviço</th><th style="text-align:right">Base</th><th style="text-align:right">%</th><th style="text-align:right">Comissão</th><th></th></tr></thead><tbody>'
+        +g.itens.map(function(i){var dot=i.ajust?_comDot(COM_COR.amar,'Ajustada manualmente'):(i.recebido?_comDot(COM_COR.verde,'Cliente já pagou'):_comDot(COM_COR.azul,'Ainda não recebida'));return '<tr><td>'+dot+'</td><td>'+_comDt(i.data)+'</td><td>'+esc(i.cliente)+'</td><td>'+esc(i.servico)+'</td><td style="text-align:right">'+_comBRL(i.base)+'</td><td style="text-align:right">'+i.perc.toLocaleString('pt-BR')+'%</td><td style="text-align:right">'+_comBRL(i.valor)+'</td><td><button class="btn sec peq" title="Manutenção: ajustar % , trocar profissional ou não comissionar" onclick="comAjustar(\''+i.lancId+'\')">✎</button></td></tr>';}).join('')
+        +'<tr style="font-weight:700;background:#FAF7F0"><td colspan="4">Subtotal — '+esc(g.prof.nome)+'</td><td style="text-align:right">'+_comBRL(g.base)+'</td><td></td><td style="text-align:right">'+_comBRL(g.total)+'</td><td></td></tr></tbody></table></div>';});
+    h+='<div style="margin-top:16px;padding:14px 16px;background:#143b4d;color:#fff;border-radius:10px;display:flex;justify-content:space-between;font-size:16px"><b>TOTAL A PAGAR DE COMISSÃO</b><b>'+_comBRL(tot)+'</b></div></div>';}
+  if(res.semPerc.length){
+    var nomes={};res.semPerc.forEach(function(it){var k=(_comProf(it.l.profId)||{}).nome+' — '+(it.l.servico||'(sem serviço)');nomes[k]=(nomes[k]||0)+1;});
+    h+='<div class="card" style="border-left:4px solid #c1922f"><b>'+res.semPerc.length+' lançamento(s) com profissional mas sem percentual para o serviço</b><div class="cap">Vincule o serviço ao profissional no cadastro. Enquanto isso, não geram comissão:</div><div class="mini">'+Object.keys(nomes).slice(0,12).map(function(k){return esc(k)+' ('+nomes[k]+')';}).join(' · ')+(Object.keys(nomes).length>12?' …':'')+'</div></div>';}
+  box.innerHTML=h;
+  renderComPrevisao();renderComSemProf();renderComFechamentos();}
+
+function renderComPrevisao(){
+  var box=document.getElementById('comPrevisao');if(!box)return;
+  var u=window._comUlt;if(!u)return;
+  var pv=comPrevisao(u.ate,(document.getElementById('comProf')||{}).value||''),gs=_comGrupos({porProf:pv}),tot=0;
+  gs.forEach(function(g){tot=_comR2(tot+g.total);});
+  if(!gs.length){box.innerHTML='<div class="vazio" style="display:block">Nenhuma comissão prevista: não há título em aberto com profissional e percentual até a data final.</div>';return;}
+  var h=_comLeg([[COM_COR.azul,'Título em aberto — comissão devida quando o cliente pagar']])
+   +'<div style="display:flex;justify-content:flex-end;margin-bottom:8px"><button class="btn sec peq" onclick="comRelatorioPrevisao()">🖨 Relatório de previsão</button></div>';
+  gs.forEach(function(g){
+    h+='<h3 style="margin:14px 0 4px;font-size:15px;color:#143b4d">'+esc(g.prof.nome)+'</h3><div style="overflow-x:auto"><table><thead><tr><th style="width:24px"></th><th>Vencimento</th><th>Cliente</th><th>Serviço</th><th style="text-align:right">Base</th><th style="text-align:right">%</th><th style="text-align:right">Comissão prevista</th></tr></thead><tbody>'
+     +g.itens.slice(0,150).map(function(i){return '<tr><td>'+_comDot(COM_COR.azul,'Ainda não recebida')+'</td><td>'+_comDt(i.data)+'</td><td>'+esc(i.cliente)+'</td><td>'+esc(i.servico)+'</td><td style="text-align:right">'+_comBRL(i.base)+'</td><td style="text-align:right">'+i.perc.toLocaleString('pt-BR')+'%</td><td style="text-align:right">'+_comBRL(i.valor)+'</td></tr>';}).join('')
+     +(g.itens.length>150?'<tr><td colspan="7" class="mini">Mostrando 150 de '+g.itens.length+'. O relatório traz todos.</td></tr>':'')
+     +'<tr style="font-weight:700;background:#FAF7F0"><td colspan="4">Subtotal — '+esc(g.prof.nome)+'</td><td style="text-align:right">'+_comBRL(g.base)+'</td><td></td><td style="text-align:right">'+_comBRL(g.total)+'</td></tr></tbody></table></div>';});
+  h+='<div style="margin-top:14px;padding:12px 16px;background:#16447a;color:#fff;border-radius:10px;display:flex;justify-content:space-between"><b>TOTAL PREVISTO DE COMISSÃO</b><b>'+_comBRL(tot)+'</b></div>';
+  box.innerHTML=h;}
+
+function comRelatorioPrevisao(){
+  var u=window._comUlt;if(!u)return;
+  var pv=comPrevisao(u.ate,(document.getElementById('comProf')||{}).value||''),gs=_comGrupos({porProf:pv});
+  if(!gs.length){alert('Não há comissão prevista.');return;}
+  var tot=0,corpo='<p style="font-size:12.5px;color:#555">Títulos a receber em aberto, com vencimento até '+_comDt(u.ate)+'. A comissão só fica devida quando o cliente pagar.</p>';
+  gs.forEach(function(g){tot=_comR2(tot+g.total);
+    corpo+='<h3>'+esc(g.prof.nome)+'</h3><table><thead><tr><th>Vencimento</th><th>Descrição</th><th style="text-align:right">Base</th><th style="text-align:right">% aplicado</th><th style="text-align:right">Comissão prevista</th></tr></thead><tbody>'
+     +g.itens.map(function(i){return '<tr><td>'+_comDt(i.data)+'</td><td>'+esc(i.cliente)+(i.servico?' — '+esc(i.servico):'')+'</td><td style="text-align:right">'+_comBRL(i.base)+'</td><td style="text-align:right">'+i.perc.toLocaleString('pt-BR')+'%</td><td style="text-align:right">'+_comBRL(i.valor)+'</td></tr>';}).join('')
+     +'<tr style="font-weight:700;background:#f4efe6"><td colspan="2">Subtotal — '+esc(g.prof.nome)+'</td><td style="text-align:right">'+_comBRL(g.base)+'</td><td></td><td style="text-align:right">'+_comBRL(g.total)+'</td></tr></tbody></table>';});
+  corpo+='<table style="margin-top:22px"><tbody><tr style="font-weight:700;font-size:15px"><td style="background:#16447a;color:#fff">TOTAL PREVISTO DE COMISSÃO</td><td style="text-align:right;background:#16447a;color:#fff;width:200px">'+_comBRL(tot)+'</td></tr></tbody></table>';
+  abrirRelatorio('Previsão de comissões','Vencimento até '+_comDt(u.ate),corpo);}
+
+function renderComSemProf(){
+  var u=window._comUlt;if(!u)return;
+  var box=document.getElementById('comSemProf');if(!box)return;
+  var q=semAc((document.getElementById('comBusca')||{}).value||'');
+  var L=u.res.semProf.filter(function(it){return !q||semAc((it.l.cliente||'')+' '+(it.l.servico||'')+' '+(it.l.descricao||'')).indexOf(q)>=0;})
+    .sort(function(a,b){return String(a.dtVenda).localeCompare(String(b.dtVenda));});
+  var tot=L.length,vis=L.slice(0,300);
+  document.getElementById('comSemProfN').textContent=u.res.semProf.length+' atendimento(s) no período';
+  if(!u.res.semProf.length){box.innerHTML='<div class="vazio" style="display:block">Todos os atendimentos do período já têm profissional.</div>';return;}
+  box.innerHTML=_comLeg([[COM_COR.verde,'Cliente já pagou'],[COM_COR.azul,'Ainda não recebida']])+'<div style="max-height:360px;overflow:auto;border:1px solid #EDE6D8;border-radius:8px"><table><thead><tr><th style="width:30px"><input type="checkbox" onchange="comMarcarTodos(this.checked)"></th><th>Data</th><th>Cliente</th><th>Serviço</th><th style="text-align:right">Valor</th><th>Situação</th></tr></thead><tbody>'
+    +vis.map(function(it){var l=it.l;return '<tr><td><input type="checkbox" class="comCk" value="'+esc(l.id)+'"></td><td>'+_comDt(it.dtVenda)+'</td><td>'+esc(l.cliente||l.descricao||'')+'</td><td>'+esc(l.servico||'')+'</td><td style="text-align:right">'+_comBRL(l.valor)+'</td><td>'+_comDot(it.recebido?COM_COR.verde:COM_COR.azul,it.recebido?'Cliente já pagou':'Ainda não recebida')+' '+(it.recebido?'Recebido':'A receber')+'</td></tr>';}).join('')
+    +'</tbody></table></div>'+(tot>300?'<div class="mini">Mostrando 300 de '+tot+'. Use a busca para afunilar.</div>':'');}
+
+function comMarcarTodos(on){document.querySelectorAll('.comCk').forEach(function(c){c.checked=on;});}
+
+function comAtribuir(){
+  var pid=document.getElementById('comAtribProf').value;
+  if(!pid){alert('Escolha o profissional.');return;}
+  var ids=[].slice.call(document.querySelectorAll('.comCk:checked')).map(function(c){return c.value;});
+  if(!ids.length){alert('Marque os atendimentos.');return;}
+  var prof=_comProf(pid),L=dados().lancamentos||[],n=0,jaFech=_comJaFechados();
+  ids.forEach(function(i){var l=L.find(function(x){return x.id===i;});if(l&&!jaFech[l.id]){l.profId=pid;n++;}});
+  saveApp();renderComissoes();
+  alert(n+' atendimento(s) atribuído(s) a '+prof.nome+'.');}
+
+function comAjustar(lid){
+  var l=(dados().lancamentos||[]).find(function(x){return x.id===lid;});if(!l)return;
+  if(_comJaFechados()[lid]){alert('Esse lançamento já está em um fechamento aprovado. Cancele o fechamento para mexer nele.');return;}
+  window._comAjId=lid;
+  var ps=_comProfs().filter(function(p){return p.ativo!==false||p.id===l.profId;}).sort(function(a,b){return String(a.nome).localeCompare(String(b.nome),'pt-BR');});
+  var h='<h3>Manutenção da comissão</h3><p class="mini">'+esc(l.cliente||l.descricao||'')+(l.servico?' — '+esc(l.servico):'')+' · '+_comBRL(l.valor)+'</p>'
+   +'<div class="form-grid"><div style="grid-column:span 4"><label>Profissional</label><select id="ajProf"><option value="">— sem profissional —</option>'+ps.map(function(p){return '<option value="'+esc(p.id)+'"'+(l.profId===p.id?' selected':'')+'>'+esc(p.nome)+'</option>';}).join('')+'</select></div>'
+   +'<div style="grid-column:span 2"><label>% só para este lançamento</label><input type="number" id="ajPerc" step="0.01" min="0" max="100" placeholder="usar o do cadastro" value="'+((l.comPerc!=null&&l.comPerc!=='')?esc(l.comPerc):'')+'"></div>'
+   +'<div style="grid-column:span 2;display:flex;align-items:flex-end"><label style="display:flex;gap:8px;align-items:center;text-transform:none;letter-spacing:0"><input type="checkbox" id="ajNao"'+((l.comNao===true||l.comNao==='true')?' checked':'')+'> Não gerar comissão neste lançamento</label></div></div>'
+   +'<div class="modal-acoes"><button class="btn sec" onclick="fecharModal()">Cancelar</button><button class="btn" onclick="comSalvarAjuste()">Salvar</button></div>';
+  document.getElementById('modalConteudo').innerHTML=h;
+  document.getElementById('modalBg').classList.add('show');}
+function comSalvarAjuste(){
+  var l=(dados().lancamentos||[]).find(function(x){return x.id===window._comAjId;});if(!l)return;
+  var pv=String(document.getElementById('ajPerc').value||'').replace(',','.').trim(),pn=pv===''?'':parseFloat(pv);
+  if(pv!==''&&(isNaN(pn)||pn<0||pn>100)){alert('Percentual de 0 a 100.');return;}
+  l.profId=document.getElementById('ajProf').value||'';
+  l.comPerc=pn;
+  l.comNao=!!document.getElementById('ajNao').checked;
+  saveApp();fecharModal();renderComissoes();}
+
+// ---------------------------------------------------------- FECHAMENTO
+function comAprovar(){
+  var u=window._comUlt;if(!u)return;
+  var gs=_comGrupos(u.res);if(!gs.length){alert('Não há comissão a aprovar.');return;}
+  var tot=0;gs.forEach(function(g){tot=_comR2(tot+g.total);});
+  var cats=(dados().categorias||[]).filter(function(c){return c.tipo==='despesa';});
+  var sug=(cats.find(function(c){return /comiss/i.test(c.nome||'');})||cats.find(function(c){return /profissionais terceirizados/i.test(c.nome||'');})||{}).nome||'';
+  var uni=(dados().unidades||[]);
+  var h='<h3>Aprovar comissões e gerar contas a pagar</h3>'
+   +'<p class="mini">Período '+_comDt(u.de)+' a '+_comDt(u.ate)+' · '+gs.length+' profissional(is) · total <b>'+_comBRL(tot)+'</b>. Será criado <b>um contas a pagar por profissional</b>, com o valor acumulado. O vencimento é o dia de pagamento do cadastro, no mês seguinte; se cair no fim de semana, antecipa para a sexta. Você pode corrigir a data de cada um abaixo.</p>'
+   +'<div class="form-grid">'
+   +'<div><label>Data de competência</label><input type="date" id="caComp" value="'+u.ate+'"></div>'
+   +'<div style="grid-column:span 3"><label>Categoria da despesa</label><select id="caCat">'+montarCatOpts('despesa',sug,'— escolha a categoria —')+'</select></div>'
+   +(uni.length?'<div style="grid-column:span 2"><label>Unidade</label><select id="caUni"><option value="">—</option>'+uni.map(function(x){return '<option>'+esc(x)+'</option>';}).join('')+'</select></div>':'')
+   +'<div style="grid-column:span 4"><label>Observação</label><input id="caObs" placeholder="opcional"></div>'
+   +'</div>'
+   +'<table style="margin-top:10px"><thead><tr><th>Profissional</th><th style="text-align:right">Lançamentos</th><th style="text-align:right">Comissão</th><th>Vencimento</th></tr></thead><tbody>'
+   +gs.map(function(g){var v=g.prof.diaPgto?_comVencProx(u.ate,g.prof.diaPgto):'';
+     return '<tr><td>'+esc(g.prof.nome)+(g.prof.diaPgto?'':' <span class="mini" style="color:#b23b3b">· sem dia de pagamento cadastrado</span>')+'</td><td style="text-align:right">'+g.itens.length+'</td><td style="text-align:right">'+_comBRL(g.total)+'</td><td><input type="date" id="caV_'+esc(g.prof.id)+'" value="'+v+'"></td></tr>';}).join('')
+   +'</tbody></table>'
+   +'<div class="modal-acoes"><button class="btn sec" onclick="fecharModal()">Cancelar</button><button class="btn" onclick="comConfirmarAprovacao()">Aprovar e gerar</button></div>';
+  document.getElementById('modalConteudo').innerHTML=h;
+  var m=document.getElementById('modalConteudo').closest('.modal');if(m)m.style.maxWidth='720px';
+  document.getElementById('modalBg').classList.add('show');}
+
+function comConfirmarAprovacao(){
+  var u=window._comUlt;if(!u)return;
+  var comp=document.getElementById('caComp').value,cat=document.getElementById('caCat').value;
+  if(!comp){alert('Informe a data de competência.');return;}
+  if(!cat){alert('Escolha a categoria da despesa.');return;}
+  /* recalcula agora: o que foi aprovado é o que existe NESTE instante, não a tela velha */
+  var res=comCalcular(u.de,u.ate,(document.getElementById('comProf')||{}).value||'');
+  var gs=_comGrupos(res);if(!gs.length){alert('Nada a aprovar.');fecharModal();renderComissoes();return;}
+  var vencs={},faltam=[];
+  gs.forEach(function(g){var e=document.getElementById('caV_'+g.prof.id),v=e?e.value:'';
+    if(!v&&g.prof.diaPgto)v=_comVencProx(u.ate,g.prof.diaPgto);
+    if(!v)faltam.push(g.prof.nome);vencs[g.prof.id]=v;});
+  if(faltam.length){alert('Informe o vencimento de: '+faltam.join(', ')+'.');return;}
+  var uniEl=document.getElementById('caUni'),uni=uniEl?uniEl.value:'',agora=_muAgora(),quem=_muQuem(),n=0,tot=0;
+  var obsF=((document.getElementById('caObs')||{}).value||'').trim();
+  gs.forEach(function(g){
+    var fid=id(),tid=id(),venc=vencs[g.prof.id];
+    var desc='Comissão — '+g.prof.nome+' — '+_comDt(u.de)+' a '+_comDt(u.ate);
+    dados().lancamentos.push({id:tid,data:venc,dataVencimento:venc,dataEmissao:comp,descricao:desc,cliente:g.prof.nome,
+      categoria:cat,tipo:'despesa',valor:g.total,status:'previsto',unidade:uni,usuario:usuariaAtivaNome(),origem:'Comissão',comFechId:fid,obs:obsF});
+    _comFechs().push({id:fid,profId:g.prof.id,profNome:g.prof.nome,regra:g.prof.regra||'recebimento',de:u.de,ate:u.ate,
+      competencia:comp,vencimento:venc,total:g.total,itens:g.itens.map(function(i){return {lancId:i.lancId,data:i.data,cliente:i.cliente,servico:i.servico,base:i.base,perc:i.perc,valor:i.valor};}),
+      tituloId:tid,obs:obsF,status:'aprovado',criadoPor:quem,criadoEm:agora,_em:agora});
+    n++;tot=_comR2(tot+g.total);});
+  saveApp();fecharModal();render();renderComissoes();
+  alert(n+' contas a pagar de comissão geradas, total '+_comBRL(tot)+'. Elas estão em Financeiro › Contas a pagar.');}
+
+function renderComFechamentos(){
+  var box=document.getElementById('comFechLista');if(!box)return;
+  var fs=_comFechs().slice().sort(function(a,b){return String(b.criadoEm||'').localeCompare(String(a.criadoEm||''));});
+  if(!fs.length){box.innerHTML='<div class="vazio" style="display:block">Nenhum fechamento aprovado ainda.</div>';return;}
+  var L=dados().lancamentos||[];
+  box.innerHTML=_comLeg(COM_LEG_FECH)+'<div style="overflow-x:auto"><table><thead><tr><th style="width:24px"></th><th>Aprovado em</th><th>Profissional</th><th>Período</th><th>Competência</th><th>Vencimento</th><th style="text-align:right">Total</th><th>Situação</th><th></th></tr></thead><tbody>'
+   +fs.slice(0,80).map(function(f){var t=L.find(function(x){return x.id===f.tituloId;});
+     var sit=f.status==='cancelado'?'Cancelado':(t&&t.baixado?'Pago':'A pagar');
+     var pode=f.status!=='cancelado'&&!(t&&t.baixado);
+     var dotF=f.status==='cancelado'?COM_COR.cinza:(t&&t.baixado?COM_COR.verde:COM_COR.amar);
+     return '<tr><td>'+_comDot(dotF,sit)+'</td><td>'+_comDt(String(f.criadoEm||'').slice(0,10))+'</td><td>'+esc(f.profNome)+'</td><td>'+_comDt(f.de)+' a '+_comDt(f.ate)+'</td><td>'+_comDt(f.competencia)+'</td><td>'+_comDt(f.vencimento)+'</td><td style="text-align:right">'+_comBRL(f.total)+'</td><td>'+sit+'</td><td>'+(pode?'<button class="btn sec peq" onclick="comCancelarFech(\''+f.id+'\')">Cancelar</button>':'')+'</td></tr>';}).join('')
+   +'</tbody></table></div>';}
+
+function comCancelarFech(fid){
+  var f=_comFechs().find(function(x){return x.id===fid;});if(!f)return;
+  var L=dados().lancamentos||[],t=L.find(function(x){return x.id===f.tituloId;});
+  if(t&&t.baixado){alert('Esse título já foi pago. Desfaça a baixa antes de cancelar o fechamento.');return;}
+  if(!confirm('Cancelar o fechamento de '+f.profNome+' ('+_comBRL(f.total)+')?\n\nO contas a pagar gerado será removido e os lançamentos voltam para as pendências de comissão.'))return;
+  if(t)dados().lancamentos=L.filter(function(x){return x.id!==f.tituloId;});
+  f.status='cancelado';f._em=_muAgora();
+  saveApp();render();renderComissoes();}
+
+// ---------------------------------------------------------- RELATÓRIO
+function _comRotuloPeriodo(u){return _comDt(u.de)+' a '+_comDt(u.ate);}
+function comRelatorio(){
+  var u=window._comUlt;if(!u)return;
+  var gs=_comGrupos(u.res);if(!gs.length){alert('Não há comissão no período.');return;}
+  var tot=0,corpo='';
+  gs.forEach(function(g){
+    tot=_comR2(tot+g.total);
+    corpo+='<h3>'+esc(g.prof.nome)+' <span style="font-size:12px;color:#777;font-weight:400">· '+esc(g.prof.tipo||'Profissional')+' · '+esc(COM_REGRAS[g.prof.regra||'recebimento'])+'</span></h3>'
+      +'<table><thead><tr><th>Data</th><th>Descrição</th><th style="text-align:right">Base</th><th style="text-align:right">% aplicado</th><th style="text-align:right">Comissão</th></tr></thead><tbody>'
+      +g.itens.map(function(i){return '<tr><td>'+_comDt(i.data)+'</td><td>'+esc(i.cliente)+(i.servico?' — '+esc(i.servico):'')+'</td><td style="text-align:right">'+_comBRL(i.base)+'</td><td style="text-align:right">'+i.perc.toLocaleString('pt-BR')+'%</td><td style="text-align:right">'+_comBRL(i.valor)+'</td></tr>';}).join('')
+      +'<tr style="font-weight:700;background:#f4efe6"><td colspan="2">Subtotal — '+esc(g.prof.nome)+'</td><td style="text-align:right">'+_comBRL(g.base)+'</td><td></td><td style="text-align:right">'+_comBRL(g.total)+'</td></tr></tbody></table>';});
+  corpo+='<table style="margin-top:22px"><tbody><tr style="font-weight:700;font-size:15px;background:#143b4d;color:#fff"><td style="background:#143b4d;color:#fff">TOTAL A PAGAR DE COMISSÃO</td><td style="text-align:right;background:#143b4d;color:#fff;width:200px">'+_comBRL(tot)+'</td></tr></tbody></table>';
+  abrirRelatorio('Relatório de comissões','Período: '+_comRotuloPeriodo(u),corpo);}
+
+function comExcel(){
+  var u=window._comUlt;if(!u)return;
+  var gs=_comGrupos(u.res);if(!gs.length){alert('Não há comissão no período.');return;}
+  try{
+    var emp=(typeof _relEmpresa==='function')?_relEmpresa():'';
+    var aoa=[[emp],['Relatório de comissões'],['Período: '+_comRotuloPeriodo(u)],['Gerado em '+new Date().toLocaleString('pt-BR')],[''],['Profissional','Data','Descrição','Base (R$)','% aplicado','Comissão (R$)']],tot=0;
+    gs.forEach(function(g){
+      g.itens.forEach(function(i){aoa.push([g.prof.nome,_comDt(i.data),i.cliente+(i.servico?' — '+i.servico:''),i.base,i.perc,i.valor]);});
+      aoa.push(['Subtotal — '+g.prof.nome,'','',g.base,'',g.total]);aoa.push(['']);tot=_comR2(tot+g.total);});
+    aoa.push(['TOTAL A PAGAR DE COMISSÃO','','','','',tot]);
+    var ws=XLSX.utils.aoa_to_sheet(aoa);ws['!cols']=[{wch:30},{wch:12},{wch:46},{wch:14},{wch:12},{wch:16}];
+    if(typeof _relFmtNum==='function')_relFmtNum(ws);
+    var wb=XLSX.utils.book_new();XLSX.utils.book_append_sheet(wb,ws,'Comissoes');
+    XLSX.writeFile(wb,(typeof _relArqNome==='function')?_relArqNome('Relatorio de comissoes'):'comissoes.xlsx');
+  }catch(e){alert('Não consegui exportar: '+e.message);}}
+
+// ---------------------------------------------------------- MENU: receber x pagar
+function irContas(est,btn){
+  var s=document.getElementById('fcEstado');if(s)s.value=(est==='rec'?'recT':(est==='pag'?'pagT':''));
+  var tt=document.getElementById('contasTitulo'),eb=document.getElementById('contasEyebrow');
+  if(tt)tt.innerHTML=est==='rec'?'Contas a <em>receber</em>':(est==='pag'?'Contas a <em>pagar</em>':'Contas a pagar e a <em>receber</em>');
+  if(eb)eb.textContent=est==='rec'?'Financeiro · Receber':(est==='pag'?'Financeiro · Pagar':'Financeiro');
+  window._contasModo=est||'';
+  irPara('contas',btn);}
 
 // ===================== INIT =====================
 function init(){loadApp();initApos();}
