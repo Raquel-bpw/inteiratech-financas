@@ -318,6 +318,11 @@
   .sb-grupo:hover{color:#fff;}
   .sb-seta{font-size:12px;transition:transform .22s;opacity:.8;font-weight:400;}
   .sb-bloco.aberto .sb-seta{transform:rotate(180deg);}
+  .sb-sub{font-size:10.5px;letter-spacing:1.4px;text-transform:uppercase;color:#bfa56a;padding:12px 16px 4px;opacity:.9}
+  .menu-item.sub{padding:9px 12px 9px 24px;font-size:13.5px}
+  .cg-mais{position:relative}.cg-mais summary{list-style:none;cursor:pointer}.cg-mais summary::-webkit-details-marker{display:none}
+  .cg-mais .cg-pn{position:absolute;z-index:30;top:100%;left:0;margin-top:6px;background:#fff;border:1px solid #e2ddd0;border-radius:12px;box-shadow:0 14px 30px -12px rgba(0,0,0,.35);padding:8px;min-width:290px;display:flex;flex-direction:column;gap:6px}
+  .cg-mais .cg-pn .btn{justify-content:flex-start;width:100%}
   .sb-itens{display:none;flex-direction:column;gap:2px;padding-bottom:4px;}
   .sb-bloco.aberto .sb-itens{display:flex;}
   .menu-item{display:flex;align-items:center;gap:12px;background:transparent;border:none;color:#f7f1e5;padding:12px 16px;border-radius:12px;font-family:inherit;font-size:14.5px;font-weight:500;letter-spacing:.3px;cursor:pointer;text-align:left;width:100%;border-left:3px solid transparent;transition:.18s;}
@@ -414,19 +419,19 @@ body.so-leitura input[type=file]{display:none}
       <div class="sb-bloco">
         <button class="sb-grupo" onclick="toggleGrupo(this)">Financeiro<span class="sb-seta">⌄</span></button>
         <div class="sb-itens">
-          <button class="menu-item" data-pages="contas" onclick="irContas('rec',this)">Contas a receber</button>
-          <button class="menu-item" data-pages="contas" onclick="irContas('pag',this)">Contas a pagar</button>
-          <button class="menu-item" data-pages="lancamentos" onclick="irPara('lancamentos',this)">Lançamentos</button>
-          <button class="menu-item" data-pages="conferencia" onclick="irPara('conferencia',this)">Conferência de bancos</button>
-          <button class="menu-item" data-pages="cartoes" onclick="irPara('cartoes',this)">Cartão de crédito</button>
-          <button class="menu-item" data-pages="importar" onclick="irPara('importar',this)">Importar</button>
-        </div>
-      </div>
-      <div class="sb-bloco">
-        <button class="sb-grupo" onclick="toggleGrupo(this)">Comissões<span class="sb-seta">⌄</span></button>
-        <div class="sb-itens">
-          <button class="menu-item" data-pages="profissionais" onclick="irPara('profissionais',this)">Profissionais e representantes</button>
-          <button class="menu-item" data-pages="comissoes" onclick="irPara('comissoes',this)">Apuração e relatório</button>
+          <div class="sb-sub">Contas a pagar e a receber</div>
+          <button class="menu-item sub" data-pages="contasresumo" onclick="irPara('contasresumo',this)">Resumo</button>
+          <button class="menu-item sub" data-pages="contas" onclick="irContas('rec',this)">Contas a receber</button>
+          <button class="menu-item sub" data-pages="contas" onclick="irContas('pag',this)">Contas a pagar</button>
+          <button class="menu-item sub" onclick="abrirAdiantamentos('cliente')">Adiantamentos</button>
+          <div class="sb-sub">Movimentação</div>
+          <button class="menu-item sub" data-pages="lancamentos" onclick="irPara('lancamentos',this)">Lançamentos</button>
+          <button class="menu-item sub" data-pages="conferencia" onclick="irPara('conferencia',this)">Conferência de bancos</button>
+          <button class="menu-item sub" data-pages="cartoes" onclick="irPara('cartoes',this)">Cartão de crédito</button>
+          <button class="menu-item sub" data-pages="importar" onclick="irPara('importar',this)">Importar</button>
+          <div class="sb-sub">Comissões</div>
+          <button class="menu-item sub" data-pages="profissionais" onclick="irPara('profissionais',this)">Profissionais e representantes</button>
+          <button class="menu-item sub" data-pages="comissoes" onclick="irPara('comissoes',this)">Apuração e relatório</button>
         </div>
       </div>
       <div class="sb-bloco">
@@ -677,28 +682,35 @@ body.so-leitura input[type=file]{display:none}
     </div>
   </section>
 
+  <!-- RESUMO CONTAS A PAGAR / RECEBER -->
+  <section class="pagina" id="pg-contasresumo">
+    <div class="eyebrow">Financeiro &middot; Contas</div>
+    <div class="titulo-pg">Resumo de contas a <em>pagar e a receber</em></div>
+    <div class="sub-pg">Visão única do que entra e do que sai: em aberto, vencidos, com saldo e o que já foi baixado no período. Para dar baixa ou ver cada título, abra Contas a receber ou Contas a pagar.</div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin:0 0 14px"><span class="mini"><b>Período:</b></span>
+      <button class="btn sec peq" onclick="cgrPer('mes')">Este mês</button><button class="btn sec peq" onclick="cgrPer('ant')">Mês passado</button><button class="btn sec peq" onclick="cgrPer('30')">Próximos 30 dias</button><button class="btn sec peq" onclick="cgrPer('tudo')">Tudo</button>
+      <span class="mini" id="crPerTxt" style="margin-left:6px"></span></div>
+    <div id="crBody"></div>
+  </section>
   <!-- CONTAS A PAGAR / RECEBER -->
   <section class="pagina" id="pg-contas">
     <div class="eyebrow" id="contasEyebrow">Financeiro</div>
     <div class="titulo-pg" id="contasTitulo">Contas a pagar e a <em>receber</em></div>
     <div class="sub-pg" id="contasSub">Títulos em aberto, vencidos, com saldo e já baixados. A baixa vem, na maioria das vezes, da conciliação com o extrato; a baixa manual é para as diferenças. Clique na bolinha <b>Legenda</b> para ver o significado de cada cor.</div>
-    <div style="display:flex;gap:10px;flex-wrap:wrap;margin:0 0 14px">
-      <button class="btn ouro" onclick="abrirAdiantamentos('cliente')" title="Dinheiro que entrou ou saiu antes da nota — e a compensação com o título">💰 Adiantamentos <span id="chipAdiant" class="mini" style="opacity:.9"></span></button>
-      <button class="btn sec" onclick="abrirDuplicados()" title="Títulos repetidos: mesmo cliente, mesmo vencimento, mesmo valor">🧾 Títulos duplicados <span id="chipDup" class="mini" style="opacity:.85"></span></button>
-      <button class="btn sec" onclick="abrirDiario()" title="Quem fez o quê nesta empresa, com data e hora">📋 Histórico de alterações</button>
-    </div>
-    <div style="display:flex;align-items:center;gap:14px;flex-wrap:wrap;margin-bottom:18px">
-      <button class="btn ouro" onclick="incluirConta()">➕ Incluir conta a pagar/receber</button>
-      <button class="btn sec" onclick="abrirParcIncompletos()">🧩 Parcelamentos incompletos</button>
-      <button class="btn sec" onclick="corrigirAcentos()" title="Corrige acentos quebrados vindos de importações antigas">🔤 Corrigir acentos</button>
-      <label class="switch"><input type="checkbox" id="autoConcChk" onchange="setAutoConciliar()"><span class="sl"></span></label>
-      <span class="mini"><b>Baixa automática</b> — quando o lançamento real entra, a conta é considerada paga</span>
-    </div>
     <div id="cgNovo">
       <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin:0 0 12px">
+        <button class="btn ouro" onclick="incluirConta()">&#10133; Incluir conta</button>
         <button class="btn sec" onclick="cgLegenda()" title="O que significa cada bolinha">&#9679; Legenda</button>
         <button class="btn sec" onclick="cgColunas()" title="Escolher as colunas da tela">&#9881; Colunas</button>
         <button class="btn sec" id="cgBtnBaixarTodos" onclick="baixarTodos('receita')" title="Dá baixa nos títulos que já têm o pagamento correspondente no extrato">&#10003; Baixar todos os correspondentes</button>
+        <details class="cg-mais"><summary class="btn sec">&#8943; Mais a&ccedil;&otilde;es</summary><div class="cg-pn">
+          <button class="btn sec" onclick="abrirAdiantamentos('cliente')" title="Dinheiro que entrou ou saiu antes da nota — e a compensação com o título">&#128176; Adiantamentos <span id="chipAdiant" class="mini" style="opacity:.9"></span></button>
+          <button class="btn sec" onclick="abrirDuplicados()" title="Títulos repetidos: mesmo cliente, mesmo vencimento, mesmo valor">&#129534; Títulos duplicados <span id="chipDup" class="mini" style="opacity:.85"></span></button>
+          <button class="btn sec" onclick="abrirDiario()" title="Quem fez o quê nesta empresa, com data e hora">&#128203; Histórico de alterações</button>
+          <button class="btn sec" onclick="abrirParcIncompletos()">&#129513; Parcelamentos incompletos</button>
+          <button class="btn sec" onclick="corrigirAcentos()" title="Corrige acentos quebrados vindos de importações antigas">&#128292; Corrigir acentos</button>
+          <label style="display:flex;align-items:center;gap:10px;padding:6px 4px"><span class="switch"><input type="checkbox" id="autoConcChk" onchange="setAutoConciliar()"><span class="sl"></span></span><span class="mini"><b>Baixa autom&aacute;tica</b> &mdash; quando o lan&ccedil;amento real entra, a conta &eacute; considerada paga</span></label>
+        </div></details>
       </div>
       <div class="grid-kpi" id="cgDash" style="grid-template-columns:repeat(4,1fr)"></div>
       <div class="card" style="padding:12px 14px;margin-bottom:14px"><div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:10px">
@@ -1964,7 +1976,7 @@ function _muHora(iso){try{return new Date(iso).toLocaleString('pt-BR');}catch(e)
    controle interno) muda sozinho e nao merece linha no diario. */
 var _MU_CAMPOS=['valor','data','dataVencimento','venc','categoria','banco','cliente','descricao',
  'servico','status','tipo','formaPagto','unidade','conciliado','baixado','baixaRef','baixaDe',
- 'baixaData','estorno','obs','motivoEstorno','adiantSaldo','cartaoId','profId','comFechId','comPerc','comNao','valorOriginal','parcialRecebido','parcialGrupo','parcialDe'];
+ 'baixaData','estorno','obs','motivoEstorno','adiantSaldo','cartaoId','profId','comFechId','comPerc','comNao','valorOriginal','parcialRecebido','parcialGrupo','parcialDe','fitid','absorvidoExtrato','baixaManualDireta'];
 
 function _muAssin(l){var s='';for(var i=0;i<_MU_CAMPOS.length;i++){var v=l[_MU_CAMPOS[i]];s+=(v==null?'':String(v))+'\u0001';}return s;}
 
@@ -3027,6 +3039,7 @@ function irPara(pages,btn){
   if(arr.includes('regras'))renderRegras();
   if(arr.includes('tags'))renderTags();
   if(arr.includes('conciliacao'))renderConciliacao();
+  if(arr.includes('contasresumo'))renderContasResumo();
   if(arr.includes('contas'))renderContas();
   if(arr.includes('profissionais'))renderProfissionais();
   if(arr.includes('comissoes'))renderComissoes();
@@ -3046,7 +3059,7 @@ function abrirAba(pg){const b=[...document.querySelectorAll('.menu-item')].find(
 /* REGRA CONTABIL: titulo (previsto) = data de VENCIMENTO (competencia) · movimento do extrato = data do extrato (caixa).
    Usar dataRef(l) em TODO filtro, agrupamento, ordenacao e comparacao com hoje. Emissao nunca e criterio de periodo. */
 /* ===== VERSAO DO PAINEL — para saber, sem adivinhar, se a tela esta atualizada ===== */
-const APP_VERSAO='2026-11-10.2';
+const APP_VERSAO='2026-11-10.4';
 function _marcaVersao(){try{
  /* versao no CABECALHO, ao lado do status da nuvem — fica visivel sem procurar */
  var bar=document.querySelector('.tb-acoes');var d=document.getElementById('appVersaoTag');
@@ -6709,17 +6722,31 @@ function _fitKey(banco,fitid){
 /* A pr\u00e9via e a grava\u00e7\u00e3o chamam ESTA fun\u00e7\u00e3o. O que voc\u00ea confere na tela \u00e9
    exatamente o que entra \u2014 n\u00e3o existe mais uma regra na tela e outra no gravar. */
 function _conferirExtrato(regs,banco){
- var L=dados().lancamentos||[],estoque={},fits={};
+ var L=dados().lancamentos||[],estoque={},reais={},fits={},man=[];
+ var bkn=semAc(String(banco||'')).toLowerCase().trim();
  L.forEach(function(l){
   if(!l||l.status==='previsto')return;
-  var k=_chaveExt(l.data,l.tipo,l.valor,l.banco);estoque[k]=(estoque[k]||0)+1;
+  var _vb=(l.baixaManualDireta&&l.valorBanco!=null&&!l.absorvidoExtrato)?l.valorBanco:l.valor;
+  var k=_chaveExt(l.data,l.tipo,_vb,l.banco);estoque[k]=(estoque[k]||0)+1;
+  var isMan=!!(l.baixaManualDireta&&!l.absorvidoExtrato);
+  if(isMan){man.push({l:l,k:k,bk:semAc(String(l.banco||'')).toLowerCase().trim(),c:Math.round(Math.abs(+_vb||0)*100),t:new Date(l.data+'T00:00:00').getTime(),usada:false});}
+  else reais[k]=(reais[k]||0)+1;
   var f=_fitKey(l.banco,l.fitid);if(f)fits[f]=true;});
+ var DIA=864e5;
  return (regs||[]).map(function(x){
   var tipo=((+x.v)<0)?'despesa':'receita';
   var f=_fitKey(banco,x.fitid);
   if(f&&fits[f])return {x:x,tipo:tipo,dup:true,motivo:'mesma transa\u00e7\u00e3o do banco j\u00e1 importada'};
   var k=_chaveExt(x.data,tipo,x.v,banco);
-  if(estoque[k]>0){estoque[k]--;return {x:x,tipo:tipo,dup:true,motivo:'mesmo dia, valor e conta j\u00e1 na base'};}
+  if(estoque[k]>0){estoque[k]--;
+   if(reais[k]>0){reais[k]--;return {x:x,tipo:tipo,dup:true,motivo:'mesmo dia, valor e conta j\u00e1 na base'};}
+   var mm=man.find(function(o){return !o.usada&&o.k===k;});
+   if(mm){mm.usada=true;return {x:x,tipo:tipo,dup:true,absorveId:mm.l.id,motivo:'casou com a baixa manual de '+_dtBR(mm.l.data)};}
+   return {x:x,tipo:tipo,dup:true,motivo:'mesmo dia, valor e conta j\u00e1 na base'};}
+  /* baixa manual feita numa data um pouco diferente da do banco: valor igual, mesma conta, ate 3 dias */
+  var c=Math.round(Math.abs(+x.v||0)*100),t0=new Date(x.data+'T00:00:00').getTime(),best=null,bd=1e9;
+  man.forEach(function(o){if(o.usada||o.bk!==bkn||o.c!==c||o.l.tipo!==tipo)return;var d=Math.abs(o.t-t0)/DIA;if(d<=3&&d<bd){bd=d;best=o;}});
+  if(best){best.usada=true;return {x:x,tipo:tipo,dup:true,absorveId:best.l.id,motivo:'casou com a baixa manual de '+_dtBR(best.l.data)};}
   if(f)fits[f]=true;
   return {x:x,tipo:tipo,dup:false,motivo:''};});}
 function _renderPrevRegs(regs,banco,saldoFin){
@@ -6788,12 +6815,18 @@ function confirmarMapaExtrato(){try{var M=window._mapExt;if(!M)return;
 
 /* miolo comum: grava os movimentos, captura saldo, concilia */
 function _gravarExtrato(banco,regs,saldoFin,layoutNovo,arq,nDescartadas){
- var nR=0,nD=0,nDup=0,vR=0,vD=0,vDup=0,nClass=0;var _idsNovos=[];
+ var nR=0,nD=0,nDup=0,vR=0,vD=0,vDup=0,nClass=0,nAbs=0;var _idsNovos=[];
  /* MESMA conferência que a prévia mostrou — uma função só, um resultado só. */
  var _conf=_conferirExtrato((regs||[]).filter(function(x){return x.data&&x.v;}),banco);
  _conf.forEach(function(o){
   var x=o.x;
-  if(o.dup){nDup++;vDup+=Math.abs(+x.v||0);return;}
+  if(o.dup){nDup++;vDup+=Math.abs(+x.v||0);
+   if(o.absorveId){var _mv=(dados().lancamentos||[]).find(function(z){return z.id===o.absorveId;});
+    if(_mv){nAbs++;_mv.absorvidoExtrato=true;if(x.fitid)_mv.fitid=String(x.fitid).trim();_mv.extratoDescricao=corrigeMoji(x.desc||'');
+     _mv.data=x.data;_mv.dataBaixa=x.data;_mv.baixaData=x.data;_mv.conciliadoEm=_mv.conciliadoEm||x.data;
+     (dados().lancamentos||[]).forEach(function(z){if(z.difDe===_mv.id){z.data=x.data;z.dataBaixa=x.data;z.baixaData=x.data;z.dataVencimento=x.data;z.venc=x.data;}
+      if(z.id===_mv.baixaDe||z.baixaRef===_mv.id){z.baixaData=x.data;z.dataBaixa=x.data;}});}}
+   return;}
   var tipo=o.tipo;
   var l={id:id(),data:x.data,descricao:corrigeMoji(x.desc||'')||'-',servico:'',cliente:'',banco:banco,
    categoria:'',tipo:tipo,valor:Math.abs(x.v),status:'realizado',origem:'Extrato bancário',
@@ -6819,6 +6852,7 @@ function _gravarExtrato(banco,regs,saldoFin,layoutNovo,arq,nDescartadas){
  imp.criados=[{rotulo:'Entradas',qtd:nR,valor:vR},{rotulo:'Saídas',qtd:nD,valor:vD}].filter(function(b){return b.qtd;});
  imp.pulados=[];
  if(nDup)imp.pulados.push({rotulo:'Já estavam na base',qtd:nDup,valor:vDup,motivo:'mesma transação do banco, ou mesmo dia, valor e conta — não duplicou'});
+ if(nAbs)imp.pulados.push({rotulo:'Casaram com baixas manuais',qtd:nAbs,valor:0,motivo:'a baixa manual j\u00e1 estava conciliada; o extrato se juntou a ela, sem duplicar'});
  if(nDescartadas)imp.pulados.push({rotulo:'Descartadas por você na conferência',qtd:nDescartadas,valor:0,motivo:'linhas que você marcou para não entrar'});
  if(layoutNovo)imp.obsLayout=true;
  _registrarImportacao(imp);
@@ -7632,7 +7666,7 @@ function _desfazerBaixaNucleo(lid,semPerguntar){
   if(!confirm(txt))return null;}
  var soltos=[];
  if(tit){_soltarTitulo(tit);soltos.push(tit);}
- if(mov){L.forEach(function(p){if(p.status==='previsto'&&p.baixaRef===mov.id&&p!==tit){_soltarTitulo(p);soltos.push(p);}});_soltarMovimento(mov);}
+ if(mov){L.forEach(function(p){if(p.status==='previsto'&&p.baixaRef===mov.id&&p!==tit){_soltarTitulo(p);soltos.push(p);}});_soltarMovimento(mov);L.forEach(function(x){if(x.histBaixas)x.histBaixas=x.histBaixas.filter(function(hh){return hh.mov!==mov.id;});});if(mov.baixaManualDireta&&!mov.absorvidoExtrato){_aplicarExclusao([mov.id]);}}
  soltos.forEach(function(p){_parcReunir(p);});
  saveApp();
  return {titulos:soltos,movimento:mov||null};}
@@ -7880,8 +7914,8 @@ function _baixarContaDireto(pid,keep){const p=dados().lancamentos.find(l=>l.id==
   let matchHtml='';if(m){matchHtml=`<div class="alerta ok" style="margin:8px 0"><span>✅</span><div>Encontrei no extrato: <b>${moeda(m.valor)}</b>${m.data?' em '+new Date(m.data+'T00:00:00').toLocaleDateString('pt-BR'):''}${m.banco?' · '+m.banco:''}. <button class="btn peq" onclick="confirmarBaixaMatch()" style="margin-left:6px">Vincular a este</button></div></div>`;}
   var _mbx=document.getElementById('modalConteudo').closest('.modal');if(_mbx)_mbx.style.maxWidth='720px';
   var _av=Math.abs(+p.valor||0);var _cands=dados().lancamentos.filter(function(x){return x.status!=='previsto'&&x.tipo===p.tipo&&!x.baixaDe&&x.data&&x.id!==p.id;});_cands.forEach(function(x){x.__mv=Math.abs(Math.abs(+x.valor||0)-_av)<0.005;});_cands.sort(function(a,b){if(a.__mv!==b.__mv)return a.__mv?-1:1;return (b.data||'').localeCompare(a.data||'');});var _sel=window._baixaSel||new Set();var _soma=0;_sel.forEach(function(mid){var mm=dados().lancamentos.find(function(x){return x.id===mid;});if(mm)_soma+=Math.abs(+mm.valor||0);});var _dif=Math.round((_av-_soma)*100)/100;var _okv=Math.abs(_dif)<0.005&&_sel.size>0;
-  var _mrows=_cands.slice(0,60).map(function(x){var mk=_sel.has(x.id);return '<div onclick="bxTogMov(\''+x.id+'\')" style="cursor:pointer;display:flex;align-items:center;gap:9px;padding:8px 10px;border:1px solid '+(mk?'#C79A3B':'#EDE6D8')+';border-radius:9px;margin-bottom:6px;background:'+(mk?'#FBF3DE':'#fff')+'"><span style="font-size:16px">'+(mk?'&#9745;':'&#11036;')+'</span><div style="flex:1;min-width:0"><div style="font-size:12.5px;font-weight:600">'+(x.__mv?'<span style="color:#2f7d5b;font-weight:700;font-size:10.5px">&#10003; mesmo valor </span>':'')+esc((x.descricao||x.cliente||'-').slice(0,34))+'</div><div class=mini>'+(x.data?new Date(x.data+'T00:00:00').toLocaleDateString('pt-BR'):'-')+(x.banco?' &middot; '+esc(x.banco):'')+'</div></div><b style="font-size:12.5px;white-space:nowrap">'+moeda(x.valor)+'</b></div>';}).join('')||'<div class=mini style="padding:6px 0">Nenhum movimento sem v&iacute;nculo no banco. Use a baixa manual abaixo.</div>';
-  var movsHtml='<div class="fg-sec" style="margin-top:8px">Amarrar a um movimento do banco (sem v&iacute;nculo)</div><div class="mini" style="margin-bottom:6px">Selecione o(s) recebimento(s) do extrato que quitam este t&iacute;tulo. A baixa &eacute; autom&aacute;tica ao vincular.</div>'+_mrows+'<div style="background:#FAF7F0;border:1px solid #EDE6D8;border-radius:9px;padding:9px 11px;margin:8px 0"><div style="display:flex;justify-content:space-between;font-size:13px"><span class=mini>Selecionado</span><b>'+moeda(_soma)+'</b></div><div style="display:flex;justify-content:space-between;font-size:13px"><span class=mini>T&iacute;tulo</span><b>'+moeda(_av)+'</b></div><div style="display:flex;justify-content:space-between;border-top:1px solid #EDE6D8;margin-top:4px;padding-top:5px;font-weight:800"><span>Diferen&ccedil;a</span><b style="color:'+(Math.abs(_dif)<0.005?'#2f7d5b':'#b04a3a')+'">'+moeda(_dif)+'</b></div></div><button class="btn'+(_okv?'':' sec')+'" '+(_okv?'':'disabled')+' onclick="bxVincularSel()">&#128279; Vincular e dar baixa ('+_sel.size+')</button>'+((_sel.size&&_soma>0.004&&_soma<_av-0.004)?'<div style="margin-top:8px;background:#FFF9EC;border:1px solid #E9D9A9;border-radius:9px;padding:9px 11px;font-size:12.5px;color:#7a6320;line-height:1.5">O cliente pagou s&oacute; uma parte? Recebido <b>'+moeda(_soma)+'</b>, saldo <b>'+moeda(_dif)+'</b> continua em aberto.<br><button class="btn" style="margin-top:7px;background:#7a6320;color:#fff" onclick="bxBaixaParcial()">Baixa parcial: receber '+moeda(_soma)+' e manter saldo</button></div>':'');
+  var _mrows=_cands.slice(0,60).map(function(x){var mk=_sel.has(x.id);return '<div onclick="bxTogMov(\''+x.id+'\')" style="cursor:pointer;display:flex;align-items:center;gap:9px;padding:8px 10px;border:1px solid '+(mk?'#C79A3B':'#EDE6D8')+';border-radius:9px;margin-bottom:6px;background:'+(mk?'#FBF3DE':'#fff')+'"><span style="font-size:16px">'+(mk?'&#9745;':'&#11036;')+'</span><div style="flex:1;min-width:0"><div style="font-size:12.5px;font-weight:600">'+(x.__mv?'<span style="color:#2f7d5b;font-weight:700;font-size:10.5px">&#10003; mesmo valor </span>':'')+esc((x.descricao||x.cliente||'-').slice(0,34))+'</div><div class=mini>'+(x.data?new Date(x.data+'T00:00:00').toLocaleDateString('pt-BR'):'-')+(x.banco?' &middot; '+esc(x.banco):'')+'</div></div><b style="font-size:12.5px;white-space:nowrap">'+moeda(x.valor)+'</b></div>';}).join('')||'<div class=mini style="padding:6px 0">Nenhum movimento sem v&iacute;nculo no banco. Use o formul&aacute;rio de baixa acima.</div>';
+  var movsHtml='<div class="fg-sec" style="margin-top:16px">J&aacute; caiu no extrato? Amarre a um movimento do banco</div><div class="mini" style="margin-bottom:6px">Se o dinheiro j&aacute; est&aacute; no extrato importado, selecione o movimento: a baixa &eacute; autom&aacute;tica ao vincular.</div>'+_mrows+'<div style="background:#FAF7F0;border:1px solid #EDE6D8;border-radius:9px;padding:9px 11px;margin:8px 0"><div style="display:flex;justify-content:space-between;font-size:13px"><span class=mini>Selecionado</span><b>'+moeda(_soma)+'</b></div><div style="display:flex;justify-content:space-between;font-size:13px"><span class=mini>T&iacute;tulo</span><b>'+moeda(_av)+'</b></div><div style="display:flex;justify-content:space-between;border-top:1px solid #EDE6D8;margin-top:4px;padding-top:5px;font-weight:800"><span>Diferen&ccedil;a</span><b style="color:'+(Math.abs(_dif)<0.005?'#2f7d5b':'#b04a3a')+'">'+moeda(_dif)+'</b></div></div><button class="btn'+(_okv?'':' sec')+'" '+(_okv?'':'disabled')+' onclick="bxVincularSel()">&#128279; Vincular e dar baixa ('+_sel.size+')</button>';
   document.getElementById('modalConteudo').innerHTML=`<h3>Dar baixa — ${esc(p.descricao||p.cliente||'')}</h3>
   <div class="bx-titulo">
     <div class="bxt-lin"><span>Valor${p.valorOriginal!=null?' (saldo)':''}</span><b>${moeda(p.valor)}</b></div>
@@ -7892,10 +7926,106 @@ function _baixarContaDireto(pid,keep){const p=dados().lancamentos.find(l=>l.id==
   </div>
   <div class="mini" style="margin:9px 0">Dar baixa = marcar como ${eRec?'recebido':'pago'}. A conta sai de "${eRec?'a receber':'a pagar'}" e passa a contar como ${eRec?'entrada realizada':'saída realizada'} <b>no mês da data de baixa</b>. Emissão e vencimento continuam guardados.</div>
   ${matchHtml}
+  ${_bxFormHtml(p,eRec,bs,hoje)}
   ${movsHtml}
-  <div class="cap" style="margin:14px 0 6px">Não encontrou o movimento acima? Importe o extrato/relatório do banco e volte aqui para amarrar. A baixa é sempre pelo movimento que caiu — sem baixa manual "solta".</div>
   <div class="modal-acoes"><button class="btn sec" onclick="fecharModal()">Fechar</button></div>`;
-  document.getElementById('modalBg').classList.add('show');}
+  document.getElementById('modalBg').classList.add('show');try{bxManualCalc();}catch(e){}}
+
+/* ===== Tela de baixa (receber / pagar) — a baixa manual ja nasce CONCILIADA =====
+   Valor recebido R, juros/multa A, desconto D.  Parte que quita o titulo P = R - A + D.
+   Saldo = saldo do titulo + A - D - R.  Saldo 0 quita; saldo > 0 vira baixa parcial.
+   Cria um movimento do banco (origem "Baixa manual") ja conciliado, com o valor P;
+   juros e desconto viram lancamentos proprios na data da baixa. Quando o extrato
+   chegar, a linha correspondente e ABSORVIDA por este movimento (sem duplicar). */
+function _bxNum(id){var e=document.getElementById(id);return e?Math.round(parseValor(e.value)*100)/100:0;}
+function _bxFmt(v){return (Math.round((+v||0)*100)/100).toFixed(2).replace('.',',');}
+function _bxFormHtml(p,eRec,bs,hoje){
+ var F=(window._bxF&&window._bxF.id===p.id)?window._bxF:{};
+ var T=Math.round(Math.abs(+p.valor||0)*100)/100;
+ var orig=(p.valorOriginal!=null)?p.valorOriginal:T;
+ var bkPad=F.banco!=null?F.banco:(p.banco||(/dinheiro|esp[eé]cie/i.test(String(p.formaPagto||''))?contaCaixa():''));
+ var bopts='<option value="">— escolha o banco —</option>'+bs.map(function(b){return '<option value="'+esc(b.nome)+'" data-ag="'+esc(b.agencia||'')+'" data-cc="'+esc(b.conta||'')+'"'+(bkPad===b.nome?' selected':'')+'>'+esc(b.nome)+'</option>';}).join('');
+ var verbo=eRec?'recebimento':'pagamento',vp=eRec?'recebido':'pago';
+ var hist=(p.histBaixas||[]).map(function(x){return '<div class=mini style="padding:3px 0;border-bottom:1px dashed #EDE6D8">'+_dtBR(x.dataBaixa)+' &middot; '+moeda(x.valor)+(x.juros?' &middot; juros '+moeda(x.juros):'')+(x.desconto?' &middot; desc. '+moeda(x.desconto)+'':'')+' &middot; '+esc(x.banco||'')+' &middot; por '+esc(x.por||'—')+(x.motivo?' &middot; '+esc(x.motivo):'')+'</div>';}).join('');
+ return '<div class="fg-sec" style="margin-top:10px">Baixa — '+verbo+'</div>'
+ +'<div class="mini" style="margin-bottom:6px">Ao confirmar, a baixa j&aacute; entra <b>conciliada</b> no banco escolhido. Quando o extrato chegar, a linha correspondente se junta a ela, sem duplicar.</div>'
+ +'<div style="display:grid;grid-template-columns:repeat(6,1fr);gap:8px">'
+ +'<div style="grid-column:span 3"><label>Banco / conta</label><select id="bxBanco" onchange="bxManualCalc()">'+bopts+'</select><div class=mini id="bxAgCc" style="margin-top:2px"></div></div>'
+ +'<div style="grid-column:span 3"><label>Data do '+verbo+'</label><input type="date" id="bxData" value="'+(F.data||hoje)+'" onchange="bxManualCalc()"></div>'
+ +'<div style="grid-column:span 2"><label>Valor original</label><input readonly value="'+moeda(orig)+'"></div>'
+ +'<div style="grid-column:span 2"><label>J&aacute; '+vp+' (parciais)</label><input readonly value="'+moeda(p.parcialRecebido||0)+'"></div>'
+ +'<div style="grid-column:span 2"><label>Saldo atual do t&iacute;tulo</label><input readonly value="'+moeda(T)+'"></div>'
+ +'<div style="grid-column:span 2"><label>Juros / multa (+)</label><input id="bxAcr" inputmode="decimal" placeholder="0,00" value="'+esc(F.acr||'')+'" oninput="bxManualCalc()"></div>'
+ +'<div style="grid-column:span 2"><label>Desconto (&minus;)</label><input id="bxDesc" inputmode="decimal" placeholder="0,00" value="'+esc(F.desc||'')+'" oninput="bxManualCalc()"></div>'
+ +'<div style="grid-column:span 2"><label>Valor '+vp+'</label><input id="bxRec" inputmode="decimal" value="'+esc(F.rec!=null?F.rec:_bxFmt(T))+'" oninput="bxManualCalc()"></div>'
+ +'<div style="grid-column:span 6"><label>Motivo / hist&oacute;rico da baixa</label><input id="bxMot" maxlength="140" placeholder="Ex.: cliente pagou com atraso, juros combinados" value="'+esc(F.mot||'')+'" oninput="bxManualCalc()"></div>'
+ +'</div>'
+ +'<div id="bxResumo" style="margin:8px 0"></div>'
+ +'<button class="btn" id="bxBtn" onclick="bxManualConfirmar()">&#9989; Confirmar baixa</button>'
+ +(hist?'<div class="fg-sec" style="margin-top:12px">Hist&oacute;rico das baixas deste t&iacute;tulo</div>'+hist:'')
+ +'';}
+function bxManualCalc(){
+ var L=dados().lancamentos||[];var p=L.find(function(x){return x.id===window._baixaId;});if(!p)return null;
+ var T=Math.round(Math.abs(+p.valor||0)*100)/100;
+ var A=Math.max(0,_bxNum('bxAcr')),D=Math.max(0,_bxNum('bxDesc')),R=Math.max(0,_bxNum('bxRec'));
+ var P=Math.round((R-A+D)*100)/100,saldo=Math.round((T-P)*100)/100;
+ var bs=document.getElementById('bxBanco');var op=bs&&bs.options[bs.selectedIndex];
+ var ag=op?(op.getAttribute('data-ag')||''):'',cc=op?(op.getAttribute('data-cc')||''):'';
+ var e=document.getElementById('bxAgCc');if(e)e.textContent=(bs&&bs.value)?('Ag. '+(ag||'—')+' · Conta '+(cc||'—')):'';
+ window._bxF={id:p.id,banco:bs?bs.value:'',data:(document.getElementById('bxData')||{}).value,acr:(document.getElementById('bxAcr')||{}).value,desc:(document.getElementById('bxDesc')||{}).value,rec:(document.getElementById('bxRec')||{}).value,mot:(document.getElementById('bxMot')||{}).value};
+ var eRec=p.tipo==='receita';var r=document.getElementById('bxResumo');
+ if(r){var cor=saldo<-0.004?'#b04a3a':(saldo>0.004?'#7a6320':'#2f7d5b');
+  var msg=saldo<-0.004?'O valor informado passa do saldo do t&iacute;tulo. Lance a diferen&ccedil;a em <b>Juros / multa</b>.'
+   :(saldo>0.004?'<span style="background:#FFF3D1;border:1px solid #E9D9A9;border-radius:99px;padding:2px 9px;font-weight:700">Baixa parcial &middot; t&iacute;tulo com saldo</span> &mdash; o saldo de <b>'+moeda(saldo)+'</b> continua em aberto, no mesmo vencimento.'
+   :'<span style="background:#E3F3EA;border:1px solid #BFE0CC;border-radius:99px;padding:2px 9px;font-weight:700;color:#2f7d5b">Quita o t&iacute;tulo</span>');
+  r.innerHTML='<div style="background:#FAF7F0;border:1px solid #EDE6D8;border-radius:9px;padding:9px 11px;font-size:13px">'
+   +'<div style="display:flex;justify-content:space-between"><span class=mini>Saldo atual</span><b>'+moeda(T)+'</b></div>'
+   +'<div style="display:flex;justify-content:space-between"><span class=mini>+ Juros / multa</span><b>'+moeda(A)+'</b></div>'
+   +'<div style="display:flex;justify-content:space-between"><span class=mini>&minus; Desconto</span><b>'+moeda(D)+'</b></div>'
+   +'<div style="display:flex;justify-content:space-between"><span class=mini>&minus; Valor '+(eRec?'recebido':'pago')+'</span><b>'+moeda(R)+'</b></div>'
+   +'<div style="display:flex;justify-content:space-between;border-top:1px solid #EDE6D8;margin-top:4px;padding-top:5px;font-weight:800"><span>Saldo</span><b style="color:'+cor+'">'+moeda(saldo)+'</b></div>'
+   +'<div style="margin-top:6px;font-size:12.5px;color:'+cor+'">'+msg+'</div></div>';}
+ return {p:p,T:T,A:A,D:D,R:R,P:P,saldo:saldo};}
+function _bxCriarManual(t,banco,data,P,A,D,motivo,R,saldoApos,parcial){
+ var L=dados().lancamentos;var hoje=new Date().toISOString().slice(0,10);
+ var bk=(dados().bancos||[]).find(function(b){return b.nome===banco;})||{};
+ var por=usuariaAtivaNome();
+ var m={id:id(),data:data,dataEmissao:data,dataVencimento:(t.dataVencimento||t.venc||t.data||data),venc:(t.dataVencimento||t.venc||t.data||data),
+  descricao:'Baixa manual — '+String(t.descricao||t.servico||t.cliente||'').replace(/\s*\(recebimento parcial\)\s*$/i,''),servico:t.servico||'',cliente:t.cliente||'',
+  banco:banco,agencia:bk.agencia||'',contaBanco:bk.conta||'',categoria:t.categoria||'A classificar',tipo:t.tipo,valor:P,status:'realizado',origem:'Baixa manual',
+  baixadoManual:true,baixaManualDireta:true,valorBanco:R,formaPagto:t.formaPagto||'',unidade:(bancoUnidade(banco)||t.unidade||''),usuario:por,
+  dataBaixa:data,baixaData:data,conciliado:true,conciliadoEm:hoje,baixaDe:t.id,motivoBaixa:motivo||''};
+ L.push(m);
+ t.baixado=true;t.baixaData=data;t.dataBaixa=data;t.baixaRef=m.id;t.baixaAuto='manual';
+ if(t.tagConcil){t.tagConcilAnt=t.tagConcil;t.tagConcil='';}
+ var mk=function(v,rot,sinal){var dd=difCatDiferenca(t.tipo,sinal*v);
+  L.push({id:id(),data:data,dataEmissao:data,dataVencimento:data,venc:data,dataBaixa:data,baixaData:data,cliente:t.cliente||'',descricao:rot+' — '+(t.cliente||t.descricao||''),servico:dd.cat,
+   banco:banco,unidade:m.unidade,categoria:dd.cat,tipo:dd.tipo,valor:v,status:'realizado',conciliado:true,conciliadoEm:hoje,origem:'Diferença de conciliação',difDe:m.id,usuario:por});};
+ if(A>0.004)mk(A,'Juros / multa',1);
+ if(D>0.004)mk(D,'Desconto',-1);
+ return {mov:m,hist:{dataBaixa:data,quando:hoje,por:por,valor:R,juros:A,desconto:D,banco:banco,motivo:motivo||'',mov:m.id,parcial:!!parcial,saldoApos:saldoApos}};}
+function bxManualConfirmar(){
+ var c=bxManualCalc();if(!c)return;var t=c.p;var L=dados().lancamentos||[];
+ var banco=(document.getElementById('bxBanco')||{}).value||'';var data=(document.getElementById('bxData')||{}).value||'';
+ var mot=((document.getElementById('bxMot')||{}).value||'').trim();
+ if(t.baixado||t.baixaRef){alert('Este título já está baixado.');return;}
+ if(!banco){alert('Escolha o banco/conta da baixa.');return;}
+ if(!data){alert('Informe a data da baixa.');return;}
+ if(!(c.R>0.004||c.D>0.004)||!(c.P>0.004)){alert('Informe o valor '+(t.tipo==='receita'?'recebido':'pago')+'.');return;}
+ if(c.saldo<-0.004){alert('O valor informado passa do saldo do título ('+moeda(c.T)+').\n\nLance a diferença em Juros / multa.');return;}
+ var parcial=c.saldo>0.004;
+ if(parcial&&t.comFechId){alert('Este título já entrou em um fechamento de comissão. Cancele o fechamento antes de fazer baixa parcial.');return;}
+ var txt='Confirmar a baixa?\n\n'+(t.tipo==='receita'?'Recebido: ':'Pago: ')+moeda(c.R)+' em '+_dtBR(data)+' no banco '+banco+(c.A>0.004?'\nJuros/multa: '+moeda(c.A):'')+(c.D>0.004?'\nDesconto: '+moeda(c.D):'')+'\n\n'+(parcial?'BAIXA PARCIAL: o saldo de '+moeda(c.saldo)+' continua em aberto.':'O título fica quitado.')+'\n\nA baixa entra conciliada. Dá para desfazer depois.';
+ if(!confirm(txt))return;
+ var alvo=t,orig=t;
+ if(parcial){alvo=_parcSplit(t,c.P);}
+ var r=_bxCriarManual(alvo,banco,data,c.P,c.A,c.D,mot,c.R,c.saldo,parcial);
+ alvo.histBaixas=(alvo.histBaixas||[]).concat([r.hist]);
+ if(parcial){orig.histBaixas=(orig.histBaixas||[]).concat([r.hist]);}
+ window._bxF=null;window._baixaSel=new Set();saveApp();
+ try{fecharModal();}catch(e){}
+ try{render();}catch(e){}
+ try{if(typeof renderContas==='function')renderContas();}catch(e){}}
 function bxTogMov(mid){if(!window._baixaSel)window._baixaSel=new Set();if(window._baixaSel.has(mid))window._baixaSel.delete(mid);else window._baixaSel.add(mid);baixarConta(window._baixaId,true);}
 function bxVincularSel(){var p=dados().lancamentos.find(function(l){return l.id===window._baixaId;});if(!p)return;var sel=window._baixaSel||new Set();if(!sel.size){alert('Selecione ao menos um movimento do banco.');return;}var soma=0;sel.forEach(function(mid){var mm=dados().lancamentos.find(function(x){return x.id===mid;});if(mm)soma+=Math.abs(+mm.valor||0);});var dif=Math.round((Math.abs(+p.valor||0)-soma)*100)/100;if(Math.abs(dif)>=0.005){alert('A soma dos movimentos nao bate com o titulo.\n\nTitulo: '+moeda(Math.abs(p.valor))+'\nSelecionado: '+moeda(soma)+'\nDiferenca: '+moeda(dif)+'\n\nRevise a selecao.');return;}var ids=Array.from(sel);ids.forEach(function(mid){var m=dados().lancamentos.find(function(x){return x.id===mid;});if(m){m.baixaDe=p.id;m.conciliado=true;if(m.tagConcil){m.tagConcilAnt=m.tagConcil;m.tagConcil='';}_herdaDoTitulo(m,p);if(!m.formaPagto&&p.formaPagto)m.formaPagto=p.formaPagto;}});var prim=dados().lancamentos.find(function(x){return x.id===ids[0];});p.baixado=true;p.baixaData=(prim&&prim.data)||new Date().toISOString().slice(0,10);p.baixaRef=ids[0];if(p.tagConcil){p.tagConcilAnt=p.tagConcil;p.tagConcil='';}window._baixaSel=new Set();saveApp();fecharModal();render();if(typeof renderContas==='function')renderContas();}
 function confirmarBaixaMatch(){const p=dados().lancamentos.find(l=>l.id===window._baixaId);if(!p)return;const m=acharMatch(p);if(m){p.baixado=true;p.baixaData=(m.data||new Date().toISOString().slice(0,10));p.baixaRef=m.id;m.baixaDe=p.id;_herdaDoTitulo(m,p);if(!m.formaPagto&&p.formaPagto)m.formaPagto=p.formaPagto;}saveApp();fecharModal();render();renderContas();}
@@ -8404,6 +8534,50 @@ function comExcel(){
   }catch(e){alert('Não consegui exportar: '+e.message);}}
 
 // ---------------------------------------------------------- MENU: receber x pagar
+
+/* ===== Resumo de contas a pagar e a receber ===== */
+window._cgR={per:'mes'};
+function cgrPer(p){window._cgR.per=p;renderContasResumo();}
+function renderContasResumo(){
+ var el=document.getElementById('crBody');if(!el)return;
+ var F=window._cgR||(window._cgR={per:'mes'});
+ var h0=new Date(),iso=function(d){return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');};
+ var y=h0.getFullYear(),mo=h0.getMonth(),hoje=iso(h0),ini='',fim='';
+ if(F.per==='mes'){ini=iso(new Date(y,mo,1));fim=iso(new Date(y,mo+1,0));}
+ else if(F.per==='ant'){ini=iso(new Date(y,mo-1,1));fim=iso(new Date(y,mo,0));}
+ else if(F.per==='30'){ini=hoje;fim=iso(new Date(y,mo,h0.getDate()+30));}
+ var fd=function(d){return d?new Date(d+'T00:00:00').toLocaleDateString('pt-BR'):'';};
+ var pt=document.getElementById('crPerTxt');if(pt)pt.textContent=ini?('Período: '+fd(ini)+' a '+fd(fim)):'Período: todos';
+ var sum=function(a,k){return a.reduce(function(s,r){return s+(+r[k]||0);},0);};
+ var lado=function(m){
+  var rows=_cgLinhas(m).filter(function(r){return _cgNoPeriodo(r,{ini:ini,fim:fim});});
+  var ab=rows.filter(function(r){return r.sit==='aberto'||r.sit==='vencido'||r.sit==='saldo';});
+  var vc=ab.filter(function(r){return r.venc&&r.venc<hoje;});
+  var cs=rows.filter(function(r){return r.sit==='saldo';});
+  var bx=rows.filter(function(r){return r.sit==='baixado';});
+  return {ab:sum(ab,'saldo'),nab:ab.length,vc:sum(vc,'saldo'),nvc:vc.length,cs:sum(cs,'saldo'),ncs:cs.length,bx:sum(bx,'rec'),nbx:bx.length};};
+ var R=lado('rec'),P=lado('pag');
+ var card=function(cls,rot,val,nota){return '<div class="kpi '+cls+'"><div class="rotulo">'+rot+'</div><div class="valor">'+moeda(val)+'</div><div class="nota">'+nota+'</div></div>';};
+ var bloco=function(tit,rec,X,btn){return '<div class="card" style="margin-bottom:14px"><div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px"><h2 style="margin:0">'+tit+'</h2><button class="btn sec peq" onclick="'+btn+'">Abrir</button></div><div class="grid-kpi" style="grid-template-columns:repeat(4,1fr)">'
+  +card(rec?'r':'d',(rec?'A receber':'A pagar')+' (em aberto)',X.ab,X.nab+' título(s)')
+  +card('d','Vencidos',X.vc,X.nvc+' título(s) em atraso')
+  +card('l','Com saldo (baixa parcial)',X.cs,X.ncs+' título(s)')
+  +card(rec?'r':'d',(rec?'Recebidos':'Pagos')+' no período',X.bx,X.nbx+' título(s) baixado(s)')+'</div></div>';};
+ /* vencimentos por mês: o que ainda esta em aberto, mes a mes */
+ var ab=function(m){return _cgLinhas(m).filter(function(r){return r.sit==='aberto'||r.sit==='vencido'||r.sit==='saldo';});};
+ var AR=ab('rec'),AP=ab('pag'),mes0=iso(new Date(y,mo,1)).slice(0,7);
+ var linhas='';
+ var atR=AR.filter(function(r){return (r.venc||'').slice(0,7)<mes0;}),atP=AP.filter(function(r){return (r.venc||'').slice(0,7)<mes0;});
+ var tr=function(rot,a,b,dest){var s=a-b;return '<tr'+(dest?' style="background:#FBF3DE"':'')+'><td>'+rot+'</td><td style="text-align:right">'+moeda(a)+'</td><td style="text-align:right">'+moeda(b)+'</td><td style="text-align:right;font-weight:700;color:'+(s<0?'#b04a3a':'#2f7d5b')+'">'+moeda(s)+'</td></tr>';};
+ if(atR.length||atP.length)linhas+=tr('Vencidos de meses anteriores',sum(atR,'saldo'),sum(atP,'saldo'),true);
+ var nomes=['jan','fev','mar','abr','mai','jun','jul','ago','set','out','nov','dez'];
+ for(var i=0;i<6;i++){var d=new Date(y,mo+i,1),k=iso(d).slice(0,7);
+  var a=AR.filter(function(r){return (r.venc||'').slice(0,7)===k;}),b=AP.filter(function(r){return (r.venc||'').slice(0,7)===k;});
+  linhas+=tr(nomes[d.getMonth()]+'/'+d.getFullYear(),sum(a,'saldo'),sum(b,'saldo'),false);}
+ var depois=function(L){return L.filter(function(r){return (r.venc||'').slice(0,7)>iso(new Date(y,mo+5,1)).slice(0,7);});};
+ var dR=depois(AR),dP=depois(AP);if(dR.length||dP.length)linhas+=tr('Depois disso',sum(dR,'saldo'),sum(dP,'saldo'),false);
+ el.innerHTML=bloco('Contas a receber',true,R,"irContas('rec',null)")+bloco('Contas a pagar',false,P,"irContas('pag',null)")
+  +'<div class="card"><h2 style="margin:0 0 4px">Em aberto por m&ecirc;s de vencimento</h2><div class="mini" style="margin-bottom:8px">O que ainda falta receber e pagar, m&ecirc;s a m&ecirc;s. N&atilde;o depende do per&iacute;odo escolhido acima.</div><table style="width:100%;border-collapse:collapse;font-size:13px"><thead><tr><th style="text-align:left">Vencimento</th><th style="text-align:right">A receber</th><th style="text-align:right">A pagar</th><th style="text-align:right">Saldo previsto</th></tr></thead><tbody>'+linhas+'</tbody></table></div>';}
 function irContas(est,btn){
   var s=document.getElementById('fcEstado');if(s)s.value=(est==='rec'?'recT':(est==='pag'?'pagT':''));
   var tt=document.getElementById('contasTitulo'),eb=document.getElementById('contasEyebrow');
