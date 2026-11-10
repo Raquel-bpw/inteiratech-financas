@@ -162,6 +162,8 @@
   .pill{font-size:11px;font-weight:700;padding:3px 11px;border-radius:30px;display:inline-block;}
   .pill.rec{background:var(--verde-bg);color:var(--verde);} .pill.desp{background:var(--rubro-bg);color:var(--rubro);}
   .pill.ok{background:var(--verde-bg);color:var(--verde);} .pill.warn{background:var(--ouro-claro);color:var(--ouro);} .pill.bad{background:var(--rubro-bg);color:var(--rubro);}
+  .cg-dot{width:12px;height:12px;border-radius:50%;display:inline-block;vertical-align:middle;box-shadow:inset 0 -2px 3px rgba(0,0,0,.28),inset 0 2px 2px rgba(255,255,255,.5),0 0 0 1px rgba(0,0,0,.12);}
+  .cg-tab td{padding-top:7px;padding-bottom:7px;} .cg-tab th{position:sticky;top:0;background:#FAF7F0;}
 
   .filtros{display:grid;grid-template-columns:repeat(6,1fr);gap:10px;margin-bottom:18px;}
   .lanc-resumo{background:var(--ouro-claro);border-radius:11px;padding:9px 16px;margin-bottom:10px;font-size:13px;font-weight:600;color:var(--tinta);display:flex;gap:22px;flex-wrap:wrap;align-items:center;}
@@ -611,7 +613,6 @@ body.so-leitura input[type=file]{display:none}
     <div class="eyebrow">Financeiro</div>
     <div class="titulo-pg">Conferência de <em>bancos</em></div>
     <div class="sub-pg">Saldo por conta, conferência de fechamento e o extrato completo — use o filtro de período no topo.</div>
-    <div style="display:flex;gap:14px;flex-wrap:wrap;align-items:center;background:#FAF7F0;border:1px solid #EDE6D8;border-radius:9px;padding:8px 12px;font-size:11.5px;margin:0 0 12px"><b>Situação:</b><span style="display:inline-flex;align-items:center;gap:5px"><span style="width:10px;height:10px;border-radius:50%;background:#16447a;display:inline-block"></span>Confirmado (falta conciliar)</span><span style="display:inline-flex;align-items:center;gap:5px"><span style="width:10px;height:10px;border-radius:50%;background:#2f7d5b;display:inline-block"></span>Conciliado</span><span style="display:inline-flex;align-items:center;gap:5px"><span style="background:#F3E7C8;color:#8a6d1f;border:1px solid #E4CE8F;border-radius:20px;padding:1px 8px;font-size:10px;font-weight:600">🏷️ etiqueta</span>= pendência a resolver</span></div>
     <div id="fluxoSaldoBanco"></div>
     <div id="fluxoConferencia"></div>
     <div class="card" id="pendConcilCard">
@@ -680,13 +681,12 @@ body.so-leitura input[type=file]{display:none}
   <section class="pagina" id="pg-contas">
     <div class="eyebrow" id="contasEyebrow">Financeiro</div>
     <div class="titulo-pg" id="contasTitulo">Contas a pagar e a <em>receber</em></div>
-    <div class="sub-pg">Tudo o que está em aberto (previsto). Quando o lançamento real correspondente entra, o painel dá baixa sozinho — sem duplicar. Você também pode incluir uma conta manualmente.</div>
+    <div class="sub-pg" id="contasSub">Títulos em aberto, vencidos, com saldo e já baixados. A baixa vem, na maioria das vezes, da conciliação com o extrato; a baixa manual é para as diferenças. Clique na bolinha <b>Legenda</b> para ver o significado de cada cor.</div>
     <div style="display:flex;gap:10px;flex-wrap:wrap;margin:0 0 14px">
       <button class="btn ouro" onclick="abrirAdiantamentos('cliente')" title="Dinheiro que entrou ou saiu antes da nota — e a compensação com o título">💰 Adiantamentos <span id="chipAdiant" class="mini" style="opacity:.9"></span></button>
       <button class="btn sec" onclick="abrirDuplicados()" title="Títulos repetidos: mesmo cliente, mesmo vencimento, mesmo valor">🧾 Títulos duplicados <span id="chipDup" class="mini" style="opacity:.85"></span></button>
       <button class="btn sec" onclick="abrirDiario()" title="Quem fez o quê nesta empresa, com data e hora">📋 Histórico de alterações</button>
     </div>
-    <div style="display:flex;gap:14px;flex-wrap:wrap;align-items:center;background:#FAF7F0;border:1px solid #EDE6D8;border-radius:9px;padding:8px 12px;font-size:11.5px;margin:0 0 12px"><b>Situação:</b><span style="display:inline-flex;align-items:center;gap:5px"><span style="width:10px;height:10px;border-radius:50%;background:#16447a;display:inline-block"></span>Confirmado (falta conciliar)</span><span style="display:inline-flex;align-items:center;gap:5px"><span style="width:10px;height:10px;border-radius:50%;background:#2f7d5b;display:inline-block"></span>Conciliado</span><span style="display:inline-flex;align-items:center;gap:5px"><span style="background:#F3E7C8;color:#8a6d1f;border:1px solid #E4CE8F;border-radius:20px;padding:1px 8px;font-size:10px;font-weight:600">🏷️ etiqueta</span>= pendência a resolver</span></div>
     <div style="display:flex;align-items:center;gap:14px;flex-wrap:wrap;margin-bottom:18px">
       <button class="btn ouro" onclick="incluirConta()">➕ Incluir conta a pagar/receber</button>
       <button class="btn sec" onclick="abrirParcIncompletos()">🧩 Parcelamentos incompletos</button>
@@ -694,6 +694,29 @@ body.so-leitura input[type=file]{display:none}
       <label class="switch"><input type="checkbox" id="autoConcChk" onchange="setAutoConciliar()"><span class="sl"></span></label>
       <span class="mini"><b>Baixa automática</b> — quando o lançamento real entra, a conta é considerada paga</span>
     </div>
+    <div id="cgNovo">
+      <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin:0 0 12px">
+        <button class="btn sec" onclick="cgLegenda()" title="O que significa cada bolinha">&#9679; Legenda</button>
+        <button class="btn sec" onclick="cgColunas()" title="Escolher as colunas da tela">&#9881; Colunas</button>
+        <button class="btn sec" id="cgBtnBaixarTodos" onclick="baixarTodos('receita')" title="Dá baixa nos títulos que já têm o pagamento correspondente no extrato">&#10003; Baixar todos os correspondentes</button>
+      </div>
+      <div class="grid-kpi" id="cgDash" style="grid-template-columns:repeat(4,1fr)"></div>
+      <div class="card" style="padding:12px 14px;margin-bottom:14px"><div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:10px">
+        <span class="mini"><b>Período:</b></span>
+        <button class="btn sec peq" onclick="cgPeriodo('mes')">Este mês</button><button class="btn sec peq" onclick="cgPeriodo('ant')">Mês passado</button><button class="btn sec peq" onclick="cgPeriodo('30')">Próximos 30 dias</button><button class="btn sec peq" onclick="cgPeriodo('tudo')">Tudo</button>
+        <span class="mini" style="margin-left:6px">Em aberto vale pelo vencimento; baixados, pela data da baixa.</span></div>
+        <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end">
+        <div><label class="mini">De</label><br><input type="date" id="cgIni" onchange="renderContasGrid()"></div>
+        <div><label class="mini">Até</label><br><input type="date" id="cgFim" onchange="renderContasGrid()"></div>
+        <div style="flex:1;min-width:150px"><label class="mini">Cliente / descrição</label><br><input type="text" id="cgBusca" placeholder="buscar..." oninput="renderContasGrid()" style="width:100%"></div>
+        <div><label class="mini">Valor de (R$)</label><br><input type="number" id="cgVmin" step="0.01" oninput="renderContasGrid()" style="width:110px"></div>
+        <div><label class="mini">até (R$)</label><br><input type="number" id="cgVmax" step="0.01" oninput="renderContasGrid()" style="width:110px"></div>
+        <div><label class="mini">Mostrar</label><br><select id="cgSit" onchange="window._cg.lim=200;renderContasGrid()" style="padding:7px 9px;border:1px solid #dcd4c4;border-radius:8px;font-family:inherit"><option value="abertos">Em aberto (vencidos e com saldo)</option><option value="vencido">Só vencidos</option><option value="saldo">Só com saldo (baixa parcial)</option><option value="baixado">Baixados</option><option value="adiant">Adiantamentos com saldo</option><option value="tudo">Tudo</option></select></div>
+        <button class="btn sec peq" onclick="cgLimpar()">&#10005; Limpar</button>
+      </div></div>
+      <div class="card"><h2 id="cgTitLista" style="margin:0 0 10px"></h2><div id="cgTab"></div></div>
+    </div>
+    <div id="cgAntigo" style="display:none">
     <div class="grid-kpi" style="grid-template-columns:repeat(3,1fr)">
       <div class="kpi r"><div class="rotulo">A receber (em aberto)</div><div class="valor" id="ctRec">R$ 0,00</div><div class="nota" id="ctRecN">0 conta(s)</div></div>
       <div class="kpi d"><div class="rotulo">A pagar (em aberto)</div><div class="valor" id="ctPag">R$ 0,00</div><div class="nota" id="ctPagN">0 conta(s)</div></div>
@@ -737,6 +760,7 @@ body.so-leitura input[type=file]{display:none}
       <div class="cap">Títulos a pagar que já foram baixados (pagos).</div>
       <div style="overflow-x:auto"><table><thead><tr><th>Baixa</th><th>Cliente</th><th>Descrição</th><th>Unidade</th><th>Banco</th><th style="text-align:right">Valor do título</th><th style="text-align:right">Pago no banco</th><th></th></tr></thead><tbody id="tbodyPago"></tbody></table></div>
       <div id="pagoVazio" class="vazio" style="display:none">Nada pago no período.</div>
+    </div>
     </div>
   </section>
 
@@ -822,7 +846,6 @@ body.so-leitura input[type=file]{display:none}
     <div class="eyebrow">Financeiro</div>
     <div class="titulo-pg"><em>Lançamentos</em></div>
     <div class="sub-pg">Cada entrada e saída do seu caixa. Cadastre manualmente ou importe o extrato do banco.</div>
-    <div style="display:flex;gap:14px;flex-wrap:wrap;align-items:center;background:#FAF7F0;border:1px solid #EDE6D8;border-radius:9px;padding:8px 12px;font-size:11.5px;margin:0 0 12px"><b>Situação:</b><span style="display:inline-flex;align-items:center;gap:5px"><span style="width:10px;height:10px;border-radius:50%;background:#16447a;display:inline-block"></span>Confirmado (falta conciliar)</span><span style="display:inline-flex;align-items:center;gap:5px"><span style="width:10px;height:10px;border-radius:50%;background:#2f7d5b;display:inline-block"></span>Conciliado</span><span style="display:inline-flex;align-items:center;gap:5px"><span style="background:#F3E7C8;color:#8a6d1f;border:1px solid #E4CE8F;border-radius:20px;padding:1px 8px;font-size:10px;font-weight:600">🏷️ etiqueta</span>= pendência a resolver</span></div>
     <div class="card">
       <div style="display:flex;align-items:center;justify-content:space-between;gap:14px;flex-wrap:wrap">
         <div><h2 style="margin:0">Novo lançamento</h2><div class="cap">Cadastre uma entrada ou saída — a mesma janela usada para editar.</div></div>
@@ -1941,7 +1964,7 @@ function _muHora(iso){try{return new Date(iso).toLocaleString('pt-BR');}catch(e)
    controle interno) muda sozinho e nao merece linha no diario. */
 var _MU_CAMPOS=['valor','data','dataVencimento','venc','categoria','banco','cliente','descricao',
  'servico','status','tipo','formaPagto','unidade','conciliado','baixado','baixaRef','baixaDe',
- 'baixaData','estorno','obs','motivoEstorno','adiantSaldo','cartaoId','profId','comFechId','comPerc','comNao'];
+ 'baixaData','estorno','obs','motivoEstorno','adiantSaldo','cartaoId','profId','comFechId','comPerc','comNao','valorOriginal','parcialRecebido','parcialGrupo','parcialDe'];
 
 function _muAssin(l){var s='';for(var i=0;i<_MU_CAMPOS.length;i++){var v=l[_MU_CAMPOS[i]];s+=(v==null?'':String(v))+'\u0001';}return s;}
 
@@ -2272,7 +2295,7 @@ async function baixarConta(pid,keep){
 
 
 function _chaveDup(l){
- return _normAc(l.cliente||'')+'|'+((l.dataVencimento||l.venc||l.data||''))+'|'+((+l.valor||0).toFixed(2));}
+ return _normAc(l.cliente||'')+'|'+((l.dataVencimento||l.venc||l.data||''))+'|'+((+l.valor||0).toFixed(2))+(l.parcialGrupo?('|p'+(l.parcialDe?l.id:'')):'');}
 
 /* Quanto "lastro" o título tem. Quem tem mais, fica.
 
@@ -3023,7 +3046,7 @@ function abrirAba(pg){const b=[...document.querySelectorAll('.menu-item')].find(
 /* REGRA CONTABIL: titulo (previsto) = data de VENCIMENTO (competencia) · movimento do extrato = data do extrato (caixa).
    Usar dataRef(l) em TODO filtro, agrupamento, ordenacao e comparacao com hoje. Emissao nunca e criterio de periodo. */
 /* ===== VERSAO DO PAINEL — para saber, sem adivinhar, se a tela esta atualizada ===== */
-const APP_VERSAO='2026-11-09.2';
+const APP_VERSAO='2026-11-10.2';
 function _marcaVersao(){try{
  /* versao no CABECALHO, ao lado do status da nuvem — fica visivel sem procurar */
  var bar=document.querySelector('.tb-acoes');var d=document.getElementById('appVersaoTag');
@@ -5346,6 +5369,7 @@ function _gruposParcelas(){var L=dados().lancamentos||[];var groups={};
   /* vencimentos ocupados por títulos do mesmo cliente e valor parecido, COM ou SEM rótulo */
   var mapa={},dup=0;
   L.forEach(function(l){if(l.status!=='previsto')return;if(l.tipo!==g.tipo)return;if(semAc(l.cliente||'')!==semAc(g.cliente))return;
+   if(l.parcialDe)return;
    var val=+l.valor||0;if(med>0&&Math.abs(val-med)>Math.max(1,med*0.05))return;
    var vv=(l.dataVencimento||l.venc||l.data||'');if(!vv)return;if(mapa[vv])dup++;else mapa[vv]=1;});
   var reais=Object.keys(mapa).length;
@@ -7527,16 +7551,60 @@ function cbMovs(){
   arr.sort(_cbSortFn(function(l){return l.data||'';}));
   return arr;
 }
-function cbSelMov(id){window._cbSel=id;window._cbMarc=new Set();window._cbComJuros=false;window._cbConfirmando=false;window._cbTitBusca='';var L=dados().lancamentos||[];var m=L.find(function(x){return x.id===id;});if(m&&!m.conciliado){var ex=L.find(function(p){return p.status==='previsto'&&!p.baixado&&p.tipo===m.tipo&&Math.abs((+p.valor)-(+m.valor))<0.005;});if(ex)window._cbMarc.add(ex.id);}renderCBTela();}
+function cbSelMov(id){window._cbSel=id;window._cbMarc=new Set();window._cbComJuros=false;window._cbParcial=false;window._cbConfirmando=false;window._cbTitBusca='';var L=dados().lancamentos||[];var m=L.find(function(x){return x.id===id;});if(m&&!m.conciliado){var ex=L.find(function(p){return p.status==='previsto'&&!p.baixado&&p.tipo===m.tipo&&Math.abs((+p.valor)-(+m.valor))<0.005;});if(ex)window._cbMarc.add(ex.id);}renderCBTela();}
 function cbTogTit(id){window._cbConfirmando=false;if(!window._cbMarc)window._cbMarc=new Set();if(window._cbMarc.has(id))window._cbMarc.delete(id);else window._cbMarc.add(id);renderCBTela();}
 function _cbSugestoes(absv,tipo){try{var L=dados().lancamentos||[];var pool=L.filter(function(p){return p.status==='previsto'&&!p.baixado&&p.tipo===tipo&&/cart|link|zoop/i.test((p.formaPagto||'')+' '+(p.origem||''));});pool.sort(function(a,b){return (+a.valor)-(+b.valor);});var n=pool.length;var tol=0.05;var out=[];for(var i=0;i<n&&out.length<4;i++){for(var j=i+1;j<n&&out.length<4;j++){if(Math.abs((+pool[i].valor)+(+pool[j].valor)-absv)<=tol)out.push([pool[i],pool[j]]);}}if(out.length<4&&n<=140){for(var a=0;a<n&&out.length<4;a++){for(var b=a+1;b<n&&out.length<4;b++){var s2=(+pool[a].valor)+(+pool[b].valor);if(s2>absv+tol)continue;for(var c=b+1;c<n&&out.length<4;c++){if(Math.abs(s2+(+pool[c].valor)-absv)<=tol)out.push([pool[a],pool[b],pool[c]]);}}}}return out;}catch(e){return [];}}
-function cbUsarCombo(ids){window._cbMarc=new Set(ids.split(','));window._cbComJuros=false;window._cbConfirmando=false;renderCBTela();}
+function cbUsarCombo(ids){window._cbMarc=new Set(ids.split(','));window._cbComJuros=false;window._cbParcial=false;window._cbConfirmando=false;renderCBTela();}
 /* ===== Desfazer baixa =====
    ANTES: exigia que o título tivesse baixaRef (ou o movimento tivesse baixaDe).
    Título baixado pela planilha de parcelas, pelo relatório ou com o vínculo
    quebrado recusava com "não tem baixa para desfazer" e ficava preso para
    sempre — fora do contas a receber E fora da conciliação.
    E limpava só baixaData, deixando dataBaixa para trás. */
+/* ===== BAIXA PARCIAL =====
+   O título é DIVIDIDO: a parte recebida vira um título próprio (quitado e amarrado ao
+   movimento do banco, como qualquer baixa) e o título original fica só com o SALDO,
+   mesmo vencimento. Assim todos os relatórios e a conciliação continuam lendo "valor"
+   sem mudar, e a soma das partes é sempre o valor original (nunca conta duas vezes). */
+function _parcSplit(t,pago){
+ var L=dados().lancamentos||[];
+ pago=Math.round(Math.abs(+pago||0)*100)/100;
+ var v=Math.round(Math.abs(+t.valor||0)*100)/100;
+ var P=JSON.parse(JSON.stringify(t));
+ ['baixaRef','baixaData','dataBaixa','baixado','baixaAuto','conciliado','conciliadoEm','conciliadoPor','tagConcilAnt','comFechId','baixadoManual','_em','_por'].forEach(function(k){delete P[k];});
+ P.id=id();P.valor=pago;P.status='previsto';P.baixado=false;
+ if(!t.parcialGrupo)t.parcialGrupo=id();
+ P.parcialGrupo=t.parcialGrupo;P.parcialDe=t.id;
+ delete P.valorOriginal;delete P.parcialRecebido;
+ P.descricao=String(t.descricao||t.servico||t.cliente||'').replace(/\s*\(recebimento parcial\)\s*$/i,'')+' (recebimento parcial)';
+ if(t.valorOriginal==null)t.valorOriginal=v;
+ t.valor=Math.round((v-pago)*100)/100;
+ t.parcialRecebido=Math.round(((+t.parcialRecebido||0)+pago)*100)/100;
+ L.push(P);return P;}
+/* desfazer a baixa de uma parte: se o título de origem ainda está em aberto, o valor volta para ele */
+function _parcReunir(p){
+ try{
+ var L=dados().lancamentos||[];
+ if(!p||!p.parcialDe||p.baixado||p.baixaRef||p.status!=='previsto')return false;
+ var t=L.find(function(x){return x.id===p.parcialDe;});
+ if(!t||t.baixado||t.baixaRef||t.status!=='previsto')return false;
+ t.valor=Math.round(((+t.valor||0)+(+p.valor||0))*100)/100;
+ t.parcialRecebido=Math.round(((+t.parcialRecebido||0)-(+p.valor||0))*100)/100;
+ if(t.parcialRecebido<0.005){delete t.parcialRecebido;delete t.valorOriginal;delete t.parcialGrupo;}
+ _aplicarExclusao([p.id]);
+ return true;}catch(e){return false;}}
+function bxBaixaParcial(){
+ var L=dados().lancamentos||[];var t=L.find(function(l){return l.id===window._baixaId;});if(!t)return;
+ var sel=window._baixaSel||new Set();
+ if(!sel.size){alert('Selecione o(s) recebimento(s) do banco que o cliente pagou.');return;}
+ if(t.baixado||t.baixaRef){alert('Este título já está baixado.');return;}
+ if(t.comFechId){alert('Este título já entrou em um fechamento de comissão. Cancele o fechamento antes de dividir o título.');return;}
+ var soma=0;sel.forEach(function(mid){var mm=L.find(function(x){return x.id===mid;});if(mm)soma+=Math.abs(+mm.valor||0);});
+ soma=Math.round(soma*100)/100;var v=Math.round(Math.abs(+t.valor||0)*100)/100;
+ if(!(soma>0.004)||soma>=v-0.004){alert('Para baixa parcial, o valor selecionado precisa ser MENOR que o do título ('+moeda(v)+').');return;}
+ var resto=Math.round((v-soma)*100)/100;
+ if(!confirm('Baixa parcial\n\nRecebido: '+moeda(soma)+'\nSaldo que continua em aberto: '+moeda(resto)+'\n\nO título é dividido: a parte recebida fica quitada e o saldo segue em aberto, com o mesmo vencimento. Dá para desfazer depois.\n\nConfirmar?'))return;
+ var P=_parcSplit(t,soma);window._baixaId=P.id;bxVincularSel();}
 function _soltarTitulo(p){
  if(!p)return;
  p.status='previsto';p.baixado=false;
@@ -7565,6 +7633,7 @@ function _desfazerBaixaNucleo(lid,semPerguntar){
  var soltos=[];
  if(tit){_soltarTitulo(tit);soltos.push(tit);}
  if(mov){L.forEach(function(p){if(p.status==='previsto'&&p.baixaRef===mov.id&&p!==tit){_soltarTitulo(p);soltos.push(p);}});_soltarMovimento(mov);}
+ soltos.forEach(function(p){_parcReunir(p);});
  saveApp();
  return {titulos:soltos,movimento:mov||null};}
 function desfazerBaixaLanc(lid){
@@ -7585,7 +7654,8 @@ function cbVincular(){
   var dif=Math.round(((+m.valor)-soma)*100)/100;
   if(Math.abs(dif)>=0.005){
     if(soma>0&&Math.abs(dif)>soma){alert('A diferença ('+moeda(Math.abs(dif))+') é maior que a soma dos títulos ('+moeda(soma)+').\n\nIsso costuma ser seleção errada. Revise os títulos marcados.');return;}
-    if(!window._cbComJuros){alert('Este título foi pago com um valor diferente da cobrança (diferença de '+moeda(Math.abs(dif))+').\n\nVolte e marque a opção "Baixar com '+(dif>0?'multa/juros':'desconto')+'" para o sistema lançar a diferença certinho.');return;}
+    if(window._cbParcial&&!(window._cbMarc.size===1&&dif<-0.004)){window._cbParcial=false;alert('Baixa parcial vale para UM título e um pagamento menor que ele.');renderCBTela();return;}
+    if(!window._cbComJuros&&!window._cbParcial){alert('Este título foi pago com um valor diferente da cobrança (diferença de '+moeda(Math.abs(dif))+').\n\nVolte e marque a opção "Baixar com '+(dif>0?'multa/juros':'desconto')+'" para o sistema lançar a diferença certinho.');return;}
   }
   window._cbConfirmando=true;renderCBTela();
 }
@@ -7593,10 +7663,11 @@ function cbCancelarConf(){window._cbConfirmando=false;renderCBTela();}
 function cbExecBaixa(){
   var L=dados().lancamentos||[];var m=L.find(function(x){return x.id===window._cbSel;});if(!m){window._cbConfirmando=false;return;}
   if(!window._cbMarc.size){window._cbConfirmando=false;alert('Selecione ao menos um título.');return;}
+  if(window._cbParcial&&window._cbMarc.size===1){var _t0=L.find(function(x){return x.id===Array.from(window._cbMarc)[0];});var _ab=Math.abs(+m.valor||0);if(_t0&&!_t0.baixado&&!_t0.baixaRef&&!_t0.comFechId&&_ab>0.004&&_ab<Math.abs(+_t0.valor||0)-0.004){var _P=_parcSplit(_t0,_ab);window._cbMarc=new Set([_P.id]);}}
   var soma=0;window._cbMarc.forEach(function(tid){var p=L.find(function(x){return x.id===tid;});if(p)soma+=(+p.valor||0);});
   var dif=Math.round(((+m.valor)-soma)*100)/100;
   if(Math.abs(dif)>=0.005){
-    if(!window._cbComJuros){window._cbConfirmando=false;alert('Marque a opção de multa/juros ou desconto antes de baixar.');renderCBTela();return;}
+    if(!window._cbComJuros&&!window._cbParcial){window._cbConfirmando=false;alert('Marque a opção de multa/juros ou desconto antes de baixar.');renderCBTela();return;}
     var dd=difCatDiferenca(m.tipo,dif);
     _removerDiferenca(m);
     if(m.valorOrig==null)m.valorOrig=+m.valor;
@@ -7614,7 +7685,7 @@ function cbExecBaixa(){
     _soltarTitulo(p);}});
   ids.forEach(function(tid){var p=L.find(function(x){return x.id===tid;});if(p){p.baixado=true;p.baixaData=m.data;p.baixaRef=m.id;p.baixaAuto='manual';if(p.tagConcil)p.tagConcilAnt=p.tagConcil;p.tagConcil='';}});
   m.baixaDe=ids[0];m.conciliado=true;if(m.tagConcil)m.tagConcilAnt=m.tagConcil;m.tagConcil='';var _hp=L.find(function(x){return x.id===ids[0];});if(ids.length===1&&_hp)_herdaDoTitulo(m,_hp);
-  window._cbComJuros=false;window._cbConfirmando=false;saveApp();window._cbSel=null;window._cbMarc=new Set();renderCBTela();
+  window._cbComJuros=false;window._cbParcial=false;window._cbConfirmando=false;saveApp();window._cbSel=null;window._cbMarc=new Set();renderCBTela();
 }
 function _cbConfHtml(msel,L,soma,dif,absv,ddPrev){
   var selTits=Array.from(window._cbMarc||[]).map(function(tid){return L.find(function(x){return x.id===tid;});}).filter(Boolean);
@@ -7629,7 +7700,7 @@ function _cbConfHtml(msel,L,soma,dif,absv,ddPrev){
     '<div style="border:1px solid #EDE6D8;border-radius:10px;overflow:hidden;margin-bottom:6px"><div style="background:#FAF7F0;padding:8px 11px;font-size:11px;font-weight:700;color:#7A2E39;text-transform:uppercase;letter-spacing:.4px">Título(s) sendo baixado(s)</div><table style="width:100%;border-collapse:collapse;font-size:12.5px"><thead><tr style="color:#8a7f6f;font-size:11px"><th style="padding:6px 9px;text-align:left;font-weight:600">Cobrança</th><th style="padding:6px 9px;text-align:left;font-weight:600">Vence</th><th style="padding:6px 9px;text-align:right;font-weight:600">Valor</th></tr></thead><tbody>'+titLinhas+'</tbody><tfoot><tr style="font-weight:800;background:#FAF7F0"><td style="padding:8px 9px;border-top:2px solid #E4DAC8" colspan="2">Soma dos títulos</td><td style="padding:8px 9px;border-top:2px solid #E4DAC8;text-align:right">'+moeda(soma)+'</td></tr></tfoot></table></div>'+
     '<div style="text-align:center;color:#b7ab97;font-size:16px;margin:2px 0 6px">↕</div>'+
     '<div style="border:1px solid #cfe4d3;border-radius:10px;overflow:hidden;margin-bottom:12px"><div style="background:#EDF5EE;padding:8px 11px;font-size:11px;font-weight:700;color:#2f7d5b;text-transform:uppercase;letter-spacing:.4px">Vínculo — dinheiro que caiu no banco</div><table style="width:100%;border-collapse:collapse;font-size:12.5px"><tbody><tr><td style="padding:9px 9px">'+esc((msel.descricao||msel.cliente||'-').slice(0,28))+'</td><td style="padding:9px 9px;color:#8a7f6f;white-space:nowrap">'+_md+'</td><td style="padding:9px 9px;text-align:right;font-weight:700;color:#2f7d5b;white-space:nowrap">'+moeda(absv)+'</td></tr></tbody></table></div>'+
-    difBox+
+    difBox+(window._cbParcial&&selTits.length===1&&absv<Math.abs(+selTits[0].valor||0)-0.004?'<div style="border:1px solid #cfe4d3;border-radius:10px;padding:10px 12px;margin-bottom:12px;font-size:12.5px;color:#2f6b4f">Pagamento parcial — o título é dividido: <b>'+moeda(absv)+'</b> quitado e <b>'+moeda(Math.abs(+selTits[0].valor||0)-absv)+'</b> segue em aberto.</div>':'')+
     '<div style="display:flex;gap:9px;margin-top:4px"><button class="btn sec" style="flex:1" onclick="cbCancelarConf()">← Voltar</button><button class="btn" style="flex:2;background:#2f7d5b;color:#fff" onclick="cbExecBaixa()">✓ Confirmar baixa</button></div>';
 }
 function cbClassificar(){
@@ -7695,10 +7766,11 @@ function renderCBTela(){
     var titRows=cands.slice(0,200).map(function(p){var mk=window._cbMarc.has(p.id);var d=p.venc||p.data||'';return '<div onclick="cbTogTit(\''+p.id+'\')" style="cursor:pointer;display:flex;align-items:center;gap:9px;padding:8px 11px;border:1px solid '+(mk?'#C79A3B':'#EDE6D8')+';border-radius:9px;margin-bottom:6px;background:'+(mk?'#FBF3DE':'#fff')+'"><span style="font-size:16px">'+(mk?'☑️':'⬜')+'</span><div style="flex:1;min-width:0"><div style="font-size:12.5px;font-weight:600">'+(p.__mv?'<span style="color:#2f7d5b;font-weight:700;font-size:10.5px">✓ mesmo valor </span>':'')+esc((p.cliente||p.descricao||'-').slice(0,32))+'</div><div class=mini>vence '+(d?new Date(d+'T00:00:00').toLocaleDateString('pt-BR'):'-')+(p.baixado?' \u00b7 <b style="color:#8a6d1f">j\u00e1 baixado'+(p.baixaData||p.dataBaixa?(' em '+new Date((p.baixaData||p.dataBaixa)+'T00:00:00').toLocaleDateString('pt-BR')):'')+'</b>':'')+'</div></div><b style="font-size:12.5px;white-space:nowrap">'+moeda(p.valor)+'</b></div>';}).join('')||'<div class=mini style="padding:8px 0">Nenhum t\u00edtulo '+(msel.tipo==='receita'?'a receber':'a pagar')+' em aberto para casar.'+(_verBx?'':'<br>Se o t\u00edtulo j\u00e1 foi baixado antes, marque <b>mostrar tamb\u00e9m os j\u00e1 baixados</b> acima.')+'</div>';
     var somaBox='<div style="background:#FAF7F0;border:1px solid #EDE6D8;border-radius:10px;padding:10px 12px;margin-top:10px"><div style="display:flex;justify-content:space-between;font-size:13px"><span class=mini>Selecionado</span><b>'+moeda(soma)+'</b></div><div style="display:flex;justify-content:space-between;font-size:13px"><span class=mini>Movimento</span><b>'+moeda(absv)+'</b></div><div style="display:flex;justify-content:space-between;border-top:1px solid #EDE6D8;margin-top:4px;padding-top:5px;font-weight:800"><span>Diferença</span><b style="color:'+(Math.abs(dif)<0.005?'#2f7d5b':'#b04a3a')+'">'+moeda(dif)+'</b></div></div>';
     var temSel=window._cbMarc.size>0;var difOk=Math.abs(dif)<0.005;var podeDif=temSel&&!difOk&&Math.abs(dif)<=soma;var _flag=!!window._cbComJuros;var podeVinc=temSel&&(difOk||podeDif);
-    var ddPrev=podeDif?difCatDiferenca(msel.tipo,dif):null;var _dtb=msel.data?new Date(msel.data+'T00:00:00').toLocaleDateString('pt-BR'):'-';
-    var flagBox=podeDif?'<label style="display:flex;align-items:center;gap:9px;margin:8px 0;font-size:13px;font-weight:600;color:#7a6320;cursor:pointer;background:#FFF9EC;border:1px solid #E9D9A9;border-radius:8px;padding:10px 12px"><input type="checkbox" '+(_flag?'checked':'')+' onchange="window._cbComJuros=this.checked;renderCBTela()" style="width:auto;margin:0"> Baixar com '+(dif>0?'multa/juros':'desconto')+' (diferença de '+moeda(Math.abs(dif))+')</label>':'';var btn='<button class="btn'+(podeVinc?'':' sec')+'" '+(podeVinc?'':'disabled')+' onclick="cbVincular()">✓ Baixar</button>';
+    var _podeParc=podeDif&&dif<-0.004&&window._cbMarc.size===1;if(!_podeParc)window._cbParcial=false;var _par=!!window._cbParcial;var ddPrev=(podeDif&&!_par)?difCatDiferenca(msel.tipo,dif):null;var _dtb=msel.data?new Date(msel.data+'T00:00:00').toLocaleDateString('pt-BR'):'-';
+    var flagBox=podeDif?'<label style="display:flex;align-items:center;gap:9px;margin:8px 0;font-size:13px;font-weight:600;color:#7a6320;cursor:pointer;background:#FFF9EC;border:1px solid #E9D9A9;border-radius:8px;padding:10px 12px"><input type="checkbox" '+(_flag?'checked':'')+' onchange="window._cbComJuros=this.checked;if(this.checked)window._cbParcial=false;renderCBTela()" style="width:auto;margin:0"> Baixar com '+(dif>0?'multa/juros':'desconto')+' (diferença de '+moeda(Math.abs(dif))+')</label>':'';if(_podeParc)flagBox+='<label style="display:flex;align-items:center;gap:9px;margin:8px 0;font-size:13px;font-weight:600;color:#2f6b4f;cursor:pointer;background:#EDF5EE;border:1px solid #cfe4d3;border-radius:8px;padding:10px 12px"><input type="checkbox" '+(_par?'checked':'')+' onchange="window._cbParcial=this.checked;if(this.checked)window._cbComJuros=false;renderCBTela()" style="width:auto;margin:0"> Pagamento parcial: o restante ('+moeda(Math.abs(dif))+') continua em aberto</label>';var btn='<button class="btn'+(podeVinc?'':' sec')+'" '+(podeVinc?'':'disabled')+' onclick="cbVincular()">✓ Baixar</button>';
     var aviso='';
-    if(podeDif){var _mais=dif>0;var _rec=msel.tipo==='receita';var _tg=_mais?'multa e juros por atraso':'desconto';aviso='<div style="color:#7a6320;font-size:12.5px;margin-top:8px;background:#FFF9EC;border:1px solid #E9D9A9;border-radius:8px;padding:10px 12px;line-height:1.55">ℹ️ '+(_rec?'O cliente pagou <b>'+moeda(absv)+'</b>, e a cobrança era <b>'+moeda(soma)+'</b>.':'Saíram <b>'+moeda(absv)+'</b>, e o título era <b>'+moeda(soma)+'</b>.')+' A diferença de <b>'+moeda(Math.abs(dif))+'</b> é '+_tg+'. Ao confirmar, a '+(_rec?'cobrança fica quitada':'conta fica paga')+' e os <b>'+moeda(Math.abs(dif))+'</b> entram como <b>'+ddPrev.cat+'</b> (na data '+_dtb+').</div>';}
+    if(podeDif&&_par){aviso='<div style="color:#2f6b4f;font-size:12.5px;margin-top:8px;background:#EDF5EE;border:1px solid #cfe4d3;border-radius:8px;padding:10px 12px;line-height:1.55">ℹ️ Pagamento parcial: entram <b>'+moeda(absv)+'</b> e o título continua em aberto com saldo de <b>'+moeda(Math.abs(dif))+'</b>, no mesmo vencimento.</div>';}
+    else if(podeDif){var _mais=dif>0;var _rec=msel.tipo==='receita';var _tg=_mais?'multa e juros por atraso':'desconto';aviso='<div style="color:#7a6320;font-size:12.5px;margin-top:8px;background:#FFF9EC;border:1px solid #E9D9A9;border-radius:8px;padding:10px 12px;line-height:1.55">ℹ️ '+(_rec?'O cliente pagou <b>'+moeda(absv)+'</b>, e a cobrança era <b>'+moeda(soma)+'</b>.':'Saíram <b>'+moeda(absv)+'</b>, e o título era <b>'+moeda(soma)+'</b>.')+' A diferença de <b>'+moeda(Math.abs(dif))+'</b> é '+_tg+'. Ao confirmar, a '+(_rec?'cobrança fica quitada':'conta fica paga')+' e os <b>'+moeda(Math.abs(dif))+'</b> entram como <b>'+ddPrev.cat+'</b> (na data '+_dtb+').</div>';}
     else if(temSel&&!difOk){aviso='<div style="color:#b04a3a;font-size:12px;margin-top:8px;background:#FBEDEA;border:1px solid #F0CFC7;border-radius:8px;padding:8px 10px">⚠️ A diferença ('+moeda(Math.abs(dif))+') é maior que a soma dos títulos. Revise a seleção.</div>';}
     var cats=(dados().categorias||[]).filter(function(x){return x.tipo===msel.tipo;});
     if(msel.tipo==='receita'){var f=cats.filter(function(x){return x.grupo==='OUTRAS ENTRADAS'||ehMovimento(x.nome);});if(f.length)cats=f;}
@@ -7759,6 +7831,7 @@ function limparParcelasPagas(){
   }catch(e){alert('Erro na limpeza: '+((e&&e.message)||e));}
 }
 function renderContas(){
+  if(document.getElementById('cgNovo')){try{renderContasGrid();}catch(e){try{console.error(e);}catch(_){}}return;}
   if(!document.getElementById('tbodyRec'))return;
   const _ac=document.getElementById('autoConcChk');if(_ac)_ac.checked=dados().autoConciliar!==false;
   const _gv=id=>{var e=document.getElementById(id);return e?e.value:'';};
@@ -7808,10 +7881,11 @@ function _baixarContaDireto(pid,keep){const p=dados().lancamentos.find(l=>l.id==
   var _mbx=document.getElementById('modalConteudo').closest('.modal');if(_mbx)_mbx.style.maxWidth='720px';
   var _av=Math.abs(+p.valor||0);var _cands=dados().lancamentos.filter(function(x){return x.status!=='previsto'&&x.tipo===p.tipo&&!x.baixaDe&&x.data&&x.id!==p.id;});_cands.forEach(function(x){x.__mv=Math.abs(Math.abs(+x.valor||0)-_av)<0.005;});_cands.sort(function(a,b){if(a.__mv!==b.__mv)return a.__mv?-1:1;return (b.data||'').localeCompare(a.data||'');});var _sel=window._baixaSel||new Set();var _soma=0;_sel.forEach(function(mid){var mm=dados().lancamentos.find(function(x){return x.id===mid;});if(mm)_soma+=Math.abs(+mm.valor||0);});var _dif=Math.round((_av-_soma)*100)/100;var _okv=Math.abs(_dif)<0.005&&_sel.size>0;
   var _mrows=_cands.slice(0,60).map(function(x){var mk=_sel.has(x.id);return '<div onclick="bxTogMov(\''+x.id+'\')" style="cursor:pointer;display:flex;align-items:center;gap:9px;padding:8px 10px;border:1px solid '+(mk?'#C79A3B':'#EDE6D8')+';border-radius:9px;margin-bottom:6px;background:'+(mk?'#FBF3DE':'#fff')+'"><span style="font-size:16px">'+(mk?'&#9745;':'&#11036;')+'</span><div style="flex:1;min-width:0"><div style="font-size:12.5px;font-weight:600">'+(x.__mv?'<span style="color:#2f7d5b;font-weight:700;font-size:10.5px">&#10003; mesmo valor </span>':'')+esc((x.descricao||x.cliente||'-').slice(0,34))+'</div><div class=mini>'+(x.data?new Date(x.data+'T00:00:00').toLocaleDateString('pt-BR'):'-')+(x.banco?' &middot; '+esc(x.banco):'')+'</div></div><b style="font-size:12.5px;white-space:nowrap">'+moeda(x.valor)+'</b></div>';}).join('')||'<div class=mini style="padding:6px 0">Nenhum movimento sem v&iacute;nculo no banco. Use a baixa manual abaixo.</div>';
-  var movsHtml='<div class="fg-sec" style="margin-top:8px">Amarrar a um movimento do banco (sem v&iacute;nculo)</div><div class="mini" style="margin-bottom:6px">Selecione o(s) recebimento(s) do extrato que quitam este t&iacute;tulo. A baixa &eacute; autom&aacute;tica ao vincular.</div>'+_mrows+'<div style="background:#FAF7F0;border:1px solid #EDE6D8;border-radius:9px;padding:9px 11px;margin:8px 0"><div style="display:flex;justify-content:space-between;font-size:13px"><span class=mini>Selecionado</span><b>'+moeda(_soma)+'</b></div><div style="display:flex;justify-content:space-between;font-size:13px"><span class=mini>T&iacute;tulo</span><b>'+moeda(_av)+'</b></div><div style="display:flex;justify-content:space-between;border-top:1px solid #EDE6D8;margin-top:4px;padding-top:5px;font-weight:800"><span>Diferen&ccedil;a</span><b style="color:'+(Math.abs(_dif)<0.005?'#2f7d5b':'#b04a3a')+'">'+moeda(_dif)+'</b></div></div><button class="btn'+(_okv?'':' sec')+'" '+(_okv?'':'disabled')+' onclick="bxVincularSel()">&#128279; Vincular e dar baixa ('+_sel.size+')</button>';
+  var movsHtml='<div class="fg-sec" style="margin-top:8px">Amarrar a um movimento do banco (sem v&iacute;nculo)</div><div class="mini" style="margin-bottom:6px">Selecione o(s) recebimento(s) do extrato que quitam este t&iacute;tulo. A baixa &eacute; autom&aacute;tica ao vincular.</div>'+_mrows+'<div style="background:#FAF7F0;border:1px solid #EDE6D8;border-radius:9px;padding:9px 11px;margin:8px 0"><div style="display:flex;justify-content:space-between;font-size:13px"><span class=mini>Selecionado</span><b>'+moeda(_soma)+'</b></div><div style="display:flex;justify-content:space-between;font-size:13px"><span class=mini>T&iacute;tulo</span><b>'+moeda(_av)+'</b></div><div style="display:flex;justify-content:space-between;border-top:1px solid #EDE6D8;margin-top:4px;padding-top:5px;font-weight:800"><span>Diferen&ccedil;a</span><b style="color:'+(Math.abs(_dif)<0.005?'#2f7d5b':'#b04a3a')+'">'+moeda(_dif)+'</b></div></div><button class="btn'+(_okv?'':' sec')+'" '+(_okv?'':'disabled')+' onclick="bxVincularSel()">&#128279; Vincular e dar baixa ('+_sel.size+')</button>'+((_sel.size&&_soma>0.004&&_soma<_av-0.004)?'<div style="margin-top:8px;background:#FFF9EC;border:1px solid #E9D9A9;border-radius:9px;padding:9px 11px;font-size:12.5px;color:#7a6320;line-height:1.5">O cliente pagou s&oacute; uma parte? Recebido <b>'+moeda(_soma)+'</b>, saldo <b>'+moeda(_dif)+'</b> continua em aberto.<br><button class="btn" style="margin-top:7px;background:#7a6320;color:#fff" onclick="bxBaixaParcial()">Baixa parcial: receber '+moeda(_soma)+' e manter saldo</button></div>':'');
   document.getElementById('modalConteudo').innerHTML=`<h3>Dar baixa — ${esc(p.descricao||p.cliente||'')}</h3>
   <div class="bx-titulo">
-    <div class="bxt-lin"><span>Valor</span><b>${moeda(p.valor)}</b></div>
+    <div class="bxt-lin"><span>Valor${p.valorOriginal!=null?' (saldo)':''}</span><b>${moeda(p.valor)}</b></div>
+    ${p.valorOriginal!=null?'<div class="bxt-lin"><span>Valor original</span><b>'+moeda(p.valorOriginal)+' · já recebido '+moeda(p.parcialRecebido||0)+'</b></div>':''}
     <div class="bxt-lin"><span>Emissão</span><b>${_dtBR(p.dataEmissao)||'—'}</b></div>
     <div class="bxt-lin"><span>Vencimento</span><b>${_dtBR(_venc)||'—'}${_atras?` <span class="pill bad">${_atras} dia(s) em atraso</span>`:''}</b></div>
     <div class="bxt-lin"><span>Categoria</span><b>${_ehACl?'<span class="pill warn">🔶 A classificar — corrija antes de baixar</span>':(p.categoria||'—').replace(/</g,'&lt;')}</b></div>
@@ -8336,7 +8410,120 @@ function irContas(est,btn){
   if(tt)tt.innerHTML=est==='rec'?'Contas a <em>receber</em>':(est==='pag'?'Contas a <em>pagar</em>':'Contas a pagar e a <em>receber</em>');
   if(eb)eb.textContent=est==='rec'?'Financeiro · Receber':(est==='pag'?'Financeiro · Pagar':'Financeiro');
   window._contasModo=est||'';
+  try{window._cg.sit='abertos';window._cg.lim=200;var _cs=document.getElementById('cgSit');if(_cs)_cs.value='abertos';}catch(e){}
   irPara('contas',btn);}
+
+/* ===================== CONTAS A RECEBER / A PAGAR — GRADE COM BOLINHAS =====================
+   Modelo Protheus: uma linha por título, bolinha colorida da situação, colunas configuráveis,
+   legenda em janelinha e resumo por período. Mesma tela para receber (rec) e pagar (pag). */
+var CG_SIT={
+ aberto:{cor:'#3da35d',nome:'Título em aberto',desc:'Ainda não foi recebido/pago e está dentro do prazo.'},
+ vencido:{cor:'#e0b72a',nome:'Título vencido',desc:'Em aberto e o vencimento já passou.'},
+ saldo:{cor:'#2f6fb5',nome:'Baixado parcialmente (título com saldo)',desc:'Foi recebido/pago só uma parte; o saldo continua em aberto, com o mesmo vencimento.'},
+ baixado:{cor:'#c2412f',nome:'Título baixado',desc:'Quitado: recebido/pago por completo.'},
+ adiant:{cor:'#8e8e8e',nome:'Adiantamento com saldo',desc:'Dinheiro que entrou/saiu antes da nota e ainda tem saldo para compensar.'}};
+var CG_COLS=[
+ {k:'venc',t:'Vencimento',d:1},{k:'emis',t:'Emissão',d:1},{k:'cli',t:'Cliente',d:1},{k:'desc',t:'Descrição',d:1},
+ {k:'parc',t:'Parcela',d:0},{k:'uni',t:'Unidade',d:1},{k:'banco',t:'Banco',d:0},
+ {k:'orig',t:'Valor original',d:1,n:1},{k:'rec',t:'Recebido',d:1,n:1},{k:'saldo',t:'Saldo',d:1,n:1},
+ {k:'dbx',t:'Data da baixa',d:1},{k:'por',t:'Baixado por',d:0},{k:'forma',t:'Forma',d:0}];
+window._cg=window._cg||{sit:'abertos',ini:'',fim:'',q:'',vmin:'',vmax:'',ord:'venc',dir:1,lim:200,modo:''};
+function _cgModo(){return window._contasModo==='pag'?'pag':'rec';}
+function _cgTit(c,m){if(c.k==='cli')return m==='pag'?'Fornecedor':'Cliente';if(c.k==='rec')return m==='pag'?'Pago':'Recebido';return c.t;}
+function _cgColsVis(m){var v=null;try{v=JSON.parse(localStorage.getItem('cgCols_'+m)||'null');}catch(e){}
+ if(!Array.isArray(v))v=CG_COLS.filter(function(c){return c.d;}).map(function(c){return c.k;});return v;}
+function _cgDot(sit,tam){var s=CG_SIT[sit]||CG_SIT.aberto;
+ return '<span class="cg-dot" title="'+esc(s.nome)+'" style="background:'+s.cor+(tam?';width:'+tam+'px;height:'+tam+'px':'')+'"></span>';}
+function _cgLinhas(m){
+ var tipo=(m==='rec')?'receita':'despesa',L=dados().lancamentos||[],hoje=new Date().toISOString().slice(0,10),byId={};
+ L.forEach(function(x){byId[x.id]=x;});
+ var rows=[];
+ L.forEach(function(l){
+  if(l.tipo!==tipo||l.status!=='previsto'||!noUnidade(l))return;
+  var venc=l.dataVencimento||l.venc||l.data||'';
+  if(l.baixado){
+   var mv=l.baixaRef?byId[l.baixaRef]:null;
+   rows.push({l:l,sit:'baixado',venc:venc,dbx:(l.baixaData||l.dataBaixa||''),orig:+l.valor||0,rec:+l.valor||0,saldo:0,banco:(mv&&mv.banco)||l.banco||'',por:(mv&&mv._por)||l._por||''});
+  }else{
+   var parc=(l.valorOriginal!=null&&(+l.parcialRecebido||0)>0.004);
+   rows.push({l:l,sit:parc?'saldo':((venc&&venc<hoje)?'vencido':'aberto'),venc:venc,dbx:'',orig:parc?(+l.valorOriginal||0):(+l.valor||0),rec:parc?(+l.parcialRecebido||0):0,saldo:+l.valor||0,banco:l.banco||'',por:''});
+  }});
+ try{adiantamentosAbertos(m==='rec'?'cliente':'fornecedor').forEach(function(l){
+  if(!noUnidade(l))return;var sd=adiantSaldo(l),og=Math.abs(+l.valorOrig||+l.valor||0);
+  rows.push({l:l,sit:'adiant',venc:l.data||'',dbx:l.data||'',orig:og,rec:Math.round((og-sd)*100)/100,saldo:sd,banco:l.banco||'',por:l._por||''});});}catch(e){}
+ return rows;}
+function _cgNoPeriodo(r,F){var d=(r.sit==='baixado'||r.sit==='adiant')?(r.dbx||r.venc):r.venc;
+ if(F.ini&&d<F.ini)return false;if(F.fim&&d>F.fim)return false;return true;}
+function _cgTexto(r){var l=r.l;return semAc((l.cliente||'')+' '+(l.descricao||'')+' '+(l.servico||'')+' '+(l.categoria||''));}
+function _cgParcela(l){var mt=String(l.descricao||l.servico||'').match(/parcela\s*(\d+)\s*\/\s*(\d+)/i);return mt?(mt[1]+'/'+mt[2]):'';}
+function renderContasGrid(){
+ var el=document.getElementById('cgTab');if(!el)return;
+ var m=_cgModo(),F=window._cg,rec=(m==='rec'),hoje=new Date().toISOString().slice(0,10);
+ var gv=function(id){var e=document.getElementById(id);return e?e.value:'';};
+ F.ini=gv('cgIni');F.fim=gv('cgFim');F.q=semAc(gv('cgBusca')||'');F.vmin=gv('cgVmin');F.vmax=gv('cgVmax');F.sit=gv('cgSit')||F.sit||'abertos';
+ var todas=_cgLinhas(m),doPer=todas.filter(function(r){return _cgNoPeriodo(r,F);});
+ /* resumo do período (não depende do filtro de situação) */
+ var abertos=doPer.filter(function(r){return r.sit==='aberto'||r.sit==='vencido'||r.sit==='saldo';});
+ var sum=function(a,k){return a.reduce(function(s,r){return s+(+r[k]||0);},0);};
+ var venc=abertos.filter(function(r){return r.venc&&r.venc<hoje;}),comSaldo=doPer.filter(function(r){return r.sit==='saldo';}),baix=doPer.filter(function(r){return r.sit==='baixado';});
+ var card=function(cls,rot,val,nota,cor){return '<div class="kpi '+cls+'"><div class="rotulo">'+rot+'</div><div class="valor">'+moeda(val)+'</div><div class="nota">'+nota+'</div></div>';};
+ document.getElementById('cgDash').innerHTML=
+  card(rec?'r':'d',(rec?'A receber':'A pagar')+' (em aberto)',sum(abertos,'saldo'),abertos.length+' título(s)')+
+  card('d','Vencidos',sum(venc,'saldo'),venc.length+' título(s) em atraso')+
+  card('l','Com saldo (baixa parcial)',sum(comSaldo,'saldo'),comSaldo.length+' título(s)')+
+  card(rec?'r':'d',(rec?'Recebidos':'Pagos')+' no período',sum(baix,'rec'),baix.length+' título(s) baixado(s)');
+ /* lista conforme a situação escolhida */
+ var okSit=function(r){var s=F.sit;if(s==='tudo')return true;if(s==='abertos')return r.sit==='aberto'||r.sit==='vencido'||r.sit==='saldo';if(s==='vencido')return r.sit==='vencido'||((r.sit==='saldo')&&r.venc&&r.venc<hoje);return r.sit===s;};
+ var vmin=F.vmin!==''&&!isNaN(+F.vmin)?+F.vmin:null,vmax=F.vmax!==''&&!isNaN(+F.vmax)?+F.vmax:null;
+ var lista=doPer.filter(function(r){if(!okSit(r))return false;if(F.q&&_cgTexto(r).indexOf(F.q)<0)return false;if(vmin!=null&&r.orig<vmin)return false;if(vmax!=null&&r.orig>vmax)return false;return true;});
+ var key=F.ord,dir=F.dir;
+ var val=function(r){var l=r.l;switch(key){case 'venc':return r.venc||'';case 'emis':return l.dataEmissao||'';case 'cli':return semAc(l.cliente||'');case 'desc':return semAc(l.servico||l.descricao||'');case 'parc':return _cgParcela(l);case 'uni':return semAc(l.unidade||'');case 'banco':return semAc(r.banco||'');case 'orig':return r.orig;case 'rec':return r.rec;case 'saldo':return r.saldo;case 'dbx':return r.dbx||'';case 'por':return semAc(r.por||'');case 'forma':return semAc(l.formaPagto||'');}return '';};
+ lista.sort(function(a,b){var x=val(a),y=val(b),c=(typeof x==='number')?(x-y):String(x).localeCompare(String(y),'pt-BR');if(c===0)c=String(a.venc||'').localeCompare(String(b.venc||''));return c*dir;});
+ var vis=_cgColsVis(m),cols=CG_COLS.filter(function(c){return vis.indexOf(c.k)>=0;});
+ var th='<th style="width:26px"></th>'+cols.map(function(c){var ar=(key===c.k)?(dir>0?' ▲':' ▼'):'';return '<th onclick="cgOrdenar(\''+c.k+'\')" style="cursor:pointer;white-space:nowrap;'+(c.n?'text-align:right':'')+'">'+_cgTit(c,m)+ar+'</th>';}).join('')+'<th></th>';
+ var fd=function(d){return d?new Date(d+'T00:00:00').toLocaleDateString('pt-BR'):'';};
+ var cel=function(r,c){var l=r.l;switch(c.k){
+  case 'venc':{var at='';if(r.sit!=='baixado'&&r.sit!=='adiant'&&r.venc&&r.venc<hoje){var dd=Math.round((new Date(hoje)-new Date(r.venc))/864e5);at=' <span class="mini" style="color:#b04a3a">'+dd+'d</span>';}return fd(r.venc)+at;}
+  case 'emis':return '<span class=mini>'+fd(l.dataEmissao)+'</span>';
+  case 'cli':return esc(l.cliente||'-');
+  case 'desc':return '<span onclick="verLanc(\''+l.id+'\')" style="cursor:pointer">'+esc(l.servico||l.descricao||'-')+'</span>';
+  case 'parc':return '<span class=mini>'+esc(_cgParcela(l))+'</span>';
+  case 'uni':return '<span class=mini>'+esc(l.unidade||'-')+'</span>';
+  case 'banco':return '<span class=mini>'+esc(r.banco||'-')+'</span>';
+  case 'orig':return moeda(r.orig);
+  case 'rec':return r.rec?moeda(r.rec):'<span class=mini>—</span>';
+  case 'saldo':return r.saldo?('<b>'+moeda(r.saldo)+'</b>'):'<span class=mini>—</span>';
+  case 'dbx':return fd(r.dbx);
+  case 'por':return '<span class=mini>'+esc(r.por||'')+'</span>';
+  case 'forma':return '<span class=mini>'+esc(l.formaPagto||'')+'</span>';}return '';};
+ var acao=function(r){var l=r.l;
+  if(r.sit==='baixado')return '<button class="btn sec peq" onclick="desfazerBaixaLanc(\''+l.id+'\')" title="Desfaz a baixa deste título">Desfazer</button>';
+  if(r.sit==='adiant')return '<button class="btn sec peq" onclick="abrirAdiantamentos(\''+(rec?'cliente':'fornecedor')+'\')">Compensar</button>';
+  return '<button class="btn peq" onclick="baixarConta(\''+l.id+'\')">Baixar</button>';};
+ var lim=F.lim||200,mostra=lista.slice(0,lim);
+ var corpo=mostra.map(function(r){return '<tr><td>'+_cgDot(r.sit)+'</td>'+cols.map(function(c){return '<td'+(c.n?' style="text-align:right;white-space:nowrap"':'')+'>'+cel(r,c)+'</td>';}).join('')+'<td style="text-align:right;white-space:nowrap">'+acao(r)+'</td></tr>';}).join('');
+ var tot='<tr style="font-weight:800;background:#FAF7F0"><td></td>'+cols.map(function(c,i){if(c.k==='orig')return '<td style="text-align:right">'+moeda(sum(lista,'orig'))+'</td>';if(c.k==='rec')return '<td style="text-align:right">'+moeda(sum(lista,'rec'))+'</td>';if(c.k==='saldo')return '<td style="text-align:right">'+moeda(sum(lista,'saldo'))+'</td>';return '<td>'+(i===0?'Total ('+lista.length+')':'')+'</td>';}).join('')+'<td></td></tr>';
+ el.innerHTML=lista.length?('<div style="overflow-x:auto"><table class="cg-tab"><thead><tr>'+th+'</tr></thead><tbody>'+corpo+'</tbody><tfoot>'+tot+'</tfoot></table></div>'+(lista.length>lim?'<div style="text-align:center;margin-top:10px"><button class="btn sec peq" onclick="window._cg.lim+=300;renderContasGrid()">Mostrar mais ('+(lista.length-lim)+' restantes)</button></div>':'')):'<div class="vazio">Nenhum título com este filtro.</div>';
+ var tt=document.getElementById('cgTitLista');if(tt)tt.textContent=(rec?'Contas a receber':'Contas a pagar')+' — '+lista.length+' título(s)';
+ var bt=document.getElementById('cgBtnBaixarTodos');if(bt)bt.setAttribute('onclick',"baixarTodos('"+(rec?'receita':'despesa')+"')");}
+function cgOrdenar(k){var F=window._cg;if(F.ord===k)F.dir=-F.dir;else{F.ord=k;F.dir=1;}renderContasGrid();}
+function cgPeriodo(p){var h=new Date(),y=h.getFullYear(),mo=h.getMonth(),iso=function(d){return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');},a='',b='';
+ if(p==='mes'){a=iso(new Date(y,mo,1));b=iso(new Date(y,mo+1,0));}
+ else if(p==='ant'){a=iso(new Date(y,mo-1,1));b=iso(new Date(y,mo,0));}
+ else if(p==='30'){a=iso(h);b=iso(new Date(y,mo,h.getDate()+30));}
+ var i=document.getElementById('cgIni'),f=document.getElementById('cgFim');if(i)i.value=a;if(f)f.value=b;window._cg.lim=200;renderContasGrid();}
+function cgLimpar(){['cgIni','cgFim','cgBusca','cgVmin','cgVmax'].forEach(function(i){var e=document.getElementById(i);if(e)e.value='';});var s=document.getElementById('cgSit');if(s)s.value='abertos';window._cg.lim=200;renderContasGrid();}
+function cgLegenda(){var rec=_cgModo()==='rec';
+ var linhas=['aberto','vencido','saldo','baixado','adiant'].map(function(k){var s=CG_SIT[k];return '<div style="display:flex;gap:12px;align-items:flex-start;padding:9px 0;border-top:1px solid #EDE6D8">'+_cgDot(k,16)+'<div><div style="font-weight:700;font-size:13.5px">'+s.nome.replace('Baixado parcialmente','Baixado parcialmente')+'</div><div class=mini style="margin-top:2px">'+s.desc+'</div></div></div>';}).join('');
+ document.getElementById('modalConteudo').innerHTML='<h3>Legenda — '+(rec?'Contas a receber':'Contas a pagar')+'</h3><div class=mini style="margin:-4px 0 8px">A bolinha da primeira coluna mostra a situação de cada título. Passe o mouse sobre ela para ver o nome.</div>'+linhas+'<div class="modal-acoes"><button class="btn sec" onclick="fecharModal()">Fechar</button></div>';
+ document.getElementById('modalBg').classList.add('show');}
+function cgColunas(){var m=_cgModo(),vis=_cgColsVis(m);
+ var lin=CG_COLS.map(function(c){return '<label style="display:flex;align-items:center;gap:9px;padding:6px 0;font-size:13px;cursor:pointer"><input type="checkbox" '+(vis.indexOf(c.k)>=0?'checked':'')+' data-k="'+c.k+'" style="width:auto;margin:0"> '+_cgTit(c,m)+'</label>';}).join('');
+ document.getElementById('modalConteudo').innerHTML='<h3>Colunas da tela</h3><div class=mini style="margin:-4px 0 8px">Marque o que você quer ver. Fica salvo neste computador.</div><div style="columns:2">'+lin+'</div><div class="modal-acoes"><button class="btn sec" onclick="cgColunasPadrao()">Restaurar padrão</button><button class="btn" onclick="cgColunasSalvar()">Salvar</button></div>';
+ document.getElementById('modalBg').classList.add('show');}
+function cgColunasSalvar(){var ks=[];document.querySelectorAll('#modalConteudo input[data-k]').forEach(function(i){if(i.checked)ks.push(i.getAttribute('data-k'));});
+ try{localStorage.setItem('cgCols_'+_cgModo(),JSON.stringify(ks));}catch(e){}fecharModal();renderContasGrid();}
+function cgColunasPadrao(){try{localStorage.removeItem('cgCols_'+_cgModo());}catch(e){}fecharModal();renderContasGrid();}
 
 // ===================== INIT =====================
 function init(){loadApp();initApos();}
