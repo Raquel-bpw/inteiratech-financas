@@ -3133,7 +3133,7 @@ function abrirAba(pg){const b=[...document.querySelectorAll('.menu-item')].find(
 /* REGRA CONTABIL: titulo (previsto) = data de VENCIMENTO (competencia) · movimento do extrato = data do extrato (caixa).
    Usar dataRef(l) em TODO filtro, agrupamento, ordenacao e comparacao com hoje. Emissao nunca e criterio de periodo. */
 /* ===== VERSAO DO PAINEL — para saber, sem adivinhar, se a tela esta atualizada ===== */
-const APP_VERSAO='2026-11-10.10';
+const APP_VERSAO='2026-11-10.11';
 function _marcaVersao(){try{
  /* versao no CABECALHO, ao lado do status da nuvem — fica visivel sem procurar */
  var bar=document.querySelector('.tb-acoes');var d=document.getElementById('appVersaoTag');
@@ -5236,7 +5236,7 @@ function mapeiaTipoEstorno(sel){
   return{tipo:sel,estorno:false};
 }
 /* uma lista só de formas de pagamento, em ordem alfabética, com OUTROS no fim */
-var _FORMAS_PAD=['','BOLETO','CARTÃO DE CRÉDITO','CARTÃO DE DÉBITO','CHEQUE','CONVÊNIO','DINHEIRO','PIX','TRANSFERÊNCIA','OUTROS'];
+var _FORMAS_PAD=['','BOLETO','CARTÃO DE CRÉDITO','CARTÃO DE DÉBITO','CONVÊNIO','DINHEIRO','PIX','OUTROS'];
 function _formasComAtual(atual){var f=_FORMAS_PAD.slice();if(atual&&f.indexOf(atual)<0){f.push(atual);var r=f.splice(1,f.length-2);r.sort(function(a,b){return a==='OUTROS'?1:(b==='OUTROS'?-1:a.localeCompare(b,'pt-BR'));});f=[''].concat(r);}return f;}
 function _formasUsadas(){try{return [...new Set((dados().lancamentos||[]).map(function(l){return (l.formaPagto||'').trim();}).filter(Boolean))].sort(function(a,b){return a.localeCompare(b,'pt-BR');});}catch(e){return [];}}
 function _formaOpts(sel){return '<option value="">Todas as formas</option>'+_formasUsadas().map(function(x){return '<option value="'+esc(x)+'"'+(sel===x?' selected':'')+'>'+esc(x)+'</option>';}).join('');}
