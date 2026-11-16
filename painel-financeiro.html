@@ -3133,7 +3133,7 @@ function abrirAba(pg){const b=[...document.querySelectorAll('.menu-item')].find(
 /* REGRA CONTABIL: titulo (previsto) = data de VENCIMENTO (competencia) · movimento do extrato = data do extrato (caixa).
    Usar dataRef(l) em TODO filtro, agrupamento, ordenacao e comparacao com hoje. Emissao nunca e criterio de periodo. */
 /* ===== VERSAO DO PAINEL — para saber, sem adivinhar, se a tela esta atualizada ===== */
-const APP_VERSAO='2026-11-10.11';
+const APP_VERSAO='2026-11-16.1';
 function _marcaVersao(){try{
  /* versao no CABECALHO, ao lado do status da nuvem — fica visivel sem procurar */
  var bar=document.querySelector('.tb-acoes');var d=document.getElementById('appVersaoTag');
@@ -8962,9 +8962,13 @@ function renderContasGrid(){
   case 'por':return '<span class=mini>'+esc(r.por||'')+'</span>';
   case 'forma':return '<span class=mini>'+esc(l.formaPagto||'')+'</span>';}return '';};
  var acao=function(r){var l=r.l;
-  if(r.sit==='baixado')return '<button class="btn sec peq" onclick="desfazerBaixaLanc(\''+l.id+'\')" title="Desfaz a baixa deste título">Desfazer</button>';
-  if(r.sit==='adiant')return '<button class="btn sec peq" onclick="abrirAdiantamentos(\''+(rec?'cliente':'fornecedor')+'\')">Compensar</button>';
-  return '<button class="btn peq" onclick="baixarConta(\''+l.id+'\')">Baixar</button>';};
+  /* Ver/editar e excluir direto na linha — as mesmas rotinas das outras telas,
+     com o aviso de efeitos que excluirLanc ja faz antes de remover. */
+  var _ed=' <button class="btn-ico" onclick="editarLanc(\''+l.id+'\')" title="Ver / editar este titulo">&#9999;&#65039;</button>'
+         +'<button class="btn-ico" onclick="excluirLanc(\''+l.id+'\')" title="Excluir este titulo">&#128465;&#65039;</button>';
+  if(r.sit==='baixado')return '<button class="btn sec peq" onclick="desfazerBaixaLanc(\''+l.id+'\')" title="Desfaz a baixa deste título">Desfazer</button>'+_ed;
+  if(r.sit==='adiant')return '<button class="btn sec peq" onclick="abrirAdiantamentos(\''+(rec?'cliente':'fornecedor')+'\')">Compensar</button>'+_ed;
+  return '<button class="btn peq" onclick="baixarConta(\''+l.id+'\')">Baixar</button>'+_ed;};
  var lim=F.lim||200,mostra=lista.slice(0,lim);
  var corpo=mostra.map(function(r){return '<tr><td>'+_cgDot(r.sit)+'</td>'+cols.map(function(c){return '<td'+(c.n?' style="text-align:right;white-space:nowrap"':'')+'>'+cel(r,c)+'</td>';}).join('')+'<td style="text-align:right;white-space:nowrap">'+acao(r)+'</td></tr>';}).join('');
  var tot='<tr style="font-weight:800;background:#FAF7F0"><td></td>'+cols.map(function(c,i){if(c.k==='orig')return '<td style="text-align:right">'+moeda(sum(lista,'orig'))+'</td>';if(c.k==='rec')return '<td style="text-align:right">'+moeda(sum(lista,'rec'))+'</td>';if(c.k==='saldo')return '<td style="text-align:right">'+moeda(sum(lista,'saldo'))+'</td>';return '<td>'+(i===0?'Total ('+lista.length+')':'')+'</td>';}).join('')+'<td></td></tr>';
