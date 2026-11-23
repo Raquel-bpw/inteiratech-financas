@@ -1115,6 +1115,12 @@ body.so-leitura input[type=file]{display:none}
     </div>
 
     <div class="alerta" style="margin-bottom:6px"><span>📋</span><div><b>A ordem importa.</b> Faça um mês inteiro de cada vez, nesta sequência: o relatório <b>cria</b> os títulos, a planilha de links e boletos <b>confere</b> e traz o parcelamento, e o extrato <b>baixa</b> e amarra o dinheiro. Extrato é sempre por último — é a conciliação, não a criação.</div></div>
+    <div class="card" id="cardCfgEmpresa" style="display:none">
+      <h2>Ajustes desta empresa</h2>
+      <div class="cap">Liga e desliga as rotinas de importa&ccedil;&atilde;o <b>s&oacute; desta empresa</b>. As outras empresas n&atilde;o mudam.</div>
+      <div id="cfgEmpresaArea"></div>
+    </div>
+
     <div class="mini" style="margin:18px 0 6px;font-weight:800;color:var(--vinho);letter-spacing:.04em;text-transform:uppercase">Passo 1 &middot; Relatório de recebimentos &mdash; cria os títulos</div>
     <div class="card" id="cardRecebClinica">
       <h2>Importação de Recebimentos<span style="display:inline-block;background:#2f6b4f;color:#fff;border-radius:6px;padding:3px 9px;font-size:11px;font-weight:800;letter-spacing:.06em;vertical-align:middle;margin-left:8px">EXCEL</span></h2>
@@ -3156,7 +3162,7 @@ function abrirAba(pg){const b=[...document.querySelectorAll('.menu-item')].find(
 /* REGRA CONTABIL: titulo (previsto) = data de VENCIMENTO (competencia) · movimento do extrato = data do extrato (caixa).
    Usar dataRef(l) em TODO filtro, agrupamento, ordenacao e comparacao com hoje. Emissao nunca e criterio de periodo. */
 /* ===== VERSAO DO PAINEL — para saber, sem adivinhar, se a tela esta atualizada ===== */
-const APP_VERSAO='2026-11-23.1';
+const APP_VERSAO='2026-11-23.2';
 function _marcaVersao(){try{
  /* versao no CABECALHO, ao lado do status da nuvem — fica visivel sem procurar */
  var bar=document.querySelector('.tb-acoes');var d=document.getElementById('appVersaoTag');
@@ -8586,10 +8592,62 @@ function confirmarImportSuit(){
 
 /* 8. mostrar/esconder os cards por empresa */
 function _suitRotinasClinica(){try{return dados().rotinasClinica!==false;}catch(e){return true;}}
+
+/* ====================================================================
+   AJUSTES DESTA EMPRESA — liga/desliga as rotinas por empresa.
+   Sem isto as chaves so existiriam no banco, sem ninguem para marcar.
+   So aparece para a master.
+   ==================================================================== */
+function _cfgChaves(){return [
+ ['importFechamentoSuitable','Importar fechamento de caixa Suitable (PDF)',false],
+ ['importVendasPagBank','Importar relatório de vendas do PagBank (CSV)',false],
+ ['conciliaPorUnidade','Conciliar só dentro da mesma unidade',false],
+ ['rotinasClinica','Mostrar as rotinas da clínica (Recebimentos, Links e Boletos, Zoop)',true]
+];}
+function _cfgLigado(k,padrao){try{var v=dados()[k];return v===undefined?padrao:!!v;}catch(e){return padrao;}}
+function _cfgMarcar(k,el){try{dados()[k]=!!el.checked;saveApp();aplicarVisibilidadeImport();}catch(e){}}
+function _cfgLojasTexto(){var m=_suitLojas();return Object.keys(m).map(function(k){return k+' = '+m[k];}).join('\n');}
+function _cfgSalvarLojas(){
+  var t=document.getElementById('cfgLojas'); if(!t)return;
+  var m={};
+  t.value.split(/\n/).forEach(function(l){
+    var p=l.split('='); if(p.length<2)return;
+    var e=p[0].trim().toLowerCase().split('@')[0];
+    var u=p.slice(1).join('=').trim();
+    if(e&&u)m[e]=u;
+  });
+  if(!Object.keys(m).length){alert('Escreva pelo menos uma linha no formato:  email = NOME DA UNIDADE');return;}
+  dados().suitLojas=m; saveApp();
+  var sl=document.getElementById('suitLoja'); if(sl)delete sl.dataset.pronto;
+  aplicarVisibilidadeImport();
+  alert('De-para das lojas salvo: '+Object.keys(m).length+' linha(s).');
+}
+function _cfgCard(){
+  var card=document.getElementById('cardCfgEmpresa'), area=document.getElementById('cfgEmpresaArea');
+  if(!card||!area)return;
+  if(typeof _ehMaster==='function'&&!_ehMaster()){card.style.display='none';return;}
+  card.style.display='';
+  /* nao reconstruir enquanto a pessoa digita dentro do card */
+  try{if(area.contains(document.activeElement))return;}catch(e){}
+  var h=_cfgChaves().map(function(c){
+    return '<label style="display:block;margin:6px 0;cursor:pointer"><input type="checkbox" '
+      +(_cfgLigado(c[0],c[2])?'checked ':'')
+      +'onchange="_cfgMarcar(\''+c[0]+'\',this)"> '+esc(c[1])+'</label>';
+  }).join('');
+  if(_suitLigado()){
+    h+='<div style="margin-top:14px"><label class="mini" style="display:block;margin-bottom:4px">'
+      +'De-para das lojas do fechamento — uma por linha, no formato <b>destinatário = NOME DA UNIDADE</b></label>'
+      +'<textarea id="cfgLojas" rows="4" style="width:100%;font-family:monospace;font-size:12px">'+esc(_cfgLojasTexto())+'</textarea>'
+      +'<button class="btn" style="margin-top:8px" onclick="_cfgSalvarLojas()">Salvar de-para das lojas</button></div>';
+  }
+  area.innerHTML=h;
+}
+
 function aplicarVisibilidadeImport(){
   var mostra=function(ids,on){ids.forEach(function(i){var e=document.getElementById(i);if(e)e.style.display=on?'':'none';});};
   mostra(['cardFechaSuitable'], _suitLigado());
   mostra(['cardRecebClinica','tituloPasso2','cardLinksBoletos','cardZoop'], _suitRotinasClinica());
+  try{_cfgCard();}catch(e){}
   if(_suitLigado()){
     var sl=document.getElementById('suitLoja');
     if(sl&&!sl.dataset.pronto){
