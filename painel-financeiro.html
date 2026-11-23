@@ -1116,7 +1116,7 @@ body.so-leitura input[type=file]{display:none}
 
     <div class="alerta" style="margin-bottom:6px"><span>📋</span><div><b>A ordem importa.</b> Faça um mês inteiro de cada vez, nesta sequência: o relatório <b>cria</b> os títulos, a planilha de links e boletos <b>confere</b> e traz o parcelamento, e o extrato <b>baixa</b> e amarra o dinheiro. Extrato é sempre por último — é a conciliação, não a criação.</div></div>
     <div class="mini" style="margin:18px 0 6px;font-weight:800;color:var(--vinho);letter-spacing:.04em;text-transform:uppercase">Passo 1 &middot; Relatório de recebimentos &mdash; cria os títulos</div>
-    <div class="card">
+    <div class="card" id="cardRecebClinica">
       <h2>Importação de Recebimentos<span style="display:inline-block;background:#2f6b4f;color:#fff;border-radius:6px;padding:3px 9px;font-size:11px;font-weight:800;letter-spacing:.06em;vertical-align:middle;margin-left:8px">EXCEL</span></h2>
       <div class="cap">Relatório de recebimentos do sistema — <b>exporte em Excel (.xls/.xlsx)</b>, que é o formato oficial. Também aceita CSV; PDF só como último recurso (o nome do paciente vem cortado). <b>Dinheiro</b> entra como realizado; <b>PIX, boleto, convênio e outros</b> vão para <b>Contas a Receber</b> (previsto) e baixam quando caem no extrato (PIX = baixa pelo extrato do banco; boleto pago = baixa). <b>Cartão não entra aqui — vem da planilha de link / Zoop.</b> A categoria vem do serviço.</div>
       <input type="file" id="arqReceb" accept=".xls,.xlsx" onchange="importarRecebimentos(event)">
@@ -1128,10 +1128,27 @@ body.so-leitura input[type=file]{display:none}
       <input type="file" id="arqVendasPB" accept=".csv,.txt" onchange="importarVendasPagBank(event)">
     </div>
 
-<div class="mini" style="margin:18px 0 6px;font-weight:800;color:var(--vinho);letter-spacing:.04em;text-transform:uppercase">Passo 2 &middot; Links e boletos &mdash; confere e parcela</div>
-    <div class="card"><h2>Planilha a Receber — LINKS e BOLETOS<span style="display:inline-block;background:#2f6b4f;color:#fff;border-radius:6px;padding:3px 9px;font-size:11px;font-weight:800;letter-spacing:.06em;vertical-align:middle;margin-left:8px">EXCEL</span></h2><div class="cap">Planilha com as abas LINKS e BOLETOS. Cada linha vira contas a receber (parcelas por vencimento). O importador PULA o que já foi importado — pode reimportar a planilha do ano inteiro sem duplicar.</div><input type="file" id="arqAReceber" accept=".xlsx,.xls" onchange="importarAReceber(event)"></div>
+<div class="card" id="cardFechaSuitable" style="display:none">
+      <h2>Fechamento de caixa Suitable<span style="display:inline-block;background:#8a3b2e;color:#fff;border-radius:6px;padding:3px 9px;font-size:11px;font-weight:800;letter-spacing:.06em;vertical-align:middle;margin-left:8px">PDF</span></h2>
+      <div class="cap">Os PDFs de fechamento que a Suitable manda por e-mail. <b>Pode selecionar vários de uma vez, ou a pasta inteira.</b> O painel l&ecirc; cada um, identifica a loja pelo destinat&aacute;rio, confere a receita contra o pr&oacute;prio relat&oacute;rio e cria <b>uma conta a receber por forma de pagamento</b>. Caixa aberto e fechado sem venda &eacute; ignorado; fechamento repetido n&atilde;o entra duas vezes; relat&oacute;rio cortado no meio &eacute; recusado.</div>
+      <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-bottom:10px">
+        <input type="file" id="arqSuit" accept=".pdf" multiple onchange="importarFechamentoSuitable(event)">
+        <input type="file" id="arqSuitDir" accept=".pdf" webkitdirectory directory multiple style="display:none" onchange="importarFechamentoSuitable(event)">
+        <button class="btn" type="button" onclick="document.getElementById('arqSuitDir').click()">Escolher a pasta inteira</button>
+      </div>
+      <div style="display:flex;gap:16px;flex-wrap:wrap;margin-bottom:10px">
+        <div><label class="mini" style="display:block;margin-bottom:4px">Importar s&oacute; desta loja</label>
+          <select id="suitLoja"><option value="">&mdash; todas as lojas do arquivo &mdash;</option></select></div>
+        <div><label class="mini" style="display:block;margin-bottom:4px">Conta do dinheiro (venda em esp&eacute;cie)</label>
+          <select id="suitCaixa"><option value="">&mdash; deixar em contas a receber &mdash;</option></select></div>
+      </div>
+      <div id="suitArea"></div>
+    </div>
 
-    <div class="card">
+<div class="mini" id="tituloPasso2" style="margin:18px 0 6px;font-weight:800;color:var(--vinho);letter-spacing:.04em;text-transform:uppercase">Passo 2 &middot; Links e boletos &mdash; confere e parcela</div>
+    <div class="card" id="cardLinksBoletos"><h2>Planilha a Receber — LINKS e BOLETOS<span style="display:inline-block;background:#2f6b4f;color:#fff;border-radius:6px;padding:3px 9px;font-size:11px;font-weight:800;letter-spacing:.06em;vertical-align:middle;margin-left:8px">EXCEL</span></h2><div class="cap">Planilha com as abas LINKS e BOLETOS. Cada linha vira contas a receber (parcelas por vencimento). O importador PULA o que já foi importado — pode reimportar a planilha do ano inteiro sem duplicar.</div><input type="file" id="arqAReceber" accept=".xlsx,.xls" onchange="importarAReceber(event)"></div>
+
+    <div class="card" id="cardZoop">
       <h2>Importação do Zoop (link de pagamento)<span style="display:inline-block;background:#2f6b4f;color:#fff;border-radius:6px;padding:3px 9px;font-size:11px;font-weight:800;letter-spacing:.06em;vertical-align:middle;margin-left:8px">EXCEL</span></h2>
       <div class="cap">Controle de links do Zoop — <b>Excel (.xls/.xlsx)</b> ou CSV (colunas: Data Pgto, Nome Cliente, Valor Total, Valor a Receber, Nº Parcelas). Cada venda no cartão entra em Contas a Receber pelo valor líquido, e a taxa (bruto − líquido) é lançada como despesa. Quando o depósito Zoop cai no extrato, baixa. O cartão não vem pelo Recebimentos — vem por aqui.</div>
       <input type="file" id="arqZoop" accept=".xls,.xlsx" onchange="importarZoop(event)">
@@ -3139,7 +3156,7 @@ function abrirAba(pg){const b=[...document.querySelectorAll('.menu-item')].find(
 /* REGRA CONTABIL: titulo (previsto) = data de VENCIMENTO (competencia) · movimento do extrato = data do extrato (caixa).
    Usar dataRef(l) em TODO filtro, agrupamento, ordenacao e comparacao com hoje. Emissao nunca e criterio de periodo. */
 /* ===== VERSAO DO PAINEL — para saber, sem adivinhar, se a tela esta atualizada ===== */
-const APP_VERSAO='2026-11-18.1';
+const APP_VERSAO='2026-11-23.1';
 function _marcaVersao(){try{
  /* versao no CABECALHO, ao lado do status da nuvem — fica visivel sem procurar */
  var bar=document.querySelector('.tb-acoes');var d=document.getElementById('appVersaoTag');
@@ -3813,6 +3830,7 @@ function renderBannerVencVazio(){var box=document.getElementById('bannerVencVazi
 function render(){
   try{normalizarTextos();}catch(e){}
   try{_pbAtualizarCard();}catch(e){}
+  try{aplicarVisibilidadeImport();}catch(e){}
   try{_chipAdiantamentos();}catch(e){}
   try{renderBannerCaixaDup();}catch(e){}
   try{renderBannerVinculos();}catch(e){}
@@ -8279,6 +8297,318 @@ function _cbTitUnico(){try{var s=window._cbMarc;if(!s||s.size!==1)return null;
 
 /* ---------- 2c. o card de vendas PagBank so existe na empresa que liga ---------- */
 function _pbVendasLigado(){try{return !!dados().importVendasPagBank;}catch(e){return false;}}
+/* ===== inicio do modulo de fechamento Suitable ===== */
+/* ====================================================================
+   IMPORTACAO DE FECHAMENTO DE CAIXA SUITABLE (PDF)
+   Tudo aqui é travado por empresa: só aparece e só roda quando
+   dados().importFechamentoSuitable for verdadeiro.
+   Empresa sem essa chave (Aurium) nao muda em nada.
+   ==================================================================== */
+
+function _suitLigado(){try{return !!dados().importFechamentoSuitable;}catch(e){return false;}}
+
+/* de-para destinatario -> unidade. fica NOS DADOS da empresa, para
+   cadastrar a Bento (ou trocar um e-mail) sem mexer em codigo. */
+function _suitLojas(){
+  try{var m=dados().suitLojas; if(m&&typeof m==='object'&&Object.keys(m).length)return m;}catch(e){}
+  return {'papashotdog.cbarbosa':'PAPAS FRANQUIAS','d.dbenelli':'PAPAS ALIMENTOS'};
+}
+var _SUIT_IGNORA=/^marciacezar\.?negocios$/i;
+
+function _suitNum(s){ s=String(s==null?'':s).trim(); if(!s)return 0;
+  var neg=/^-/.test(s); s=s.replace(/[^\d.,]/g,'');
+  if(s.indexOf(',')>=0) s=s.replace(/\./g,'').replace(',','.');
+  else if((s.match(/\./g)||[]).length===1&&/\.\d{3}$/.test(s)) s=s.replace('.','');
+  var v=parseFloat(s); if(isNaN(v))return 0; return neg?-Math.abs(v):v; }
+var _SUITNUM='-?\\d[\\d.]*,\\d{1,2}|-?\\d+';
+function _suitPega(t,re){ var m=t.match(re); return m?_suitNum(m[1]):0; }
+
+/* 1. corta o texto em blocos, um por fechamento */
+function _suitBlocos(texto){
+  var t=String(texto||'').replace(/\r/g,'');
+  var idx=[],re=/Notificacoes Suitable|^-{5,}$|^De:\s*Notificacoes/gm,m;
+  while((m=re.exec(t))!==null) idx.push(m.index);
+  var bl=[];
+  if(idx.length){for(var i=0;i<idx.length;i++)bl.push(t.slice(idx[i], i+1<idx.length?idx[i+1]:t.length));}
+  else bl=[t];
+  return bl.filter(function(b){return /Relat[óo]rio de Fechamen/i.test(b);});
+}
+
+/* 2. a loja vem do DESTINATARIO. nunca do assunto — o Gmail junta
+      lojas diferentes na mesma conversa. */
+function _suitUnidade(bloco){
+  var cab=bloco.slice(0,1400), alvos=[], m;
+  var re=/(?:^|\n)\s*(?:To|Para|para)\s*:?\s*([^\n]{1,300})/g;
+  while((m=re.exec(cab))!==null){
+    var com=m[1].match(/[\w.\-]+@[\w.\-]+/g);
+    if(com){com.forEach(function(e){alvos.push(e.split('@')[0].toLowerCase());});}
+    else{var sem=m[1].match(/[\w.\-]{3,}/g); if(sem)sem.forEach(function(e){alvos.push(e.toLowerCase());});}
+  }
+  alvos=alvos.filter(function(a){return !_SUIT_IGNORA.test(a);});
+  var mapa=_suitLojas(), uni='';
+  alvos.forEach(function(a){ if(mapa[a]) uni=mapa[a]; });
+  return {unidade:uni, destinatarios:alvos};
+}
+
+/* 3. periodo e caixa. o PDF impresso as vezes trunca a data final. */
+function _suitPeriodo(bloco){
+  var o={}, m=bloco.match(/DE\s+(\d{2})\/(\d{2})\/(\d{4})\s+(\d{2}:\d{2})(?::\d{2})?\s+A\s+(\d{2})?\/?(\d{2})?\/?(\d{2,4})?\s*(\d{2}:\d{2})?/);
+  if(!m)return o;
+  o.de=m[1]+'/'+m[2]+'/'+m[3]+' '+m[4];
+  var dd=m[5]||m[1], mm=m[6]||m[2], aa=m[7]; if(!aa||aa.length<4)aa=m[3];
+  o.ate=dd+'/'+mm+'/'+aa+(m[8]?' '+m[8]:'');
+  /* competencia = dia em que o caixa ABRIU: o movimento que vira a
+     madrugada pertence ao dia da venda, nao ao dia seguinte */
+  o.data=m[3]+'-'+m[2]+'-'+m[1];
+  var resto=bloco.slice(m.index+m[0].length).split('\n');
+  for(var i=0;i<resto.length&&i<6;i++){
+    var l=resto[i].replace(/\s+/g,' ').trim(); if(!l)continue;
+    if(/^Fechamento do movimento|^Movimento|^http/i.test(l))break;
+    var c=l.match(/^(.{1,30}?)\s*\/\s*(\d{1,6})$/);
+    if(c){o.operador=c[1].trim();o.sequencia=+c[2];}
+    else if(l.length<=20)o.operador=l;
+    break;
+  }
+  return o;
+}
+
+/* 4. le um fechamento inteiro */
+function _suitLer(bloco){
+  var o={erros:[]}, u=_suitUnidade(bloco);
+  o.unidade=u.unidade; o.destinatarios=u.destinatarios;
+  var p=_suitPeriodo(bloco);
+  o.de=p.de; o.ate=p.ate; o.data=p.data;
+  o.operador=p.operador||''; o.sequencia=p.sequencia||null;
+  o.layout=/Fundo De Caixa/i.test(bloco)?'novo':'antigo';
+  o.chave=(o.unidade||'?')+'|'+(o.de||'?')+'|'+(o.ate||'?');
+  o.formas=[];
+  if(!/Fechamento do movimento financeiro/i.test(bloco)){
+    o.semVenda=true; o.ok=false; o.motivo='o relatório veio só com o cabeçalho'; return o; }
+
+  o.totalPedidos =_suitPega(bloco,new RegExp('\\(=\\)\\s*(?:Valor\\s+)?Total pedidos\\s+('+_SUITNUM+')','i'));
+  o.fundo        =_suitPega(bloco,new RegExp('\\(\\+\\)\\s*(?:Saldo Inicial|Fundo De Caixa)\\s+\\d+\\s+('+_SUITNUM+')','i'));
+  o.pagtoDinheiro=_suitPega(bloco,new RegExp('\\(\\-\\)\\s*PAGAMENTOS EM DINHEIRO\\s+\\d+\\s+('+_SUITNUM+')','i'));
+  o.vendaBruta   =_suitPega(bloco,new RegExp('\\(\\+\\)\\s*Venda Bruta\\s+\\d+\\s+('+_SUITNUM+')','i'));
+
+  var vistos={}, re=/Valor esperado\s+Valor informado\s+Diferença([\s\S]*?)(?:Pedidos por Meio de Pagamento|$)/g, mm;
+  while((mm=re.exec(bloco))!==null){
+    var seg=mm[1].replace(/\n/g,' ').replace(/Forma Pagamento/g,' ');
+    var rf=new RegExp('([A-Za-zÀ-ÿ][A-Za-zÀ-ÿ0-9\\s\\-\\/\\(\\)\\.]*?)\\s+('+_SUITNUM+')\\s+('+_SUITNUM+')\\s+('+_SUITNUM+')(?=\\s|$)','g'), r2;
+    while((r2=rf.exec(seg))!==null){
+      var nome=r2[1].replace(/\s+/g,' ').trim();
+      nome=nome.replace(/^.*Diferen[çc]a\s*/i,'').replace(/^.*Fechamento de caixa\s*/i,'').trim();
+      if(!nome||/^(https?|Total|Saldo (Dinheiro|Cart))/i.test(nome))continue;
+      if(vistos[nome])continue; vistos[nome]=1;
+      o.formas.push({nome:nome,esperado:_suitNum(r2[2]),informado:_suitNum(r2[3]),diferenca:_suitNum(r2[4])});
+    }
+  }
+  o.somaFormas=Math.round(o.formas.reduce(function(s,f){return s+f.esperado;},0)*100)/100;
+
+  /* A REGRA: receita = soma das formas - fundo de caixa + pagamentos em dinheiro */
+  o.receita=Math.round((o.somaFormas-o.fundo+o.pagtoDinheiro)*100)/100;
+  o.fecha=Math.abs(o.receita-o.totalPedidos)<0.005;
+  if(!o.fecha)o.erros.push('não fecha: calculei '+moeda(o.receita)+' e o relatório diz '+moeda(o.totalPedidos)+' (provável relatório cortado no meio)');
+  /* O VALOR DE VENDA DE CADA FORMA.
+     Atencao no DINHEIRO: o "Valor esperado" dele e o que tem na gaveta,
+     ou seja, ja vem com o fundo de caixa dentro e ja vem descontado do
+     que foi pago em especie. A venda em dinheiro e:
+         esperado - fundo de caixa + pagamentos em dinheiro
+     As outras formas entram pelo valor esperado mesmo. */
+  o.titulos=o.formas.map(function(f){
+    var v=f.esperado;
+    if(/^Dinheiro$/i.test(f.nome)) v=Math.round((v-o.fundo+o.pagtoDinheiro)*100)/100;
+    return {nome:f.nome,valor:v};
+  }).filter(function(x){return Math.abs(x.valor)>0.004;});
+  o.somaTitulos=Math.round(o.titulos.reduce(function(s,x){return s+x.valor;},0)*100)/100;
+  /* trava: a soma do que eu vou gravar TEM que ser a receita do fechamento */
+  if(Math.abs(o.somaTitulos-o.receita)>0.005)
+    o.erros.push('a soma das contas a receber ('+moeda(o.somaTitulos)+') nao bate com a receita ('+moeda(o.receita)+')');
+
+  o.semVenda=!(o.totalPedidos>0.004);
+  if(!o.unidade)o.erros.push('não reconheci a loja pelo destinatário: '+(o.destinatarios.join(', ')||'nenhum'));
+  o.ok=!o.semVenda&&o.fecha&&!!o.unidade&&!o.erros.length;
+  return o;
+}
+
+/* 5. forma de pagamento -> categoria do plano da empresa.
+      tenta os nomes na ordem e usa o primeiro que EXISTIR no plano. */
+var _SUIT_FORMAS=[
+  {re:/^Dinheiro$/i,                          forma:'DINHEIRO',    cats:['Venda Dinheiro','Vendas Dinheiro','Venda em Dinheiro','Venda de Mercadorias']},
+  {re:/Cart[aã]o de cr[eé]dito|Cart[aã]o - Stripe/i, forma:'CREDITO', cats:['Venda Cartão Credito','Venda Cartão Crédito','Vendas Cartão de Crédito']},
+  {re:/Cart[aã]o de d[eé]bito/i,              forma:'DEBITO',      cats:['Venda Cartão Debito','Venda Cartão Débito','Vendas Cartão de Débito']},
+  {re:/Banricompras/i,                        forma:'DEBITO',      cats:['Venda Cartão Debito','Venda Cartão Débito']},
+  {re:/(Visa|Master|Elo|Hiper|Amex)[^]*cr[eé]d/i, forma:'CREDITO', cats:['Venda Cartão Credito','Venda Cartão Crédito']},
+  {re:/(Visa|Master|Elo|Hiper|Amex)[^]*d[eé]b/i,  forma:'DEBITO',  cats:['Venda Cartão Debito','Venda Cartão Débito']},
+  {re:/ifood/i,                               forma:'IFOOD',       cats:['Vendas iFood','Venda iFood','Vendas Ifood']},
+  {re:/deliverymuch/i,                        forma:'DELIVERYMUCH',cats:['Vendas Delivery Much','Vendas DeliveryMuch','Vendas iFood']},
+  {re:/PIX/i,                                 forma:'PIX',         cats:['Venda Pix','Venda PIX','Vendas Pix']},
+  {re:/Contas a receber|Saldo do cliente/i,   forma:'FIADO',       cats:['Venda Fiado','Vendas Fiado','Venda a Prazo']}
+];
+function _suitCat(nomeForma){
+  var cs=[];
+  try{cs=(dados().categorias||[]).map(function(c){return c.nome;});}catch(e){}
+  for(var i=0;i<_SUIT_FORMAS.length;i++){
+    if(_SUIT_FORMAS[i].re.test(nomeForma)){
+      var cands=_SUIT_FORMAS[i].cats;
+      for(var j=0;j<cands.length;j++) if(cs.indexOf(cands[j])>=0) return {forma:_SUIT_FORMAS[i].forma,categoria:cands[j]};
+      return {forma:_SUIT_FORMAS[i].forma,categoria:''};
+    }
+  }
+  return {forma:'OUTROS',categoria:''};
+}
+
+/* 6. o que ja foi importado antes */
+function _suitJaImportado(){
+  var s={};
+  try{(dados().lancamentos||[]).forEach(function(l){ if(l.suitKey) s[l.suitKey]=true; });}catch(e){}
+  return s;
+}
+
+/* 7. a tela */
+async function importarFechamentoSuitable(ev){
+  if(!_suitLigado()){alert('Esta importação não está habilitada para esta empresa.');return;}
+  var fs=Array.prototype.slice.call(ev.target.files||[]).filter(function(f){return /\.pdf$/i.test(f.name);});
+  if(!fs.length){alert('Nenhum PDF selecionado.');return;}
+  var area=document.getElementById('suitArea');
+  if(area)area.innerHTML='<div class="alerta"><span>⏳</span><div>Lendo '+fs.length+' arquivo(s)…</div></div>';
+  var selL=document.getElementById('suitLoja'); var soLoja=selL?selL.value:'';
+  var ja=_suitJaImportado(), vistosAgora={}, plano=[];
+  for(var i=0;i<fs.length;i++){
+    var f=fs[i];
+    if(area)area.innerHTML='<div class="alerta"><span>⏳</span><div>Lendo '+(i+1)+' de '+fs.length+': '+esc(f.name)+'</div></div>';
+    var linhas;
+    try{ linhas=await pdfLinhas(await f.arrayBuffer()); }
+    catch(x){ plano.push({acao:'recusado',arquivo:f.name,motivo:'não consegui abrir o PDF'}); continue; }
+    var txt=(linhas||[]).join('\n');
+    if(!txt.trim()){ plano.push({acao:'recusado',arquivo:f.name,motivo:'este PDF não tem texto, só imagem — reimprima a partir do Gmail'}); continue; }
+    var fes=_suitBlocos(txt).map(_suitLer);
+    if(!fes.length){ plano.push({acao:'recusado',arquivo:f.name,motivo:'não encontrei fechamento de caixa neste arquivo'}); continue; }
+    fes.forEach(function(o){
+      o.arquivo=f.name;
+      if(!o.ok){
+        o.acao = o.semVenda ? 'ignorado' : 'recusado';
+        o.motivo = o.motivo || o.erros.join(' · ');
+        plano.push(o); return;
+      }
+      if(soLoja&&o.unidade!==soLoja){ o.acao='outraloja'; o.motivo='é da '+o.unidade+', e você pediu só '+soLoja; plano.push(o); return; }
+      if(ja[o.chave]||vistosAgora[o.chave]){ o.acao='duplicado'; o.motivo='já foi importado antes'; plano.push(o); return; }
+      vistosAgora[o.chave]=true; o.acao='importar'; plano.push(o);
+    });
+  }
+  window._suitPlano=plano;
+  _previewSuit();
+}
+
+function _previewSuit(){
+  var plano=window._suitPlano||[], area=document.getElementById('suitArea'); if(!area)return;
+  var por=function(a){return plano.filter(function(p){return p.acao===a;});};
+  var imp=por('importar'), dup=por('duplicado'), ign=por('ignorado'), rec=por('recusado'), out=por('outraloja');
+  var total=imp.reduce(function(s,p){return s+(+p.receita||0);},0);
+  var porLoja={};
+  imp.forEach(function(p){porLoja[p.unidade]=(porLoja[p.unidade]||0)+(+p.receita||0);});
+
+  var rot={importar:'Importar',duplicado:'Já importado',ignorado:'Caixa sem venda',recusado:'Recusado',outraloja:'Outra loja'};
+  var cor={importar:'var(--verde)',duplicado:'var(--suave)',ignorado:'var(--suave)',recusado:'var(--rubro)',outraloja:'var(--suave)'};
+  var ordem={importar:1,recusado:2,duplicado:3,outraloja:4,ignorado:5};
+  var lista=plano.slice().sort(function(a,b){return (ordem[a.acao]-ordem[b.acao])||String(a.data||'').localeCompare(String(b.data||''));});
+
+  var h='';
+  if(imp.length){
+    h+='<div class="alerta ok"><span>✅</span><div><b>'+imp.length+' fechamento(s)</b> prontos para importar · <b>'+moeda(total)+'</b> de receita<br>'
+      +Object.keys(porLoja).map(function(u){return esc(u)+': <b>'+moeda(porLoja[u])+'</b>';}).join(' &nbsp;·&nbsp; ')+'</div></div>';
+  }else{
+    h+='<div class="alerta crit"><span>⚠️</span><div>Nenhum fechamento novo para importar.</div></div>';
+  }
+  if(rec.length) h+='<div class="alerta crit"><span>🚫</span><div><b>'+rec.length+' recusado(s)</b> — não entram. O motivo está na tabela abaixo.</div></div>';
+  if(out.length) h+='<div class="alerta"><span>🔒</span><div><b>'+out.length+'</b> fechamento(s) de outra loja ficaram de fora porque você filtrou. Eles continuam na pasta, é só repetir depois escolhendo a outra loja.</div></div>';
+
+  h+='<div style="overflow-x:auto;margin-top:10px"><table><thead><tr><th>Situação</th><th>Loja</th><th>Dia</th><th>Movimento</th><th>Caixa</th><th style="text-align:right">Receita</th><th>Observação</th></tr></thead><tbody>';
+  lista.forEach(function(p){
+    h+='<tr><td class=mini style="color:'+(cor[p.acao]||'')+';white-space:nowrap;font-weight:700">'+rot[p.acao]+'</td>'
+      +'<td class=mini>'+esc(p.unidade||'—')+'</td>'
+      +'<td class=mini style="white-space:nowrap">'+(p.data?new Date(p.data+'T00:00:00').toLocaleDateString('pt-BR'):'—')+'</td>'
+      +'<td class=mini style="white-space:nowrap">'+esc((p.de||'')+(p.ate?' → '+p.ate:''))+'</td>'
+      +'<td class=mini>'+esc((p.operador||'')+(p.sequencia?' / '+p.sequencia:''))+'</td>'
+      +'<td style="text-align:right;font-weight:700;white-space:nowrap">'+(p.acao==='importar'?moeda(+p.receita||0):'—')+'</td>'
+      +'<td class=mini>'+esc(p.motivo||p.arquivo||'')+'</td></tr>';
+  });
+  h+='</tbody></table></div>';
+
+  if(imp.length){
+    var tit=0; imp.forEach(function(p){tit+=(p.titulos||[]).length;});
+    h+='<div class="mini" style="margin-top:10px">Vai criar <b>'+tit+' conta(s) a receber</b> — uma por forma de pagamento de cada fechamento. '
+      +'Os extratos do PagBank e do Sicredi dão baixa nelas depois.</div>'
+      +'<div style="margin-top:14px"><button class="btn" onclick="confirmarImportSuit()">Importar '+imp.length+' fechamento(s)</button></div>';
+  }
+  area.innerHTML=h;
+}
+
+function confirmarImportSuit(){
+  if(!_suitLigado())return;
+  var plano=(window._suitPlano||[]).filter(function(p){return p.acao==='importar';});
+  if(!plano.length)return;
+  var selCx=document.getElementById('suitCaixa');
+  var caixa=selCx?selCx.value:'';
+  var d=dados(), n=0, nd=0, semCat=0;
+  plano.forEach(function(o){
+    (o.titulos||[]).forEach(function(f){
+      var c=_suitCat(f.nome);
+      if(!c.categoria)semCat++;
+      var l={id:id(),
+        data:o.data, dataVencimento:o.data,
+        descricao:('Venda '+f.nome+' — '+(o.operador||'caixa')).slice(0,90),
+        tipo:'receita', valor:Math.abs(f.valor),
+        unidade:o.unidade,
+        categoria:c.categoria||'A classificar',
+        formaPagto:c.forma,
+        cliente:'',
+        usuario:(typeof usuariaAtivaNome==='function'?usuariaAtivaNome():''),
+        suitKey:o.chave,
+        origemImport:'Fechamento Suitable '+(o.arquivo||'')};
+      if(!c.categoria)l.aClassificar=true;
+      if(c.forma==='DINHEIRO'&&caixa){ l.status='realizado'; l.banco=caixa; nd++; }
+      else { l.status='previsto'; l.banco=''; }
+      d.lancamentos.push(l); n++;
+    });
+  });
+  saveApp();
+  window._suitPlano=null;
+  var msg=n+' conta(s) a receber criada(s) a partir de '+plano.length+' fechamento(s).';
+  if(nd)msg+='\n'+nd+' lançamento(s) de dinheiro entraram direto no caixa escolhido.';
+  if(semCat)msg+='\n'+semCat+' ficaram em "A classificar" porque não achei a categoria no seu plano.';
+  alert(msg);
+  if(typeof render==='function')render();
+  if(typeof renderContas==='function')renderContas();
+  var area=document.getElementById('suitArea'); if(area)area.innerHTML='';
+  var a1=document.getElementById('arqSuit'); if(a1)a1.value='';
+  var a2=document.getElementById('arqSuitDir'); if(a2)a2.value='';
+}
+
+/* 8. mostrar/esconder os cards por empresa */
+function _suitRotinasClinica(){try{return dados().rotinasClinica!==false;}catch(e){return true;}}
+function aplicarVisibilidadeImport(){
+  var mostra=function(ids,on){ids.forEach(function(i){var e=document.getElementById(i);if(e)e.style.display=on?'':'none';});};
+  mostra(['cardFechaSuitable'], _suitLigado());
+  mostra(['cardRecebClinica','tituloPasso2','cardLinksBoletos','cardZoop'], _suitRotinasClinica());
+  if(_suitLigado()){
+    var sl=document.getElementById('suitLoja');
+    if(sl&&!sl.dataset.pronto){
+      var us=[]; try{us=(dados().unidades||[]).map(function(u){return u.nome||u;});}catch(e){}
+      if(!us.length){var mp=_suitLojas();us=Object.keys(mp).map(function(k){return mp[k];});}
+      us=us.filter(function(v,i,a){return a.indexOf(v)===i;});
+      sl.innerHTML='<option value="">— todas as lojas do arquivo —</option>'
+        +us.map(function(u){return '<option value="'+esc(u)+'">'+esc(u)+'</option>';}).join('');
+      sl.dataset.pronto='1';
+    }
+    var s=document.getElementById('suitCaixa');
+    if(s){var bs=(dados().bancos||[]).filter(function(b){return b.ativo!==false;});
+      s.innerHTML='<option value="">— deixar em contas a receber —</option>'
+        +bs.map(function(b){return '<option value="'+esc(b.nome)+'">'+esc(b.nome)+'</option>';}).join('');}
+  }
+}
+
+/* ===== fim do modulo de fechamento Suitable ===== */
+
 function _pbAtualizarCard(){try{
   var el=document.getElementById('cardVendasPB');
   if(el)el.style.display=_pbVendasLigado()?'':'none';
