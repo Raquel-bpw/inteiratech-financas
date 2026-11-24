@@ -3162,7 +3162,7 @@ function abrirAba(pg){const b=[...document.querySelectorAll('.menu-item')].find(
 /* REGRA CONTABIL: titulo (previsto) = data de VENCIMENTO (competencia) · movimento do extrato = data do extrato (caixa).
    Usar dataRef(l) em TODO filtro, agrupamento, ordenacao e comparacao com hoje. Emissao nunca e criterio de periodo. */
 /* ===== VERSAO DO PAINEL — para saber, sem adivinhar, se a tela esta atualizada ===== */
-const APP_VERSAO='2026-11-23.2';
+const APP_VERSAO='2026-11-24.1';
 function _marcaVersao(){try{
  /* versao no CABECALHO, ao lado do status da nuvem — fica visivel sem procurar */
  var bar=document.querySelector('.tb-acoes');var d=document.getElementById('appVersaoTag');
@@ -8446,7 +8446,7 @@ var _SUIT_FORMAS=[
   {re:/(Visa|Master|Elo|Hiper|Amex)[^]*cr[eé]d/i, forma:'CREDITO', cats:['Venda Cartão Credito','Venda Cartão Crédito']},
   {re:/(Visa|Master|Elo|Hiper|Amex)[^]*d[eé]b/i,  forma:'DEBITO',  cats:['Venda Cartão Debito','Venda Cartão Débito']},
   {re:/ifood/i,                               forma:'IFOOD',       cats:['Vendas iFood','Venda iFood','Vendas Ifood']},
-  {re:/deliverymuch/i,                        forma:'DELIVERYMUCH',cats:['Vendas Delivery Much','Vendas DeliveryMuch','Vendas iFood']},
+  {re:/deliverymuch/i,                        forma:'DELIVERYMUCH',cats:['Vendas Delivery Much','Vendas DeliveryMuch','Vendas Delivery Much (DM)']},
   {re:/PIX/i,                                 forma:'PIX',         cats:['Venda Pix','Venda PIX','Vendas Pix']},
   {re:/Contas a receber|Saldo do cliente/i,   forma:'FIADO',       cats:['Venda Fiado','Vendas Fiado','Venda a Prazo']}
 ];
