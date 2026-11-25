@@ -3162,7 +3162,7 @@ function abrirAba(pg){const b=[...document.querySelectorAll('.menu-item')].find(
 /* REGRA CONTABIL: titulo (previsto) = data de VENCIMENTO (competencia) · movimento do extrato = data do extrato (caixa).
    Usar dataRef(l) em TODO filtro, agrupamento, ordenacao e comparacao com hoje. Emissao nunca e criterio de periodo. */
 /* ===== VERSAO DO PAINEL — para saber, sem adivinhar, se a tela esta atualizada ===== */
-const APP_VERSAO='2026-11-24.1';
+const APP_VERSAO='2026-11-25.1';
 function _marcaVersao(){try{
  /* versao no CABECALHO, ao lado do status da nuvem — fica visivel sem procurar */
  var bar=document.querySelector('.tb-acoes');var d=document.getElementById('appVersaoTag');
@@ -8317,7 +8317,7 @@ function _suitLigado(){try{return !!dados().importFechamentoSuitable;}catch(e){r
    cadastrar a Bento (ou trocar um e-mail) sem mexer em codigo. */
 function _suitLojas(){
   try{var m=dados().suitLojas; if(m&&typeof m==='object'&&Object.keys(m).length)return m;}catch(e){}
-  return {'papashotdog.cbarbosa':'PAPAS FRANQUIAS','d.dbenelli':'PAPAS ALIMENTOS'};
+  return {'papashotdog.cbarbosa':'PAPAS FRANQUIAS','d.dbenelli':'PAPAS ALIMENTOS','papashotdog.bento':'PAPAS BENTO GONÇALVES'};
 }
 var _SUIT_IGNORA=/^marciacezar\.?negocios$/i;
 
@@ -8394,6 +8394,9 @@ function _suitLer(bloco){
   o.totalPedidos =_suitPega(bloco,new RegExp('\\(=\\)\\s*(?:Valor\\s+)?Total pedidos\\s+('+_SUITNUM+')','i'));
   o.fundo        =_suitPega(bloco,new RegExp('\\(\\+\\)\\s*(?:Saldo Inicial|Fundo De Caixa)\\s+\\d+\\s+('+_SUITNUM+')','i'));
   o.pagtoDinheiro=_suitPega(bloco,new RegExp('\\(\\-\\)\\s*PAGAMENTOS EM DINHEIRO\\s+\\d+\\s+('+_SUITNUM+')','i'));
+  /* linha J: dinheiro que entra no caixa e NAO e venda (ajuste de troco,
+     credito lancado pela gerencia). Tem que sair da receita. */
+  o.lancCredito  =_suitPega(bloco,new RegExp('\\(\\+\\)\\s*(?:Lan.amento de Cr.dito|Cr.ditos)\\s+\\d+\\s+('+_SUITNUM+')','i'));
   o.vendaBruta   =_suitPega(bloco,new RegExp('\\(\\+\\)\\s*Venda Bruta\\s+\\d+\\s+('+_SUITNUM+')','i'));
 
   var vistos={}, re=/Valor esperado\s+Valor informado\s+Diferença([\s\S]*?)(?:Pedidos por Meio de Pagamento|$)/g, mm;
@@ -8411,7 +8414,7 @@ function _suitLer(bloco){
   o.somaFormas=Math.round(o.formas.reduce(function(s,f){return s+f.esperado;},0)*100)/100;
 
   /* A REGRA: receita = soma das formas - fundo de caixa + pagamentos em dinheiro */
-  o.receita=Math.round((o.somaFormas-o.fundo+o.pagtoDinheiro)*100)/100;
+  o.receita=Math.round((o.somaFormas-o.fundo+o.pagtoDinheiro-o.lancCredito)*100)/100;
   o.fecha=Math.abs(o.receita-o.totalPedidos)<0.005;
   if(!o.fecha)o.erros.push('não fecha: calculei '+moeda(o.receita)+' e o relatório diz '+moeda(o.totalPedidos)+' (provável relatório cortado no meio)');
   /* O VALOR DE VENDA DE CADA FORMA.
@@ -8422,7 +8425,7 @@ function _suitLer(bloco){
      As outras formas entram pelo valor esperado mesmo. */
   o.titulos=o.formas.map(function(f){
     var v=f.esperado;
-    if(/^Dinheiro$/i.test(f.nome)) v=Math.round((v-o.fundo+o.pagtoDinheiro)*100)/100;
+    if(/^Dinheiro$/i.test(f.nome)) v=Math.round((v-o.fundo+o.pagtoDinheiro-o.lancCredito)*100)/100;
     return {nome:f.nome,valor:v};
   }).filter(function(x){return Math.abs(x.valor)>0.004;});
   o.somaTitulos=Math.round(o.titulos.reduce(function(s,x){return s+x.valor;},0)*100)/100;
